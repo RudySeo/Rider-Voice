@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "openai-analyze",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-08T23:26:01+0900",
+      "summary": "OpenAI analyze service and API route implemented with structured output schema and mocked provider tests.",
+      "completed_at": "2026-05-08T23:28:46+0900"
     },
     {
       "step": 4,
