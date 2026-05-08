@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "core-domain",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-08T23:13:49+0900",
+      "summary": "Core domain types, schemas, URL parser, app errors, and metric helpers implemented with tests.",
+      "completed_at": "2026-05-08T23:19:25+0900"
     },
     {
       "step": 2,
