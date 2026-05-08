@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "client-flow",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-08T23:29:58+0900",
+      "summary": "Client flow implemented with URL validation, collect/analyze orchestration, progress labels, and error states.",
+      "completed_at": "2026-05-08T23:31:32+0900"
     },
     {
       "step": 5,
