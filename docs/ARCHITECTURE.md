@@ -24,10 +24,12 @@ src/
 │           ├── collect/route.ts      # YouTube 데이터 수집
 │           └── analyze/route.ts      # OpenAI 분석
 ├── components/
+│   ├── AnalysisShell.tsx             # 입력 -> 수집 -> 분석 -> 결과 상태 orchestration
 │   ├── ChannelInput.tsx
 │   ├── ProgressPanel.tsx
 │   ├── ErrorPanel.tsx
 │   └── dashboard/
+│       ├── Dashboard.tsx             # 결과 대시보드 composition
 │       ├── OverviewCards.tsx
 │       ├── PerformanceCharts.tsx
 │       ├── RecommendedVideos.tsx

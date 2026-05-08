@@ -53,7 +53,10 @@
     {
       "step": 6,
       "name": "final-hardening",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-08T23:36:15+0900",
+      "summary": "MVP hardened with full lint/test/build verification, provider boundary checks, and run documentation.",
+      "completed_at": "2026-05-08T23:38:35+0900"
     }
   ],
   "created_at": "2026-05-08T22:59:39+0900"
