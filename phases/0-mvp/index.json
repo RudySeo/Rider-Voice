@@ -1,0 +1,45 @@
+{
+  "project": "YouTube Channel Insight",
+  "phase": "0-mvp",
+  "steps": [
+    {
+      "step": 0,
+      "name": "project-setup",
+      "status": "completed",
+      "started_at": "2026-05-08T22:59:39+0900",
+      "summary": "Next.js/Tailwind/Vitest project scaffold created with package scripts and placeholder app.",
+      "completed_at": "2026-05-08T23:13:05+0900"
+    },
+    {
+      "step": 1,
+      "name": "core-domain",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "youtube-collect",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "openai-analyze",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "client-flow",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "dashboard-ui",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "final-hardening",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-05-08T22:59:39+0900"
+}
