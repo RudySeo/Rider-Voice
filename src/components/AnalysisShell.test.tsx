@@ -109,8 +109,10 @@ describe("AnalysisShell", () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe("/api/channel/collect");
     expect(fetchMock.mock.calls[1][0]).toBe("/api/channel/analyze");
-    expect(await screen.findByText("분석 결과 준비 완료")).toBeInTheDocument();
-    expect(screen.getByText(/전체 진단 점수 82점/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Google for Developers" })).toBeInTheDocument();
+    expect(screen.getByText("전체 점수")).toBeInTheDocument();
+    expect(screen.getByText("82")).toBeInTheDocument();
+    expect(screen.getByText("다음 영상 아이디어")).toBeInTheDocument();
   });
 
   it("does not call analyze when collect fails", async () => {

@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "dashboard-ui",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-05-08T23:31:45+0900",
+      "summary": "Dashboard UI implemented with overview cards, performance charts, recommendations, checklist, and component tests.",
+      "completed_at": "2026-05-08T23:35:54+0900"
     },
     {
       "step": 6,

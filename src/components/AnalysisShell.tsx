@@ -6,6 +6,7 @@ import type { ApiErrorResponse } from "@/types/api";
 import type { ChannelAnalysis } from "@/types/analysis";
 import type { YouTubeCollectResult } from "@/types/youtube";
 import { ChannelInput } from "./ChannelInput";
+import { Dashboard } from "./dashboard/Dashboard";
 import { ErrorPanel } from "./ErrorPanel";
 import { ProgressPanel } from "./ProgressPanel";
 
@@ -143,14 +144,7 @@ export function AnalysisShell() {
         ) : null}
 
         {status === "complete" && collectResult && analysisResult ? (
-          <section className="border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-semibold text-cyan-700">분석 결과 준비 완료</p>
-            <h2 className="mt-2 text-2xl font-semibold">{collectResult.channel.title}</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              전체 진단 점수 {analysisResult.overallScore}점. 상세 대시보드는 다음
-              단계에서 이 영역에 연결됩니다.
-            </p>
-          </section>
+          <Dashboard collectResult={collectResult} analysis={analysisResult} />
         ) : null}
       </section>
     </main>
