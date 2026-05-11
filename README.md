@@ -31,6 +31,29 @@ npm run test
 npm run build
 ```
 
+## 로컬 자동화
+
+개발 서버가 실행 중일 때 기존 앱 API route를 호출해 수집과 분석을 자동 실행할 수 있습니다.
+
+```bash
+npm run analyze:youtube -- --channel "@handle"
+```
+
+옵션:
+
+```bash
+npm run analyze:youtube -- \
+  --channel "@handle" \
+  --base-url "http://localhost:3000" \
+  --out-dir "reports/youtube-analysis" \
+  --timeout-ms 120000
+```
+
+- `YOUTUBE_CHANNEL_URL`과 `YOUTUBE_ANALYSIS_BASE_URL` 환경변수도 사용할 수 있습니다.
+- 결과는 `reports/youtube-analysis/latest.json`과 `reports/youtube-analysis/latest.md`에 생성됩니다.
+- 상태는 `success`, `collection_failed`, `analysis_failed`로 구분됩니다.
+- `analysis_failed`인 경우에도 수집된 YouTube 데이터는 `latest.json`에 유지됩니다.
+
 ## MVP 범위
 
 - 지원 입력: `youtube.com/@handle`, `@handle`, `youtube.com/channel/UC...`, `UC...`

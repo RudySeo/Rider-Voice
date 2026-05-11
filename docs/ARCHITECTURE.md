@@ -243,3 +243,11 @@ analysis_failed
 - API route runtime은 Node.js로 고정한다.
 - 환경변수는 `.env.local` 또는 배포 환경변수로 주입한다.
 - 파일 시스템 persistence에 의존하지 않는다.
+
+## 로컬 자동화 스크립트
+- `scripts/run-youtube-analysis.mjs`는 Codex/로컬 자동화에서 기존 앱 API route를 재사용하기 위한 CLI다.
+- 스크립트는 provider SDK 또는 provider endpoint를 직접 호출하지 않고, 실행 중인 앱의 `POST /api/channel/collect`와 `POST /api/channel/analyze`만 호출한다.
+- 기본 명령은 `npm run analyze:youtube -- --channel "@handle"`이다.
+- 결과는 로컬 artifact인 `reports/youtube-analysis/latest.json`과 `reports/youtube-analysis/latest.md`에 기록한다.
+- 상태는 `success`, `collection_failed`, `analysis_failed`로 기록하며, `analysis_failed`는 수집 데이터를 유지한다.
+- 이 스크립트는 예약 분석, 이메일 발송, DB 저장을 도입하지 않는다.
