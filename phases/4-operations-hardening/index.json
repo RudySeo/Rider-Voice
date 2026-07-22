@@ -1,0 +1,12 @@
+{
+  "project": "Rider Voice",
+  "phase": "4-operations-hardening",
+  "steps": [
+    { "step": 0, "name": "moderation-admin-api", "status": "pending" },
+    { "step": 1, "name": "correction-api", "status": "pending" },
+    { "step": 2, "name": "evidence-retention", "status": "pending" },
+    { "step": 3, "name": "audit-observability", "status": "pending" },
+    { "step": 4, "name": "contract-e2e-tests", "status": "pending" },
+    { "step": 5, "name": "security-performance", "status": "pending" }
+  ]
+}

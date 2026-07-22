@@ -1,0 +1,14 @@
+{
+  "project": "Rider Voice",
+  "phase": "2-visit-verification",
+  "steps": [
+    { "step": 0, "name": "evidence-domain", "status": "pending" },
+    { "step": 1, "name": "s3-upload-adapter", "status": "pending" },
+    { "step": 2, "name": "ocr-job-pipeline", "status": "pending" },
+    { "step": 3, "name": "clova-ocr-adapter", "status": "pending" },
+    { "step": 4, "name": "baemin-evidence-parser", "status": "pending" },
+    { "step": 5, "name": "visit-verification-policy", "status": "pending" },
+    { "step": 6, "name": "write-grant-domain", "status": "pending" },
+    { "step": 7, "name": "visit-api", "status": "pending" }
+  ]
+}

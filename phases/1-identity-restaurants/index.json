@@ -1,0 +1,12 @@
+{
+  "project": "Rider Voice",
+  "phase": "1-identity-restaurants",
+  "steps": [
+    { "step": 0, "name": "auth-domain", "status": "pending" },
+    { "step": 1, "name": "kakao-oauth-adapter", "status": "pending" },
+    { "step": 2, "name": "auth-api", "status": "pending" },
+    { "step": 3, "name": "restaurant-domain", "status": "pending" },
+    { "step": 4, "name": "kakao-local-adapter", "status": "pending" },
+    { "step": 5, "name": "restaurant-api", "status": "pending" }
+  ]
+}

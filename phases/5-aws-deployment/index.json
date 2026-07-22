@@ -1,0 +1,10 @@
+{
+  "project": "Rider Voice",
+  "phase": "5-aws-deployment",
+  "steps": [
+    { "step": 0, "name": "terraform-data-layer", "status": "pending" },
+    { "step": 1, "name": "terraform-app-layer", "status": "pending" },
+    { "step": 2, "name": "deployment-pipeline", "status": "pending" },
+    { "step": 3, "name": "production-readiness", "status": "pending" }
+  ]
+}

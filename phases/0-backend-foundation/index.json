@@ -1,0 +1,10 @@
+{
+  "project": "Rider Voice",
+  "phase": "0-backend-foundation",
+  "steps": [
+    { "step": 0, "name": "project-scaffold", "status": "pending" },
+    { "step": 1, "name": "persistence-foundation", "status": "pending" },
+    { "step": 2, "name": "api-conventions", "status": "pending" },
+    { "step": 3, "name": "security-skeleton", "status": "pending" }
+  ]
+}
