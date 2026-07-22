@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "persistence-foundation",
-      "status": "pending"
+      "status": "blocked",
+      "started_at": "2026-07-22T20:06:04+0900",
+      "blocked_reason": "Testcontainers PostgreSQL 통합 테스트가 Docker 데몬 소켓 권한 오류로 실행되지 않음. Docker Desktop 데몬 접근 권한이 필요하다."
     },
     {
       "step": 2,

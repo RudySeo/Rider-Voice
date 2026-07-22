@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/rider_voice}
+    username: ${DB_USERNAME:rider_voice}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
