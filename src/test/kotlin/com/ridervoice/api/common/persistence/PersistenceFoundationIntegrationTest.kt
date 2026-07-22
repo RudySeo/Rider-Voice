@@ -26,7 +26,7 @@ class PersistenceFoundationIntegrationTest : PostgreSqlIntegrationTest() {
     fun `flyway migration succeeds and JPA context boots on PostgreSQL`() {
         val currentMigration = requireNotNull(flyway.info().current())
 
-        assertThat(currentMigration.version.version).isEqualTo("2")
+        assertThat(currentMigration.version.version).isEqualTo("3")
         assertThat(currentMigration.state).isEqualTo(MigrationState.SUCCESS)
         assertThat(entityManagerFactory.isOpen).isTrue()
         assertThat(jdbcTemplate.queryForObject("select extract(timezone from current_timestamp)", Int::class.java))
