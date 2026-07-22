@@ -4,8 +4,8 @@
   "steps": [
     { "step": 0, "name": "review-domain", "status": "pending" },
     { "step": 1, "name": "review-persistence", "status": "pending" },
-    { "step": 2, "name": "review-api", "status": "pending" },
-    { "step": 3, "name": "moderation-domain", "status": "pending" },
+    { "step": 2, "name": "review-service", "status": "pending" },
+    { "step": 3, "name": "review-api", "status": "pending" },
     { "step": 4, "name": "report-aggregation", "status": "pending" },
     { "step": 5, "name": "report-api", "status": "pending" }
   ]

@@ -1,4 +1,4 @@
-# Step 2: review-api
+# Step 2: review-service
 
 ## 읽을 파일
 - `/AGENTS.md`
@@ -8,13 +8,15 @@
 - `/phases/3-reviews-reports/step1.md`
 
 ## 작업
-`GET /api/v1/write-grants/{id}`, `POST /api/v1/write-grants/{id}/review`, `GET /api/v1/users/me/reviews`를 구현한다. grant consume과 Review 저장을 하나의 transaction으로 묶고 idempotency를 지원한다.
+WriteGrant 확인·조건부 소진과 Review 생성을 하나의 transaction에서 수행하는 application service를 구현한다. idempotency key 재요청은 기존 결과를 반환하고 만료·소진·다른 사용자 grant는 거부한다. 내 리뷰 cursor 조회 interface도 제공한다.
 
 ## 인수 기준
 ```bash
 ./gradlew test
-./gradlew build
+./gradlew check
 ```
 
 ## 하지 말 것
-- 작성자 카카오 subject나 내부 user ID를 public review 응답에 포함하지 말 것. 이유: 익명성 정책이다.
+- grant 소진과 review 저장을 별도 transaction으로 나누지 말 것. 이유: 핵심 원자성이 깨진다.
+- Controller request 타입을 application service에 전달하지 말 것. 이유: presentation 결합을 피해야 한다.
+- 기존 test를 깨뜨리지 말 것.

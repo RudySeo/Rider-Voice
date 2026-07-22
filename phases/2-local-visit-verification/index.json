@@ -1,0 +1,15 @@
+{
+  "project": "Rider Voice",
+  "phase": "2-local-visit-verification",
+  "steps": [
+    { "step": 0, "name": "evidence-domain", "status": "pending" },
+    { "step": 1, "name": "evidence-persistence", "status": "pending" },
+    { "step": 2, "name": "local-evidence-storage", "status": "pending" },
+    { "step": 3, "name": "ocr-job-pipeline", "status": "pending" },
+    { "step": 4, "name": "clova-ocr-adapter", "status": "pending" },
+    { "step": 5, "name": "baemin-parser", "status": "pending" },
+    { "step": 6, "name": "verification-policy", "status": "pending" },
+    { "step": 7, "name": "write-grant-domain", "status": "pending" },
+    { "step": 8, "name": "visit-api", "status": "pending" }
+  ]
+}

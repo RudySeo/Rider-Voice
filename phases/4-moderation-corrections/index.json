@@ -1,0 +1,12 @@
+{
+  "project": "Rider Voice",
+  "phase": "4-moderation-corrections",
+  "steps": [
+    { "step": 0, "name": "moderation-domain", "status": "pending" },
+    { "step": 1, "name": "comment-moderation", "status": "pending" },
+    { "step": 2, "name": "abuse-report-api", "status": "pending" },
+    { "step": 3, "name": "correction-domain", "status": "pending" },
+    { "step": 4, "name": "correction-api", "status": "pending" },
+    { "step": 5, "name": "admin-audit-api", "status": "pending" }
+  ]
+}
