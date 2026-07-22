@@ -7,6 +7,15 @@ tsconfig.tsbuildinfo
 .env*.local
 !.env.example
 
+# Gradle and Kotlin
+.gradle/
+.kotlin/
+build/
+
+# IDE
+.idea/
+*.iml
+
 # Python cache
 __pycache__/
 *.py[cod]

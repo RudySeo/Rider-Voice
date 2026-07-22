@@ -2,9 +2,28 @@
   "project": "Rider Voice",
   "phase": "0-backend-foundation",
   "steps": [
-    { "step": 0, "name": "project-scaffold", "status": "pending" },
-    { "step": 1, "name": "persistence-foundation", "status": "pending" },
-    { "step": 2, "name": "api-conventions", "status": "pending" },
-    { "step": 3, "name": "security-skeleton", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "project-scaffold",
+      "status": "completed",
+      "summary": "Spring Boot 4.1.0, Kotlin, Java 21 Gradle scaffold와 애플리케이션 진입점, Actuator health 경로, contextLoads 테스트를 구성했다.",
+      "started_at": "2026-07-22T19:58:14+0900"
+    },
+    {
+      "step": 1,
+      "name": "persistence-foundation",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "api-conventions",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "security-skeleton",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-22T19:58:14+0900"
 }
