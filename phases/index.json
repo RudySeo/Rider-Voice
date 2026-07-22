@@ -1,6 +1,7 @@
 {
   "phases": [
     { "dir": "0-backend-foundation", "status": "pending" },
+    { "dir": "1-kakao-auth", "status": "pending" },
     { "dir": "1-identity-restaurants", "status": "pending" },
     { "dir": "2-visit-verification", "status": "pending" },
     { "dir": "3-reviews-reports", "status": "pending" },

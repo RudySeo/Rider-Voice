@@ -1,0 +1,29 @@
+{
+  "project": "Rider Voice",
+  "phase": "1-kakao-auth",
+  "steps": [
+    {
+      "step": 0,
+      "name": "auth-domain",
+      "status": "completed",
+      "summary": "User·OAuthAccount·UserSession·OAuthLoginState 도메인과 Spring Data 저장소, V2 Flyway migration, Docker 분리형 도메인·통합 테스트를 추가했다.",
+      "started_at": "2026-07-22T21:33:43+0900"
+    },
+    {
+      "step": 1,
+      "name": "kakao-oauth-adapter",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "auth-api",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "auth-security-tests",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-22T21:33:43+0900"
+}
