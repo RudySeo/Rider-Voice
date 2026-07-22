@@ -12,7 +12,8 @@
     {
       "step": 1,
       "name": "kakao-oauth-adapter",
-      "status": "pending"
+      "status": "pending",
+      "started_at": "2026-07-22T22:13:18+0900"
     },
     {
       "step": 2,
