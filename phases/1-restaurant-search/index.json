@@ -1,0 +1,9 @@
+{
+  "project": "Rider Voice",
+  "phase": "1-restaurant-search",
+  "steps": [
+    { "step": 0, "name": "restaurant-domain", "status": "pending" },
+    { "step": 1, "name": "kakao-local-adapter", "status": "pending" },
+    { "step": 2, "name": "restaurant-api", "status": "pending" }
+  ]
+}
