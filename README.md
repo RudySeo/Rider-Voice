@@ -90,18 +90,28 @@ GET  /api/v1/users/me
 
 현재 목표는 로컬 API 실행과 기능 검증입니다. API 서버와 MySQL은 모두 로컬 프로세스로 실행하며 Docker, Docker Compose와 Testcontainers는 사용하지 않습니다. AWS 배포와 운영 인프라는 현재 범위에 포함하지 않습니다.
 
-로컬 MySQL을 실행하고 `rider` 데이터베이스를 준비합니다.
+로컬 MySQL 서버를 실행하고 UTF-8 기반의 `rider` 데이터베이스를 준비합니다.
+
+```bash
+mysql.server start
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS rider CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+```
+
+MySQL 설치 방식에 따라 `mysql.server start` 대신 해당 운영체제의 서비스 관리 명령을 사용할 수 있습니다.
 
 ### 환경변수
 
-`.env.example`을 참고해 루트에 `.env`를 만듭니다. 실제 키는 커밋하지 않습니다.
+`.env.example`을 복사해 루트에 `.env`를 만들고 로컬 MySQL 계정에 맞게 수정합니다. 실제 키와 비밀번호는 커밋하지 않습니다.
+
+```bash
+cp .env.example .env
+```
 
 ```env
 KAKAO_CLIENT_ID=your-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
 KAKAO_REDIRECT_URI=http://localhost:8080/api/v1/auth/kakao/callback
-AUTH_JWT_SECRET=local-only-secret
-DB_URL=jdbc:mysql://localhost:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+DB_URL="jdbc:mysql://localhost:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
 DB_USERNAME=root
 DB_PASSWORD=1234
 ```
@@ -129,7 +139,7 @@ set +a
 ./gradlew build
 ```
 
-기본 검증 명령은 Docker 없이 실행됩니다. JPA와 Flyway 통합 검증이 필요할 때는 로컬 MySQL을 실행하고 같은 환경변수로 `./gradlew integrationTest`를 별도 실행합니다.
+기본 검증 명령은 DB 통합 테스트를 제외하므로 로컬 MySQL이나 Docker 없이 실행됩니다. JPA와 Flyway 통합 검증이 필요할 때는 위 절차로 로컬 MySQL을 실행하고 같은 환경변수로 `./gradlew integrationTest`를 별도 실행합니다.
 
 ## 프로젝트 구조
 
