@@ -9,6 +9,7 @@ import com.ridervoice.api.auth.infrastructure.persistence.OAuthAccountRepository
 import com.ridervoice.api.auth.infrastructure.persistence.OAuthLoginStateRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
+import com.ridervoice.api.common.error.AuthenticationRequiredException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -72,8 +73,8 @@ class AuthService(
     @Transactional
     fun logout(refreshToken: String) { sessions.findByRefreshTokenHash(hash(refreshToken)).ifPresent { it.revoke(clock.instant()) } }
 
-    fun me(accessToken: String): UserSummary = users.findById(accessUsers[accessToken] ?: throw IllegalArgumentException("Unauthorized")).map(::userSummary).orElseThrow()
-    fun userIdFor(accessToken: String): UUID = accessUsers[accessToken] ?: throw IllegalArgumentException("Unauthorized")
+    fun me(accessToken: String): UserSummary = users.findById(accessUsers[accessToken] ?: throw AuthenticationRequiredException()).map(::userSummary).orElseThrow()
+    fun userIdFor(accessToken: String): UUID = accessUsers[accessToken] ?: throw AuthenticationRequiredException()
 
     private fun issueTokens(user: User): AuthTokens {
         val access = randomToken(); val refresh = randomToken()
