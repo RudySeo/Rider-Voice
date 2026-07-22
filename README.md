@@ -44,7 +44,7 @@ Rider Voice는 계정의 라이더 자격을 별도로 심사하지 않습니다
 
 ## 현재 구현 범위
 
-현재 `feat-1-kakao-auth` 브랜치에는 다음이 구현되어 있습니다.
+현재 `develop`으로 통합 예정인 인증 기반에는 다음이 구현되어 있습니다.
 
 - Spring Boot/Kotlin 프로젝트 기반
 - PostgreSQL/JPA/Flyway persistence 기반
@@ -151,3 +151,21 @@ src/main/kotlin/com/ridervoice/api
 8. React Native 클라이언트
 
 자세한 제품·아키텍처·의사결정 문서는 [`docs/`](./docs)를 참고하세요.
+
+## Git Flow
+
+브랜치 전략은 [`docs/GIT_FLOW.md`](./docs/GIT_FLOW.md)에 정의되어 있습니다.
+
+- `master`: 운영·배포 기준
+- `develop`: 통합 개발 기준
+- `feature/*`: 기능 개발
+- `release/*`: 릴리스 준비
+- `hotfix/*`: 운영 긴급 수정
+
+새 작업은 `develop`에서 feature 브랜치를 만들어 시작합니다.
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/<short-name>
+```
