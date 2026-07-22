@@ -2,6 +2,7 @@ package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.common.config.OpenApiConfiguration
+import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
 
 data class AuthorizationUrlResponse(
@@ -50,18 +52,24 @@ class AuthController(private val auth: AuthService) {
     )
     @PostMapping("/consents")
     fun consent(
-        @RequestHeader("Authorization") authorization: String,
+        @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
         @Valid @RequestBody request: ConsentRequest,
-    ) = auth.agree(auth.userIdFor(authorization.removePrefix("Bearer ")), request.termsVersion)
+    ) = auth.agree(principal, request.termsVersion)
 
     @Operation(summary = "서비스 access token 갱신")
     @PostMapping("/refresh")
     fun refresh(@Valid @RequestBody request: TokenRequest) = auth.refresh(request.refreshToken)
 
-    @Operation(summary = "서비스 로그아웃")
+    @Operation(
+        summary = "서비스 로그아웃",
+        security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
+    )
     @PostMapping("/logout")
-    fun logout(@Valid @RequestBody request: TokenRequest): ResponseEntity<Void> {
-        auth.logout(request.refreshToken)
+    fun logout(
+        @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @Valid @RequestBody request: TokenRequest,
+    ): ResponseEntity<Void> {
+        auth.logout(principal, request.refreshToken)
         return ResponseEntity.noContent().build()
     }
 }
@@ -75,5 +83,5 @@ class UserController(private val auth: AuthService) {
         security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
     )
     @GetMapping("/me")
-    fun me(@RequestHeader("Authorization") authorization: String) = auth.me(authorization.removePrefix("Bearer "))
+    fun me(@AuthenticationPrincipal principal: AuthenticatedUserPrincipal) = auth.me(principal)
 }

@@ -23,6 +23,11 @@ enum class ApiErrorCode(
         "Authentication required",
         "Authentication is required.",
     ),
+    ACCESS_DENIED(
+        HttpStatus.FORBIDDEN,
+        "Access denied",
+        "Access is denied.",
+    ),
     RESOURCE_NOT_FOUND(
         HttpStatus.NOT_FOUND,
         "Resource not found",

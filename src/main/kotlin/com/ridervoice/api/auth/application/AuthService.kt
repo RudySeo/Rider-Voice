@@ -9,7 +9,8 @@ import com.ridervoice.api.auth.infrastructure.persistence.OAuthAccountRepository
 import com.ridervoice.api.auth.infrastructure.persistence.OAuthLoginStateRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
-import com.ridervoice.api.common.error.AuthenticationRequiredException
+import com.ridervoice.api.common.security.AccessTokenAuthenticator
+import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -32,7 +33,7 @@ class AuthService(
     private val states: OAuthLoginStateRepository,
     private val sessions: UserSessionRepository,
     private val clock: Clock = Clock.systemUTC(),
-) {
+) : AccessTokenAuthenticator {
     private val accessUsers = ConcurrentHashMap<String, UUID>()
     private val random = SecureRandom()
 
@@ -54,8 +55,8 @@ class AuthService(
     }
 
     @Transactional
-    fun agree(userId: UUID, version: String): AuthTokens {
-        val user = users.findById(userId).orElseThrow()
+    fun agree(principal: AuthenticatedUserPrincipal, version: String): AuthTokens {
+        val user = users.findById(principal.userId).orElseThrow()
         user.agreeToTerms(version, clock.instant())
         return issueTokens(user)
     }
@@ -71,10 +72,16 @@ class AuthService(
     }
 
     @Transactional
-    fun logout(refreshToken: String) { sessions.findByRefreshTokenHash(hash(refreshToken)).ifPresent { it.revoke(clock.instant()) } }
+    fun logout(principal: AuthenticatedUserPrincipal, refreshToken: String) {
+        sessions.findByRefreshTokenHash(hash(refreshToken))
+            .filter { it.userId == principal.userId }
+            .ifPresent { it.revoke(clock.instant()) }
+    }
 
-    fun me(accessToken: String): UserSummary = users.findById(accessUsers[accessToken] ?: throw AuthenticationRequiredException()).map(::userSummary).orElseThrow()
-    fun userIdFor(accessToken: String): UUID = accessUsers[accessToken] ?: throw AuthenticationRequiredException()
+    fun me(principal: AuthenticatedUserPrincipal): UserSummary = users.findById(principal.userId).map(::userSummary).orElseThrow()
+
+    override fun authenticate(accessToken: String): AuthenticatedUserPrincipal? =
+        accessUsers[accessToken]?.let(::AuthenticatedUserPrincipal)
 
     private fun issueTokens(user: User): AuthTokens {
         val access = randomToken(); val refresh = randomToken()

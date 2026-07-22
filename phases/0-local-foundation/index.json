@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "security-baseline",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-23T00:00:36+0900",
+      "summary": "명시적 endpoint 허용·인증·기본 거부 정책과 opaque Bearer principal 경계, RFC 7807 보안 응답 및 Docker 없는 MockMvc 계약 테스트를 추가했다."
     },
     {
       "step": 3,
