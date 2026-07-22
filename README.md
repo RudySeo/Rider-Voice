@@ -57,7 +57,7 @@ Rider Voice는 계정의 라이더 자격을 별도로 심사하지 않습니다
 - access/refresh token 발급·갱신·로그아웃 API
 - 현재 사용자 조회 API
 
-현재 access token은 로컬 개발을 위한 메모리 저장 방식입니다. 운영 배포 전 JWT 검증과 영속 세션 저장소로 교체해야 합니다.
+현재 access token은 로컬 개발을 위한 메모리 저장 방식입니다. 배포 단계에서 JWT 검증과 영속 세션 저장소로 교체합니다.
 
 ## API
 
@@ -78,7 +78,7 @@ GET  /api/v1/users/me
 - PostgreSQL
 - Gradle Wrapper
 
-Docker는 현재 기본 실행에 필요하지 않습니다. 로컬 PostgreSQL을 실행하고 `rider_voice` 데이터베이스를 준비합니다.
+현재 목표는 배포가 아닌 로컬 API 실행과 기능 검증입니다. Docker와 AWS 배포는 후속 단계로 미룹니다. 로컬 PostgreSQL을 실행하고 `rider_voice` 데이터베이스를 준비합니다.
 
 ### 환경변수
 
@@ -117,7 +117,7 @@ set +a
 ./gradlew build
 ```
 
-PostgreSQL Testcontainers 통합 테스트는 Docker 환경을 준비한 뒤 다음 명령으로 별도 실행합니다.
+PostgreSQL Testcontainers 통합 테스트는 Docker를 사용할 수 있을 때 선택적으로 실행합니다.
 
 ```bash
 ./gradlew integrationTest
@@ -139,7 +139,7 @@ src/main/kotlin/com/ridervoice/api
 
 기능 패키지는 `presentation`, `application`, `domain`, `infrastructure` 계층으로 나눕니다.
 
-## 개발 로드맵
+## 로컬 개발 로드맵
 
 1. 카카오 인증·인가와 OpenAPI 계약 안정화
 2. 음식점 검색 및 파일럿 지역 제한
@@ -148,7 +148,10 @@ src/main/kotlin/com/ridervoice/api
 5. 리포트 집계
 6. 관리자 검수·신고·정정 API
 7. 보안·통합·성능 검증
-8. React Native 클라이언트
+8. OpenAPI 계약 확정
+9. React Native 클라이언트
+
+AWS/ECS 배포와 운영 인프라 구성은 로컬 API 기능과 클라이언트 계약이 안정화된 후 별도 단계로 진행합니다.
 
 자세한 제품·아키텍처·의사결정 문서는 [`docs/`](./docs)를 참고하세요.
 
@@ -156,11 +159,11 @@ src/main/kotlin/com/ridervoice/api
 
 브랜치 전략은 [`docs/GIT_FLOW.md`](./docs/GIT_FLOW.md)에 정의되어 있습니다.
 
-- `master`: 운영·배포 기준
-- `develop`: 통합 개발 기준
+- `master`: 향후 배포 기준
+- `develop`: 현재 통합 개발 기준
 - `feature/*`: 기능 개발
-- `release/*`: 릴리스 준비
-- `hotfix/*`: 운영 긴급 수정
+- `release/*`: 배포 시점에 사용하는 릴리스 준비
+- `hotfix/*`: 배포 이후 운영 긴급 수정
 
 새 작업은 `develop`에서 feature 브랜치를 만들어 시작합니다.
 

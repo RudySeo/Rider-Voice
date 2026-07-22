@@ -313,7 +313,7 @@ POST   /api/v1/comments/{id}/reports
 - 인증·권한별 성공 및 실패 응답
 - ProblemDetail의 type, status, code, detail 일관성
 
-## 12. 개발 및 배포 순서
+## 12. 로컬 개발 순서
 
 1. Spring Boot/Kotlin 프로젝트 기반
 2. PostgreSQL, JPA, Flyway와 공통 테스트 환경
@@ -327,3 +327,5 @@ POST   /api/v1/comments/{id}/reports
 10. 보안·통합·성능 테스트
 11. OpenAPI 계약 확정
 12. React Native 앱 개발
+
+AWS/ECS 배포, 운영 인프라와 production readiness 검증은 로컬 API와 React Native 계약이 안정화된 후 별도 단계로 진행한다.

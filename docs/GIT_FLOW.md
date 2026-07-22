@@ -3,8 +3,8 @@
 ## 브랜치 구조
 
 ```text
-master       운영·배포 기준
-develop      다음 릴리스 통합 기준
+master       향후 배포 기준
+develop      현재 통합 개발 기준
 feature/*    기능 개발
 release/*    릴리스 준비
 hotfix/*     운영 긴급 수정
@@ -12,7 +12,7 @@ hotfix/*     운영 긴급 수정
 
 ## 기본 규칙
 
-- `master`는 운영 배포 가능한 코드만 보관한다.
+- 현재 개발은 `develop`에서 진행하며 `master`는 향후 배포 기준으로 유지한다.
 - `develop`은 다음 릴리스의 통합 브랜치다.
 - 새 작업은 항상 `develop`에서 `feature/<short-name>`을 생성한다.
 - `master`와 `develop`에 직접 push하지 않고 Pull Request를 사용한다.
@@ -38,16 +38,16 @@ PR 필수 조건:
 - 기존 테스트 삭제·약화 금지
 - 리뷰 승인 후 merge
 
-## 릴리스
+## 릴리스 (후속 단계)
 
 ```text
 develop → release/v0.1.0 → master
                          ↘ develop 동기화
 ```
 
-릴리스 브랜치에서 버전, migration, 문서와 운영 설정을 점검한다. `master` merge 후 태그를 생성한다.
+로컬 API 기능과 클라이언트 계약이 안정화된 후에만 릴리스를 진행한다. 릴리스 브랜치에서 버전, migration, 문서와 운영 설정을 점검한다.
 
-## 긴급 수정
+## 긴급 수정 (배포 후)
 
 ```text
 master → hotfix/<short-name> → master
