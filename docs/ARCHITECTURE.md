@@ -1,253 +1,329 @@
-# 아키텍처
+# Rider Voice 아키텍처
 
-## 개요
-YouTube Channel Insight는 Next.js App Router 기반 단일 웹 앱이다. UI와 API route를 같은 프로젝트에서 관리하지만, 외부 provider 호출은 서버 영역으로만 제한한다. 핵심 데이터 흐름은 `collect -> analyze` 두 단계로 분리한다.
+## 1. 개요
 
-## 기술 스택
-- Next.js App Router
-- TypeScript strict mode
-- Tailwind CSS
-- Vitest + React Testing Library
-- Zod
-- Recharts
-- Lucide React
-- YouTube Data API v3
-- OpenAI Responses API + Structured Outputs
+Rider Voice는 API 서버를 먼저 완성한 뒤 React Native 클라이언트를 연결하는 서버 우선 프로젝트다. 서버는 인증, 음식점, 방문 증빙, OCR, 글쓰기 권한, 리뷰, 리포트 집계, 검수와 정정 요청의 유일한 업무 규칙 소유자다.
 
-## 디렉토리 구조
+React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터베이스, S3, CLOVA OCR 또는 카카오 로컬 API를 직접 호출하지 않는다.
+
+## 2. 기술 스택
+
+### 서버
+
+- Spring Boot
+- Kotlin
+- Gradle Kotlin DSL
+- Spring MVC
+- Spring Security
+- Spring Data JPA / Hibernate
+- PostgreSQL
+- Flyway
+- Bean Validation
+- springdoc-openapi
+- JUnit 5, Kotest 또는 AssertJ, MockK, Testcontainers
+
+### 외부 서비스 및 인프라
+
+- 카카오 REST OAuth: 소셜 로그인
+- 카카오 로컬 REST API: 음식점 검색과 장소 식별
+- NAVER Cloud CLOVA OCR: 배달 완료 화면 문자 인식
+- Amazon RDS PostgreSQL
+- Amazon S3 비공개 버킷
+- Amazon SQS와 Dead Letter Queue
+- Amazon ECS Fargate
+- AWS KMS, Secrets Manager, CloudWatch, WAF
+
+### 후속 클라이언트
+
+- React Native
+- iOS와 Android 동시 지원
+- 서버 API와 OpenAPI 계약이 안정화된 후 개발
+- Expo 또는 Bare React Native 선택은 클라이언트 착수 시 별도 ADR로 결정
+
+## 3. 프로젝트 구조
+
+서버 코드는 기능 중심 패키지와 기능 내부 계층을 함께 사용한다.
+
 ```text
 src/
-├── app/
-│   ├── page.tsx                     # 메인 사용자 플로우
-│   └── api/
-│       └── channel/
-│           ├── collect/route.ts      # YouTube 데이터 수집
-│           └── analyze/route.ts      # OpenAI 분석
-├── components/
-│   ├── AnalysisShell.tsx             # 입력 -> 수집 -> 분석 -> 결과 상태 orchestration
-│   ├── ChannelInput.tsx
-│   ├── ProgressPanel.tsx
-│   ├── ErrorPanel.tsx
-│   └── dashboard/
-│       ├── Dashboard.tsx             # 결과 대시보드 composition
-│       ├── OverviewCards.tsx
-│       ├── PerformanceCharts.tsx
-│       ├── RecommendedVideos.tsx
-│       └── ActionChecklist.tsx
-├── lib/
-│   ├── channel-url.ts                # 지원 URL 파싱
-│   ├── metrics.ts                    # 평균, engagement, ranking 계산
-│   ├── app-errors.ts                 # 앱 에러 코드/메시지
-│   └── schemas.ts                    # Zod request/response schema
-├── services/
-│   ├── youtube.ts                    # server-only YouTube wrapper
-│   └── openai.ts                     # server-only OpenAI wrapper
-└── types/
-    ├── youtube.ts
-    ├── analysis.ts
-    └── api.ts
+├── main/
+│   ├── kotlin/com/ridervoice/api/
+│   │   ├── RiderVoiceApplication.kt
+│   │   ├── common/
+│   │   │   ├── config/
+│   │   │   ├── error/
+│   │   │   ├── security/
+│   │   │   ├── persistence/
+│   │   │   └── time/
+│   │   ├── auth/
+│   │   ├── restaurant/
+│   │   ├── visit/
+│   │   ├── review/
+│   │   ├── report/
+│   │   ├── moderation/
+│   │   └── correction/
+│   └── resources/
+│       ├── application.yml
+│       └── db/migration/
+└── test/
+    └── kotlin/com/ridervoice/api/
 ```
 
-## 주요 패턴
-- Server Components를 기본으로 하되, 입력/진행 상태/결과 전환이 필요한 메인 플로우는 Client Component로 구현한다.
-- Route Handler는 request validation, service 호출, 앱 에러 매핑을 담당한다.
-- Provider wrapper는 raw provider response를 앱 내부 타입으로 정규화한다.
-- Client Component는 앱 API만 호출하고 provider SDK, provider endpoint, API key에 접근하지 않는다.
-- API 응답은 성공과 실패 모두 예측 가능한 JSON 형태를 유지한다.
-
-## 데이터 흐름
-```text
-사용자 채널 URL 입력
-  -> client-side URL 형식 검증
-  -> POST /api/channel/collect
-  -> YouTube service
-  -> normalized collect result
-  -> POST /api/channel/analyze
-  -> OpenAI service
-  -> structured analysis result
-  -> dashboard render
-```
-
-## API Route 책임
-### `POST /api/channel/collect`
-- 입력: `{ "channelUrl": string }`
-- 책임:
-  - URL 형식 검증.
-  - handle 또는 channel ID 추출.
-  - YouTube Data API로 채널 기본정보 조회.
-  - uploads playlist에서 최근 공개 영상 최대 50개 조회.
-  - 영상 통계와 메타데이터 보강.
-  - 앱 내부 collect result 형태로 반환.
-- 하지 않는 것:
-  - OpenAI 호출.
-  - GPT prompt 생성.
-  - 분석 문장 생성.
-
-### `POST /api/channel/analyze`
-- 입력: collect success payload.
-- 책임:
-  - 수집 결과 schema 검증.
-  - 분석용 payload 정규화.
-  - OpenAI Responses API 호출.
-  - Structured Outputs schema로 dashboard JSON 반환.
-- 하지 않는 것:
-  - YouTube API 호출.
-  - 채널 URL 재해석.
-  - 데이터를 DB에 저장.
-
-## YouTube 수집 전략
-- `@handle` 입력은 `channels.list`의 handle 기반 조회를 사용한다.
-- `UC...` 입력은 channel ID 기반 조회를 사용한다.
-- 채널 응답에서 uploads playlist ID를 얻는다.
-- `playlistItems.list`로 최근 업로드 video ID를 최대 50개 수집한다.
-- `videos.list`로 `snippet`, `statistics`, `contentDetails`를 보강한다.
-- 숫자 필드가 누락된 경우 0으로 단정하지 않고 nullable로 정규화한다.
-- 공개 영상이 없는 경우 `NO_PUBLIC_VIDEOS`를 반환한다.
-
-## OpenAI 분석 전략
-- OpenAI provider 호출은 `src/services/openai.ts`에서만 수행한다.
-- Responses API를 사용한다.
-- Structured Outputs로 다음 UI 필드를 안정적으로 생성한다:
-  - `overallScore`
-  - `executiveSummary`
-  - `strongSignals`
-  - `growthBottlenecks`
-  - `contentPatterns`
-  - `recommendedNextVideos`
-  - `actionChecklist`
-  - `confidence`
-- prompt는 데이터 기반 근거와 AI 추론을 구분하도록 작성한다.
-- 분석 언어는 한국어로 고정한다.
-- 모델은 `OPENAI_MODEL` 환경변수를 우선하고, 없으면 앱 기본 비용형 모델을 사용한다.
-
-## 상태 관리
-메인 클라이언트 플로우는 다음 상태만 사용한다.
+각 기능 패키지는 필요한 범위에서 다음 계층을 사용한다.
 
 ```text
-idle
-validating
-collecting
-analyzing
-complete
-validation_failed
-collection_failed
-analysis_failed
+feature/
+├── presentation/      # Controller, request/response DTO
+├── application/       # use case, transaction boundary
+├── domain/            # entity behavior, value object, policy
+└── infrastructure/    # JPA repository, provider adapter
 ```
 
-- `collection_failed`: 수집 결과가 없으므로 분석을 시도하지 않는다.
-- `analysis_failed`: 수집 결과는 유지하고, AI 분석 실패 메시지를 보여준다.
-- 새로고침 시 결과는 사라져도 된다. MVP에서는 persistence를 제공하지 않는다.
+## 4. 계층 규칙
 
-## API 계약
-### Collect request
-```json
-{
-  "channelUrl": "https://www.youtube.com/@handle"
-}
+- Controller는 HTTP 요청 검증, application use case 호출, 응답 변환만 담당한다.
+- 비즈니스 규칙과 상태 전이는 application 및 domain 계층에 둔다.
+- 트랜잭션 경계는 application service에 둔다.
+- JPA Entity를 API 요청 또는 응답 DTO로 직접 사용하지 않는다.
+- domain/application 계층은 카카오, CLOVA, S3 같은 외부 SDK 타입에 의존하지 않는다.
+- 외부 연동은 port interface와 infrastructure adapter로 격리한다.
+- Repository interface는 기능 패키지 내부에 두고 구현 세부사항을 외부로 노출하지 않는다.
+- 기능 간 호출은 공개 application interface 또는 식별자 기반으로 수행한다.
+
+## 5. 핵심 데이터 흐름
+
+### 5.1 카카오 로그인
+
+```text
+React Native 또는 테스트 클라이언트
+  -> GET /api/v1/auth/kakao/authorize
+  -> 카카오 로그인 및 authorization code
+  -> GET /api/v1/auth/kakao/callback
+  -> 카카오 token/user 조회 adapter
+  -> User upsert
+  -> 서비스 access token + rotating refresh token 발급
 ```
 
-### Collect success
-```json
-{
-  "channel": {
-    "id": "UC...",
-    "title": "Channel title",
-    "description": "Channel description",
-    "thumbnailUrl": "https://...",
-    "subscriberCount": 1000,
-    "viewCount": 100000,
-    "videoCount": 50
-  },
-  "videos": [
-    {
-      "id": "video-id",
-      "title": "Video title",
-      "description": "Video description",
-      "publishedAt": "2026-05-08T00:00:00Z",
-      "thumbnailUrl": "https://...",
-      "viewCount": 1000,
-      "likeCount": 50,
-      "commentCount": 10,
-      "duration": "PT10M"
-    }
-  ],
-  "sampleSize": 50,
-  "collectedAt": "2026-05-08T00:00:00Z"
-}
+- 카카오 access token은 계정 확인 후 장기 보관하지 않는다.
+- 서비스 refresh token은 원문이 아니라 해시로 저장한다.
+- access token은 짧은 만료 시간을 사용하고 refresh token은 회전시킨다.
+
+### 5.2 방문 증빙과 OCR
+
+```text
+POST /api/v1/visits/upload-url
+  -> 권한과 파일 제한 검증
+  -> S3 presigned upload URL 발급
+  -> 클라이언트가 비공개 S3에 직접 업로드
+POST /api/v1/visits
+  -> VisitEvidence 생성
+  -> SQS OCR 작업 발행
+OCR worker
+  -> CLOVA OCR 호출
+  -> 배민 화면 파싱
+  -> 주문 HMAC/이미지 해시 중복 검사
+  -> 카카오 장소 후보 연결
+  -> 자동 승인 또는 MANUAL_REVIEW
+  -> 승인 시 WriteGrant 발급
+  -> 원본 즉시 삭제
 ```
 
-### Analyze success
-```json
-{
-  "overallScore": 82,
-  "executiveSummary": ["요약 1", "요약 2", "요약 3"],
-  "strongSignals": ["강한 성과 신호"],
-  "growthBottlenecks": ["성장 병목"],
-  "contentPatterns": ["반복 가능한 콘텐츠 패턴"],
-  "recommendedNextVideos": [
-    {
-      "titleDirection": "추천 제목 방향",
-      "format": "추천 포맷",
-      "whyItFits": "이 채널에 맞는 이유",
-      "evidence": "근거가 된 기존 영상 패턴",
-      "expectedImpact": "기대 효과",
-      "difficulty": "low"
-    }
-  ],
-  "actionChecklist": [
-    {
-      "priority": "high",
-      "task": "해야 할 일",
-      "reason": "이유",
-      "expectedImpact": "예상 효과"
-    }
-  ],
-  "confidence": {
-    "level": "medium",
-    "reason": "최근 공개 영상 37개 기준"
-  }
-}
+### 5.3 리뷰와 리포트
+
+```text
+유효한 WriteGrant
+  -> POST /api/v1/write-grants/{id}/review
+  -> WriteGrant 원자적 소진
+  -> Review + ReviewAnswer 저장
+  -> 자유 의견 검수 큐 생성
+  -> 리포트 집계 대상 반영
+  -> 주기적 ReportSnapshot 계산
+  -> 공개 조회 API 제공
 ```
 
-### Error response
-```json
-{
-  "error": {
-    "code": "INVALID_CHANNEL_URL",
-    "message": "지원하지 않는 YouTube URL 형식입니다."
-  }
-}
+WriteGrant 확인과 리뷰 생성은 같은 트랜잭션에서 수행하고 비관적 잠금 또는 조건부 갱신으로 중복 소진을 방지한다.
+
+## 6. 도메인 상태
+
+```text
+UserStatus
+- ACTIVE
+- RATE_LIMITED
+- SUSPENDED
+- WITHDRAWN
+
+VisitStatus
+- UPLOADED
+- OCR_PROCESSING
+- NEEDS_CONFIRMATION
+- MANUAL_REVIEW
+- VERIFIED
+- REJECTED
+- DUPLICATE
+- EXPIRED
+
+WriteGrantStatus
+- AVAILABLE
+- CONSUMED
+- EXPIRED
+- REVOKED
+
+ReviewStatus
+- SUBMITTED
+- INCLUDED
+- HELD
+- REMOVED
+
+CommentStatus
+- PENDING
+- APPROVED
+- REDACTED
+- REVISION_REQUIRED
+- REJECTED
+
+ReportStatus
+- COLLECTING
+- PUBLISHED
+- TEMPORARILY_HIDDEN
+
+CorrectionStatus
+- RECEIVED
+- VERIFYING_OWNER
+- REVIEWING
+- RESOLVED
+- REJECTED
 ```
 
-## 에러 taxonomy
-- `INVALID_CHANNEL_URL`: 지원하지 않는 URL 형식.
-- `MISSING_YOUTUBE_API_KEY`: 서버에 `YOUTUBE_API_KEY`가 없음.
-- `MISSING_OPENAI_API_KEY`: 서버에 `OPENAI_API_KEY`가 없음.
-- `CHANNEL_NOT_FOUND`: handle/channel ID로 공개 채널을 찾지 못함.
-- `NO_PUBLIC_VIDEOS`: 최근 공개 업로드가 없음.
-- `YOUTUBE_RATE_LIMITED`: YouTube quota 또는 rate limit 실패.
-- `YOUTUBE_PROVIDER_ERROR`: 기타 YouTube provider 실패.
-- `OPENAI_REFUSAL`: OpenAI가 structured analysis를 제공하지 않음.
-- `OPENAI_PROVIDER_ERROR`: 기타 OpenAI provider 실패.
+상태 전이는 enum 값을 임의로 덮어쓰지 않고 domain method를 통해서만 수행한다.
 
-## 테스트 전략
-- URL parser와 validation은 unit test를 먼저 작성한다.
-- metric 계산 helper는 unit test로 검증한다.
-- YouTube service는 mocked fetch로 provider 응답과 에러 매핑을 검증한다.
-- OpenAI service는 mocked SDK로 structured output parsing과 실패 처리를 검증한다.
-- API route는 missing env, invalid request, provider failure, success path를 검증한다.
-- UI는 입력, 진행 상태, 오류 상태, 대시보드 렌더링을 React Testing Library로 검증한다.
+## 7. 핵심 데이터 모델
 
-## 배포 및 런타임
-- 로컬 개발과 Vercel 배포를 기준으로 설계한다.
-- API route runtime은 Node.js로 고정한다.
-- 환경변수는 `.env.local` 또는 배포 환경변수로 주입한다.
-- 파일 시스템 persistence에 의존하지 않는다.
+### 인증
 
-## 로컬 자동화 스크립트
-- `scripts/run-youtube-analysis.mjs`는 Codex/로컬 자동화에서 기존 앱 API route를 재사용하기 위한 CLI다.
-- 스크립트는 provider SDK 또는 provider endpoint를 직접 호출하지 않고, 실행 중인 앱의 `POST /api/channel/collect`와 `POST /api/channel/analyze`만 호출한다.
-- 기본 명령은 `npm run analyze:youtube -- --channel "@handle"`이다.
-- 결과는 로컬 artifact인 `reports/youtube-analysis/latest.json`과 `reports/youtube-analysis/latest.md`에 기록한다.
-- 상태는 `success`, `collection_failed`, `analysis_failed`로 기록하며, `analysis_failed`는 수집 데이터를 유지한다.
-- 이 스크립트는 예약 분석, 이메일 발송, DB 저장을 도입하지 않는다.
+- `users`: 내부 사용자 ID, 상태, 약관 버전과 동의 시각
+- `oauth_accounts`: provider, 외부 subject, 사용자 연결
+- `user_sessions`: refresh token hash, 만료, 폐기, rotation 정보
+
+### 음식점과 방문
+
+- `restaurants`: 카카오 장소 ID, 이름, 주소, 좌표, 파일럿 포함 여부
+- `visit_evidences`: 사용자, 앱 종류, OCR 상태, 완료 시각, 주문 HMAC, 이미지 해시, 장소 매칭 신뢰도, 원본 삭제 시각
+- `write_grants`: 사용자, 방문, 음식점, 상태, 만료 및 소진 시각
+
+### 리뷰와 리포트
+
+- `reviews`: 작성자, 음식점, 방문 증빙, 집계 상태, 제출 시각
+- `review_answers`: 리뷰, 평가 항목, 응답 값
+- `review_comments`: 원문, 공개용 본문, 검수 상태
+- `report_snapshots`: 음식점, 집계 기간, 항목별 표본 수·분포·긍정 비율
+
+### 운영
+
+- `moderation_cases`: 대상, 탐지 규칙, 상태, 관리자 판단
+- `correction_requests`: 음식점, 요청자 연락 수단, 요청 사유, 처리 결과
+- `audit_logs`: 행위자, 작업 종류, 대상, 사유, 변경 전후 메타데이터
+
+모든 기본 키는 UUID를 사용한다. 모든 시각은 UTC로 저장하고 API에서는 RFC 3339 형식으로 반환한다.
+
+## 8. API 규칙
+
+- API prefix는 `/api/v1`을 사용한다.
+- 성공 응답은 기능별 response DTO를 직접 반환한다.
+- 오류는 RFC 7807 `ProblemDetail` 형식을 사용한다.
+- 요청 DTO는 Bean Validation으로 검증한다.
+- 목록 API는 cursor pagination을 기본으로 한다.
+- 외부 provider 오류 메시지, stack trace, secret을 클라이언트에 노출하지 않는다.
+- OpenAPI 문서를 API 계약의 기준으로 사용한다.
+- React Native 타입과 클라이언트는 OpenAPI에서 생성한다.
+- 멱등성이 필요한 방문 생성과 리뷰 제출 요청에는 idempotency key를 지원한다.
+
+주요 API:
+
+```text
+GET    /api/v1/auth/kakao/authorize
+GET    /api/v1/auth/kakao/callback
+POST   /api/v1/auth/refresh
+POST   /api/v1/auth/logout
+GET    /api/v1/users/me
+
+GET    /api/v1/restaurants/search
+GET    /api/v1/restaurants/{id}/report
+GET    /api/v1/restaurants/{id}/methodology
+
+POST   /api/v1/visits/upload-url
+POST   /api/v1/visits
+GET    /api/v1/visits/{id}
+POST   /api/v1/visits/{id}/confirm-restaurant
+
+GET    /api/v1/write-grants/{id}
+POST   /api/v1/write-grants/{id}/review
+GET    /api/v1/users/me/reviews
+
+POST   /api/v1/restaurants/{id}/corrections
+GET    /api/v1/corrections/{publicToken}
+POST   /api/v1/comments/{id}/reports
+```
+
+관리자 API는 `/api/v1/admin` 아래에 두고 관리자 role을 요구한다.
+
+## 9. 데이터베이스 규칙
+
+- PostgreSQL을 단일 source of truth로 사용한다.
+- JPA `ddl-auto`는 로컬·운영 모두 schema 생성 용도로 사용하지 않는다.
+- 모든 스키마 변경은 순서가 있는 Flyway migration으로 작성한다.
+- 조회 패턴을 기준으로 인덱스를 명시한다.
+- N+1 문제를 방지하기 위해 fetch join, entity graph 또는 projection을 의도적으로 사용한다.
+- 집계 조회는 JPA projection 또는 명시적 query를 사용하고 entity graph 전체 로딩을 피한다.
+- 운영 리포트는 원본 리뷰를 매번 전체 계산하지 않고 `report_snapshots`로 제공한다.
+
+## 10. 보안과 개인정보
+
+- 증빙 버킷은 public access를 완전히 차단한다.
+- presigned URL은 짧은 만료 시간과 파일 형식·크기 제한을 적용한다.
+- 클라이언트가 제출한 S3 object key를 그대로 신뢰하지 않는다.
+- OCR 성공 원본은 즉시 삭제하고 수동 검수 원본은 최대 72시간 후 삭제한다.
+- 주문 식별자는 server-side secret을 사용하는 HMAC으로 저장한다.
+- 소셜 계정 정보와 공개 리뷰 응답을 분리한다.
+- 관리자 작업에는 role 검사와 감사 로그를 적용한다.
+- refresh token, provider secret, HMAC secret과 KMS key 정보는 Secrets Manager에서 주입한다.
+- 위험 제출에는 rate limit과 검수 보류를 적용한다.
+
+## 11. 테스트 전략
+
+### 단위 테스트
+
+- 상태 전이와 도메인 정책
+- WriteGrant 만료·소진·재사용 방지
+- 리뷰 집계 포함 한도
+- 공개 표본과 기간 계산
+- OCR 파싱과 장소 후보 점수 계산
+- 개인정보 및 금지 표현 탐지
+
+### 통합 테스트
+
+- Testcontainers PostgreSQL을 사용한 JPA와 Flyway 검증
+- 카카오·CLOVA·카카오 로컬 adapter의 stub server 테스트
+- S3와 SQS 경계 테스트
+- 로그인부터 방문, 글쓰기 권한, 리뷰, 리포트까지 전체 흐름
+- 동시에 같은 WriteGrant를 제출했을 때 하나만 성공하는지 검증
+
+### API 계약 테스트
+
+- OpenAPI 문서 생성과 schema 변경 검증
+- 인증·권한별 성공 및 실패 응답
+- ProblemDetail의 type, status, code, detail 일관성
+
+## 12. 개발 및 배포 순서
+
+1. Spring Boot/Kotlin 프로젝트 기반
+2. PostgreSQL, JPA, Flyway와 공통 테스트 환경
+3. 공통 오류, 보안, OpenAPI
+4. 카카오 로그인과 서비스 세션
+5. 음식점과 파일럿 지역
+6. 증빙 업로드와 비동기 OCR
+7. WriteGrant와 리뷰
+8. 집계 리포트
+9. 관리자 검수, 신고, 정정
+10. 보안·통합·성능 테스트
+11. OpenAPI 계약 확정
+12. React Native 앱 개발

@@ -1,4 +1,3 @@
 [features]
-# Official docs use codex_hooks; this CLI also reports hooks as the stable flag.
-codex_hooks = true
+# Keep this explicit for the project even though hooks are enabled by default.
 hooks = true

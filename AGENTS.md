@@ -1,60 +1,135 @@
-# 프로젝트: YouTube Channel Insight
-
-## 기술 스택
-- Next.js App Router
-- TypeScript strict mode
-- Tailwind CSS
-- Vitest + React Testing Library
-- YouTube Data API v3
-- OpenAI Responses API + Structured Outputs
+# 프로젝트: Rider Voice
 
 ## 제품 목표
-- 사용자가 YouTube 채널 URL만 입력하면 공개 채널 정보와 최근 업로드 데이터를 수집한다.
-- 수집된 데이터를 ChatGPT API로 분석해 채널 운영자가 다음에 만들 콘텐츠를 결정하도록 돕는다.
-- MVP는 긴 보고서보다 대시보드, 추천 카드, 실행 체크리스트를 우선한다.
+
+- 배달 완료 화면으로 음식점 방문이 확인된 리뷰만 수집한다.
+- 픽업 과정에서 직접 관찰 가능한 운영 경험을 구조화된 데이터로 제공한다.
+- 소비자에게 작성자의 신원을 노출하지 않고 음식점에는 공식 정정 절차를 제공한다.
+- 서버 API와 데이터 무결성을 먼저 완성한 뒤 React Native 앱을 개발한다.
+
+## 기술 스택
+
+### 현재 구현 대상: API 서버
+
+- Spring Boot
+- Kotlin
+- Gradle Kotlin DSL
+- Spring MVC / Spring Security
+- Spring Data JPA / Hibernate
+- PostgreSQL
+- Flyway
+- Bean Validation
+- OpenAPI
+- JUnit 5, MockK, Testcontainers
+
+### 외부 서비스와 인프라
+
+- 카카오 REST OAuth
+- 카카오 로컬 REST API
+- NAVER Cloud CLOVA OCR
+- AWS RDS, S3, SQS, ECS, KMS, Secrets Manager, CloudWatch
+
+### 후속 구현 대상
+
+- React Native 크로스 플랫폼 앱
+- 서버 API와 OpenAPI 계약이 완료되기 전에는 화면 구현을 시작하지 않는다.
+
+## 구현 전 필수 확인
+
+- 구현 전에 `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ADR.md`를 읽는다.
+- 제품 범위나 기술 결정이 바뀌면 코드보다 관련 문서를 먼저 업데이트한다.
+- 현재 작업과 무관한 사용자 변경, 삭제 파일, `.codex` 설정을 되돌리지 않는다.
 
 ## 아키텍처 규칙
-- CRITICAL: 외부 API 호출은 `src/app/api/**/route.ts`와 server-only service에서만 처리한다.
-- CRITICAL: Client Component에서 YouTube API 또는 OpenAI API를 직접 호출하지 않는다.
-- CRITICAL: API key, provider raw error, 내부 stack trace를 클라이언트에 노출하지 않는다.
-- CRITICAL: 데이터 파이프라인은 `collect -> analyze` 경계를 유지한다.
-  - `collect`는 YouTube 데이터 수집만 담당한다.
-  - `analyze`는 수집 결과를 받아 OpenAI 분석만 담당한다.
-- CRITICAL: MVP는 공개 YouTube Data API만 사용한다. YouTube OAuth와 YouTube Analytics API는 사용하지 않는다.
-- 컴포넌트는 `src/components/`에 둔다.
-- 공통 타입은 `src/types/`에 둔다.
-- URL 파싱, metric 계산, validation helper는 `src/lib/`에 둔다.
-- YouTube/OpenAI wrapper는 `src/services/`에 두고 server-only boundary를 유지한다.
 
-## 사용자 플로우 원칙
-- 사용자는 채널 운영자이며, 앱의 핵심 질문은 "다음에 무엇을 만들까?"다.
-- 첫 화면은 랜딩 페이지가 아니라 실제 채널 URL 입력 화면이어야 한다.
-- 지원 URL은 `youtube.com/@handle`, `@handle`, `youtube.com/channel/UC...`, `UC...`로 제한한다.
-- `/c/...`, `/user/...`, 개별 영상 URL, Shorts URL은 MVP에서 명확한 validation error로 안내한다.
-- 분석 결과는 다음 질문에 답해야 한다:
-  - 지금 채널에서 잘 되는 것은 무엇인가?
-  - 왜 잘 되는가?
-  - 무엇을 반복해야 하는가?
-  - 무엇을 줄이거나 그만두어야 하는가?
-  - 다음 영상은 무엇을 만들면 좋은가?
-- AI 분석은 추상적인 조언보다 데이터 근거가 있는 실행 항목을 우선한다.
+- CRITICAL: Controller에 비즈니스 로직이나 JPA query를 작성하지 않는다.
+- CRITICAL: JPA Entity를 API request 또는 response로 직접 사용하지 않는다.
+- CRITICAL: 외부 API, S3와 SQS는 infrastructure adapter에서만 호출한다.
+- CRITICAL: React Native 또는 다른 클라이언트가 DB, S3, CLOVA, 카카오 로컬 API를 직접 호출하게 하지 않는다.
+- CRITICAL: 유효한 `WriteGrant` 없이 리뷰를 생성하지 않는다.
+- CRITICAL: `WriteGrant` 확인과 소진, 리뷰 생성은 하나의 트랜잭션에서 원자적으로 처리한다.
+- CRITICAL: 하나의 방문 증빙으로 두 개 이상의 리뷰를 생성하지 않는다.
+- CRITICAL: OCR 증빙 원본이나 카카오 계정 정보를 공개 API 응답에 포함하지 않는다.
+- CRITICAL: OCR 성공 원본은 즉시 삭제하고 수동 검수 원본은 72시간 이상 보관하지 않는다.
+- CRITICAL: Flyway migration 없이 DB schema를 변경하지 않는다.
+- CRITICAL: 운영 환경에서 Hibernate schema auto-generation을 활성화하지 않는다.
+- CRITICAL: 외부 provider 오류, secret, stack trace를 클라이언트에 노출하지 않는다.
+- Controller는 HTTP validation과 response 변환만 담당한다.
+- 트랜잭션 경계는 application service에 둔다.
+- 상태 전이는 domain method를 사용하며 enum field를 임의로 덮어쓰지 않는다.
+- 기능 간에는 entity 대신 ID, DTO 또는 공개 application interface를 전달한다.
+- 성공 응답은 기능별 DTO, 오류 응답은 RFC 7807 `ProblemDetail`을 사용한다.
+- 모든 시각은 UTC로 저장하고 API는 RFC 3339로 반환한다.
 
-## 개발 프로세스
-- CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD).
-- URL parser, metric helper, API route, provider error mapping, 주요 UI 상태는 테스트 대상이다.
-- 구현 전 `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ADR.md`를 읽고 현재 범위를 확인한다.
-- 제품 범위가 바뀌면 관련 docs를 먼저 업데이트한다.
+## 패키지 규칙
+
+```text
+com.ridervoice.api
+├── common
+├── auth
+├── restaurant
+├── visit
+├── review
+├── report
+├── moderation
+└── correction
+```
+
+- 기능 패키지 안에서 `presentation`, `application`, `domain`, `infrastructure` 경계를 사용한다.
+- 공통 기능이라는 이유만으로 비즈니스 규칙을 `common`에 두지 않는다.
+- provider별 request/response 타입은 해당 infrastructure adapter 밖으로 노출하지 않는다.
+
+## 데이터 및 개인정보 규칙
+
+- 주문 식별 정보는 원문으로 저장하지 않고 HMAC으로 저장한다.
+- 증빙 S3 bucket은 public access를 차단한다.
+- presigned URL에는 짧은 만료 시간과 파일 형식·크기 제한을 적용한다.
+- 카카오 외부 subject와 공개 프로필 데이터를 분리한다.
+- 관리자만 작성자와 리뷰의 내부 연결을 조회할 수 있다.
+- 관리자 상태 변경은 사유와 함께 감사 로그에 남긴다.
+- 사용자 입력으로 전달된 object key, 장소 ID, role을 그대로 신뢰하지 않는다.
+
+## API 규칙
+
+- API prefix는 `/api/v1`을 사용한다.
+- OpenAPI를 React Native 클라이언트 계약의 기준으로 유지한다.
+- request DTO는 Bean Validation으로 검증한다.
+- 목록 API는 cursor pagination을 기본으로 한다.
+- 리뷰 제출과 같이 중복 요청 위험이 있는 API는 idempotency를 고려한다.
+- 인증 필요 여부와 role을 endpoint test로 검증한다.
+
+## 테스트 및 개발 프로세스
+
+- CRITICAL: 새 기능은 실패하는 테스트를 먼저 작성하고 테스트가 통과하는 최소 구현을 작성한다.
+- domain 정책은 단위 테스트로 검증한다.
+- JPA query, Flyway migration과 transaction은 Testcontainers PostgreSQL 통합 테스트로 검증한다.
+- 외부 API adapter는 stub server를 사용해 성공, timeout, rate limit, 잘못된 응답을 검증한다.
+- 인증부터 방문, WriteGrant, 리뷰, 리포트까지 핵심 흐름은 통합 테스트를 유지한다.
+- 동시 리뷰 제출에서 하나의 WriteGrant가 한 번만 소진되는지 검증한다.
+- 기존 테스트를 삭제하거나 약화해 빌드를 통과시키지 않는다.
 - 커밋 메시지는 conventional commits 형식을 따른다: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
 
-## 환경 변수
-- `YOUTUBE_API_KEY`: YouTube Data API v3 key.
-- `OPENAI_API_KEY`: OpenAI API key.
-- `OPENAI_MODEL`: 선택값. 설정하지 않으면 앱의 기본 비용형 모델을 사용한다.
+## 기본 명령어
 
-## 명령어
 ```bash
-npm run dev      # 개발 서버
-npm run build    # 프로덕션 빌드
-npm run lint     # ESLint
-npm run test     # 테스트
+./gradlew bootRun   # 로컬 API 서버
+./gradlew test      # 테스트
+./gradlew check     # 정적 검사와 테스트
+./gradlew build     # 전체 빌드
 ```
+
+프로젝트 초기 scaffold가 생성되기 전에는 명령이 아직 존재하지 않을 수 있다. scaffold 작업에서 Gradle Wrapper와 위 명령을 사용할 수 있도록 구성한다.
+
+## 구현 순서
+
+1. Spring Boot/Kotlin 프로젝트 기반
+2. PostgreSQL, JPA, Flyway
+3. 공통 오류, 보안, OpenAPI
+4. 카카오 로그인과 세션
+5. 음식점과 지역 제한
+6. 증빙 업로드와 OCR
+7. WriteGrant와 리뷰
+8. 리포트 집계
+9. 관리자 검수, 신고, 정정
+10. 서버 보안·통합·성능 검증
+11. React Native 앱

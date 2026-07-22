@@ -7,6 +7,10 @@ tsconfig.tsbuildinfo
 .env*.local
 !.env.example
 
+# Python cache
+__pycache__/
+*.py[cod]
+
 # phase execution outputs
 phases/**/phase*-output.json
 phases/**/step*-output.json
