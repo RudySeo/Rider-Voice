@@ -16,22 +16,33 @@ React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터
 - Spring MVC
 - Spring Security
 - Spring Data JPA / Hibernate
-- PostgreSQL
+- MySQL 9.3
 - Flyway
 - Bean Validation
 - springdoc-openapi
-- JUnit 5, Kotest 또는 AssertJ, MockK, Testcontainers
+- JUnit 5, Kotest 또는 AssertJ, MockK
 
-### 외부 서비스 및 인프라
+### 외부 서비스
 
 - 카카오 REST OAuth: 소셜 로그인
 - 카카오 로컬 REST API: 음식점 검색과 장소 식별
 - NAVER Cloud CLOVA OCR: 배달 완료 화면 문자 인식
-- Amazon RDS PostgreSQL
+
+### 후속 운영 인프라
+
+- Amazon RDS for MySQL
 - Amazon S3 비공개 버킷
 - Amazon SQS와 Dead Letter Queue
 - Amazon ECS Fargate
 - AWS KMS, Secrets Manager, CloudWatch, WAF
+- 현재 로컬 개발 단계에서는 위 AWS 리소스를 구성하거나 배포하지 않는다.
+
+### 현재 로컬 실행 경계
+
+- Spring Boot API와 MySQL 9.3을 로컬 프로세스로 직접 실행한다.
+- 로컬 데이터베이스명은 `rider`를 사용한다.
+- Docker, Docker Compose와 Testcontainers는 현재 실행 및 검증 경로에서 사용하지 않는다.
+- 배포와 production readiness 검증은 사용자가 별도로 착수를 요청하기 전까지 수행하지 않는다.
 
 ### 후속 클라이언트
 
@@ -235,6 +246,9 @@ CorrectionStatus
 - 외부 provider 오류 메시지, stack trace, secret을 클라이언트에 노출하지 않는다.
 - OpenAPI 문서를 API 계약의 기준으로 사용한다.
 - React Native 타입과 클라이언트는 OpenAPI에서 생성한다.
+- Swagger UI는 로컬 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 제공한다.
+- endpoint 추가 또는 request/response 변경 시 Controller annotation과 공개 DTO schema를 함께 갱신한다.
+- 인증 endpoint에는 Bearer 인증 요구사항을 명시하고 공개 endpoint에는 전역 인증 요구사항을 적용하지 않는다.
 - 멱등성이 필요한 방문 생성과 리뷰 제출 요청에는 idempotency key를 지원한다.
 
 주요 API:
@@ -268,7 +282,7 @@ POST   /api/v1/comments/{id}/reports
 
 ## 9. 데이터베이스 규칙
 
-- PostgreSQL을 단일 source of truth로 사용한다.
+- MySQL을 단일 source of truth로 사용한다.
 - JPA `ddl-auto`는 로컬·운영 모두 schema 생성 용도로 사용하지 않는다.
 - 모든 스키마 변경은 순서가 있는 Flyway migration으로 작성한다.
 - 조회 패턴을 기준으로 인덱스를 명시한다.
@@ -301,7 +315,7 @@ POST   /api/v1/comments/{id}/reports
 
 ### 통합 테스트
 
-- Testcontainers PostgreSQL을 사용한 JPA와 Flyway 검증
+- 실행 중인 로컬 MySQL을 사용한 JPA와 Flyway 검증
 - 카카오·CLOVA·카카오 로컬 adapter의 stub server 테스트
 - S3와 SQS 경계 테스트
 - 로그인부터 방문, 글쓰기 권한, 리뷰, 리포트까지 전체 흐름
@@ -316,7 +330,7 @@ POST   /api/v1/comments/{id}/reports
 ## 12. 로컬 개발 순서
 
 1. Spring Boot/Kotlin 프로젝트 기반
-2. PostgreSQL, JPA, Flyway와 공통 테스트 환경
+2. MySQL, JPA, Flyway와 공통 테스트 환경
 3. 공통 오류, 보안, OpenAPI
 4. 카카오 로그인과 서비스 세션
 5. 음식점과 파일럿 지역
@@ -328,4 +342,4 @@ POST   /api/v1/comments/{id}/reports
 11. OpenAPI 계약 확정
 12. React Native 앱 개발
 
-AWS/ECS 배포, 운영 인프라와 production readiness 검증은 로컬 API와 React Native 계약이 안정화된 후 별도 단계로 진행한다.
+AWS/ECS 배포, 운영 인프라, Docker 기반 테스트와 production readiness 검증은 현재 작업 범위에서 제외한다. 사용자가 착수를 명시적으로 요청할 때 별도 계획으로 진행한다.

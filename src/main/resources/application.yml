@@ -11,6 +11,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        type:
+          preferred_uuid_jdbc_type: BINARY
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -22,6 +24,17 @@ management:
     web:
       exposure:
         include: health
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  paths-to-match: /api/v1/**
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
 
 kakao:
   oauth:

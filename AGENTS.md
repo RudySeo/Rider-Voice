@@ -16,18 +16,29 @@
 - Gradle Kotlin DSL
 - Spring MVC / Spring Security
 - Spring Data JPA / Hibernate
-- PostgreSQL
+- MySQL 9.3
 - Flyway
 - Bean Validation
 - OpenAPI
-- JUnit 5, MockK, Testcontainers
+- JUnit 5, MockK
 
-### 외부 서비스와 인프라
+### 외부 서비스
 
 - 카카오 REST OAuth
 - 카카오 로컬 REST API
 - NAVER Cloud CLOVA OCR
-- AWS RDS, S3, SQS, ECS, KMS, Secrets Manager, CloudWatch
+
+### 후속 운영 인프라
+
+- AWS RDS for MySQL, S3, SQS, ECS, KMS, Secrets Manager, CloudWatch
+- 현재 로컬 개발 단계에서는 구성하거나 배포하지 않는다.
+
+### 현재 실행 환경
+
+- API 서버와 MySQL은 로컬 프로세스로만 실행한다.
+- 로컬 MySQL `rider` 데이터베이스를 사용한다.
+- CRITICAL: 사용자가 별도로 요청하기 전에는 Docker, Docker Compose, Testcontainers를 실행하지 않는다.
+- CRITICAL: 사용자가 별도로 요청하기 전에는 AWS 리소스 생성, 배포 또는 production readiness 작업을 수행하지 않는다.
 
 ### 후속 구현 대상
 
@@ -93,6 +104,10 @@ com.ridervoice.api
 
 - API prefix는 `/api/v1`을 사용한다.
 - OpenAPI를 React Native 클라이언트 계약의 기준으로 유지한다.
+- 새 endpoint를 추가하거나 request/response를 변경할 때 Swagger/OpenAPI 명세를 같은 변경에 포함한다.
+- Controller에는 endpoint 목적과 인증 요구사항을 OpenAPI annotation으로 기록한다.
+- 공개 request/response DTO가 Swagger schema에 정확히 노출되는지 `/v3/api-docs`로 검증한다.
+- 로컬 Swagger UI는 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 제공한다.
 - request DTO는 Bean Validation으로 검증한다.
 - 목록 API는 cursor pagination을 기본으로 한다.
 - 리뷰 제출과 같이 중복 요청 위험이 있는 API는 idempotency를 고려한다.
@@ -102,7 +117,8 @@ com.ridervoice.api
 
 - CRITICAL: 새 기능은 실패하는 테스트를 먼저 작성하고 테스트가 통과하는 최소 구현을 작성한다.
 - domain 정책은 단위 테스트로 검증한다.
-- JPA query, Flyway migration과 transaction은 Testcontainers PostgreSQL 통합 테스트로 검증한다.
+- 현재 단계의 JPA, Flyway와 transaction 검증은 실행 중인 로컬 MySQL을 기준으로 수행한다.
+- Docker/Testcontainers 기반 `integrationTest`는 현재 기본 검증 절차에 포함하지 않는다.
 - 외부 API adapter는 stub server를 사용해 성공, timeout, rate limit, 잘못된 응답을 검증한다.
 - 인증부터 방문, WriteGrant, 리뷰, 리포트까지 핵심 흐름은 통합 테스트를 유지한다.
 - 동시 리뷰 제출에서 하나의 WriteGrant가 한 번만 소진되는지 검증한다.
@@ -123,7 +139,7 @@ com.ridervoice.api
 ## 구현 순서
 
 1. Spring Boot/Kotlin 프로젝트 기반
-2. PostgreSQL, JPA, Flyway
+2. MySQL, JPA, Flyway
 3. 공통 오류, 보안, OpenAPI
 4. 카카오 로그인과 세션
 5. 음식점과 지역 제한

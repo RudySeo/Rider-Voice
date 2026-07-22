@@ -1,7 +1,7 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.support.PostgreSqlIntegrationTest
+import com.ridervoice.api.support.MySqlIntegrationTest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -13,7 +13,7 @@ import java.math.BigDecimal
 
 @SpringBootTest
 @Transactional
-class RestaurantPersistenceIntegrationTest : PostgreSqlIntegrationTest() {
+class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
 
     @Autowired
     private lateinit var restaurants: RestaurantRepository

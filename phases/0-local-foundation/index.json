@@ -1,0 +1,29 @@
+{
+  "project": "Rider Voice",
+  "phase": "0-local-foundation",
+  "steps": [
+    {
+      "step": 0,
+      "name": "baseline-alignment",
+      "status": "completed",
+      "started_at": "2026-07-22T23:50:38+0900",
+      "summary": "MySQL 9.3·Flyway V1~V3·Hibernate validate 기반과 Docker 없는 로컬 테스트, Swagger/OpenAPI 계약 baseline을 정렬했다."
+    },
+    {
+      "step": 1,
+      "name": "problem-detail",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "security-baseline",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "foundation-verification",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-22T23:50:38+0900"
+}

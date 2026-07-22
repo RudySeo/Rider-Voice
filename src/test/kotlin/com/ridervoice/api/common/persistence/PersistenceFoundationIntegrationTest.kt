@@ -1,6 +1,6 @@
 package com.ridervoice.api.common.persistence
 
-import com.ridervoice.api.support.PostgreSqlIntegrationTest
+import com.ridervoice.api.support.MySqlIntegrationTest
 import jakarta.persistence.EntityManagerFactory
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
 
 @SpringBootTest
-class PersistenceFoundationIntegrationTest : PostgreSqlIntegrationTest() {
+class PersistenceFoundationIntegrationTest : MySqlIntegrationTest() {
 
     @Autowired
     private lateinit var flyway: Flyway
@@ -23,13 +23,13 @@ class PersistenceFoundationIntegrationTest : PostgreSqlIntegrationTest() {
     private lateinit var jdbcTemplate: JdbcTemplate
 
     @Test
-    fun `flyway migration succeeds and JPA context boots on PostgreSQL`() {
+    fun `flyway migration succeeds and JPA context boots on MySQL with UTC session`() {
         val currentMigration = requireNotNull(flyway.info().current())
 
         assertThat(currentMigration.version.version).isEqualTo("3")
         assertThat(currentMigration.state).isEqualTo(MigrationState.SUCCESS)
         assertThat(entityManagerFactory.isOpen).isTrue()
-        assertThat(jdbcTemplate.queryForObject("select extract(timezone from current_timestamp)", Int::class.java))
+        assertThat(jdbcTemplate.queryForObject("select timestampdiff(second, utc_timestamp(), current_timestamp())", Int::class.java))
             .isZero()
     }
 }

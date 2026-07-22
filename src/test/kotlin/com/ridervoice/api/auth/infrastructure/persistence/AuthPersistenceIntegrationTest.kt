@@ -5,7 +5,7 @@ import com.ridervoice.api.auth.domain.OAuthLoginState
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
-import com.ridervoice.api.support.PostgreSqlIntegrationTest
+import com.ridervoice.api.support.MySqlIntegrationTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -15,7 +15,7 @@ import java.time.Instant
 
 @SpringBootTest
 @Transactional
-class AuthPersistenceIntegrationTest : PostgreSqlIntegrationTest() {
+class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
 
     @Autowired
     private lateinit var users: UserRepository
