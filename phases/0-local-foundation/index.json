@@ -15,7 +15,8 @@
       "name": "problem-detail",
       "status": "completed",
       "started_at": "2026-07-22T23:55:20+0900",
-      "summary": "common/error에 6개 안정적 error code와 전역 ProblemDetail 변환을 추가하고 AuthService 인증 누락을 401로 연결했으며 MockMvc 계약 테스트로 정보 비노출을 검증했다."
+      "summary": "common/error에 6개 안정적 error code와 전역 ProblemDetail 변환을 추가하고 AuthService 인증 누락을 401로 연결했으며 MockMvc 계약 테스트로 정보 비노출을 검증했다.",
+      "completed_at": "2026-07-23T00:00:36+0900"
     },
     {
       "step": 2,
