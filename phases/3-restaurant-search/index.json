@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "restaurant-persistence-adapter",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-23T14:36:42+0900",
+      "summary": "application RestaurantRepository port를 구현하는 internal Spring Data persistence adapter와 included_in_pilot 제거 V5 migration을 추가하고 조회·검색·저장·unique 충돌을 통합 검증했다."
     },
     {
       "step": 3,
