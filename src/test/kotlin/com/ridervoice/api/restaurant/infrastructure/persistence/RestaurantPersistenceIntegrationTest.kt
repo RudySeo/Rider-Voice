@@ -27,7 +27,6 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
                 address = "서울 강남구 테헤란로 1",
                 latitude = BigDecimal("37.4987654"),
                 longitude = BigDecimal("127.0276543"),
-                includedInPilot = true,
             ),
         )
 
@@ -38,7 +37,6 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
         assertThat(found.orElseThrow().address).isEqualTo("서울 강남구 테헤란로 1")
         assertThat(found.orElseThrow().latitude).isEqualByComparingTo("37.4987654")
         assertThat(found.orElseThrow().longitude).isEqualByComparingTo("127.0276543")
-        assertThat(found.orElseThrow().includedInPilot).isTrue()
     }
 
     @Test
@@ -56,6 +54,5 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
         address = "서울 강남구 역삼동 1",
         latitude = BigDecimal("37.5000000"),
         longitude = BigDecimal("127.0000000"),
-        includedInPilot = false,
     )
 }

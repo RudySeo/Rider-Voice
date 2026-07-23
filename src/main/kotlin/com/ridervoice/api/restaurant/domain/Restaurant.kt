@@ -30,8 +30,6 @@ class Restaurant(
     val latitude: BigDecimal,
     @field:Column(nullable = false, precision = 11, scale = 7)
     val longitude: BigDecimal,
-    @field:Column(name = "included_in_pilot", nullable = false)
-    val includedInPilot: Boolean,
     @field:Id
     @field:Column(nullable = false, updatable = false)
     val id: UUID = UUID.randomUUID(),

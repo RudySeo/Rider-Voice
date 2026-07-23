@@ -2,12 +2,43 @@
   "project": "Rider Voice",
   "phase": "3-restaurant-search",
   "steps": [
-    { "step": 0, "name": "restaurant-domain-alignment", "status": "pending" },
-    { "step": 1, "name": "restaurant-application-ports", "status": "pending" },
-    { "step": 2, "name": "restaurant-persistence-adapter", "status": "pending" },
-    { "step": 3, "name": "kakao-local-adapter", "status": "pending" },
-    { "step": 4, "name": "restaurant-application-service", "status": "pending" },
-    { "step": 5, "name": "restaurant-presentation-api", "status": "pending" },
-    { "step": 6, "name": "restaurant-regression-tests", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "restaurant-domain-alignment",
+      "status": "completed",
+      "started_at": "2026-07-23T14:31:04+0900",
+      "summary": "Restaurant에서 includedInPilot을 제거하고 카카오 장소 정보와 좌표 불변식을 검증하는 도메인 단위 테스트를 추가했다."
+    },
+    {
+      "step": 1,
+      "name": "restaurant-application-ports",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "restaurant-persistence-adapter",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "kakao-local-adapter",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "restaurant-application-service",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "restaurant-presentation-api",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "restaurant-regression-tests",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-23T14:31:04+0900"
 }
