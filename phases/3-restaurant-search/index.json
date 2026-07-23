@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "restaurant-application-service",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-23T14:44:38+0900",
+      "summary": "내부·카카오 후보 병합과 원검색어 재검증, 기존·동시 unique 충돌 멱등 등록을 처리하는 RestaurantService와 단위 테스트를 추가했다."
     },
     {
       "step": 5,
