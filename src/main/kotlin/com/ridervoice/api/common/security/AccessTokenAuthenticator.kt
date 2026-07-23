@@ -16,7 +16,10 @@ data class AuthenticatedUserPrincipal(override val userId: UUID) : BearerPrincip
     }
 }
 
-data class OnboardingPrincipal(override val userId: UUID) : BearerPrincipal {
+data class OnboardingPrincipal(
+    override val userId: UUID,
+    val tokenHash: String = "",
+) : BearerPrincipal {
     override val authority: String
         get() = AUTHORITY
 

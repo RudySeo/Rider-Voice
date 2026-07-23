@@ -1,6 +1,8 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
+import com.ridervoice.api.auth.application.AuthTokens
+import com.ridervoice.api.auth.application.CallbackResult
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OnboardingPrincipal
@@ -40,22 +42,25 @@ class AuthController(private val auth: AuthService) {
     @GetMapping("/kakao/authorize")
     fun authorize() = AuthorizationUrlResponse(auth.authorize())
 
-    @Operation(summary = "카카오 로그인 callback 처리")
+    @Operation(
+        summary = "카카오 로그인 callback 처리",
+        description = "ACTIVE 사용자는 정식 tokens를, PENDING_TERMS 사용자는 5분 유효 onboardingToken을 반환합니다.",
+    )
     @GetMapping("/kakao/callback")
     fun callback(
         @Parameter(description = "카카오가 발급한 authorization code") @RequestParam code: String,
         @Parameter(description = "로그인 요청 위조 방지 state") @RequestParam state: String,
-    ) = auth.callback(code, state)
+    ): CallbackResult = auth.callback(code, state)
 
     @Operation(
         summary = "필수 약관 동의",
-        security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
+        security = [SecurityRequirement(name = OpenApiConfiguration.ONBOARDING_BEARER_AUTH)],
     )
     @PostMapping("/consents")
     fun consent(
         @AuthenticationPrincipal principal: OnboardingPrincipal,
         @Valid @RequestBody request: ConsentRequest,
-    ) = auth.agree(principal, request.termsVersion)
+    ): AuthTokens = auth.agree(principal, request.termsVersion)
 
     @Operation(summary = "서비스 access token 갱신")
     @PostMapping("/refresh")

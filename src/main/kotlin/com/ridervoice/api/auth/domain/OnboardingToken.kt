@@ -47,6 +47,7 @@ class OnboardingToken(
 
     fun isUsableAt(at: Instant): Boolean = consumedAt == null && at.isBefore(expiresAt)
 
+    @Synchronized
     fun consume(at: Instant) {
         check(isUsableAt(at)) { "Onboarding token is consumed or expired" }
         consumedAt = at

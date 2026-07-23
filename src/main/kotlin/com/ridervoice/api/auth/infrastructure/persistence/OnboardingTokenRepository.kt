@@ -11,6 +11,8 @@ import java.util.UUID
 
 interface OnboardingTokenRepository : JpaRepository<OnboardingToken, UUID> {
 
+    fun findByTokenHash(tokenHash: String): Optional<OnboardingToken>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select token from OnboardingToken token where token.tokenHash = :tokenHash")
     fun findByTokenHashForUpdate(@Param("tokenHash") tokenHash: String): Optional<OnboardingToken>

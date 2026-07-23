@@ -25,10 +25,18 @@ class OpenApiConfiguration {
                     .type(SecurityScheme.Type.HTTP)
                     .scheme("bearer")
                     .bearerFormat("opaque"),
+            ).addSecuritySchemes(
+                ONBOARDING_BEARER_AUTH,
+                SecurityScheme()
+                    .type(SecurityScheme.Type.HTTP)
+                    .scheme("bearer")
+                    .bearerFormat("opaque-onboarding")
+                    .description("약관 동의 API에서만 사용하는 5분 유효 일회용 onboarding token"),
             ),
         )
 
     companion object {
         const val BEARER_AUTH = "bearerAuth"
+        const val ONBOARDING_BEARER_AUTH = "onboardingBearerAuth"
     }
 }
