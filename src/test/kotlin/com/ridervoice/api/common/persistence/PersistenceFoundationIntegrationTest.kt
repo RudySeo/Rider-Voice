@@ -26,7 +26,7 @@ class PersistenceFoundationIntegrationTest : MySqlIntegrationTest() {
     fun `flyway migration succeeds and JPA context boots on MySQL with UTC session`() {
         val currentMigration = requireNotNull(flyway.info().current())
 
-        assertThat(currentMigration.version.version).isEqualTo("3")
+        assertThat(currentMigration.version.version).isEqualTo("4")
         assertThat(currentMigration.state).isEqualTo(MigrationState.SUCCESS)
         assertThat(entityManagerFactory.isOpen).isTrue()
         assertThat(jdbcTemplate.queryForObject("select timestampdiff(second, utc_timestamp(), current_timestamp())", Int::class.java))

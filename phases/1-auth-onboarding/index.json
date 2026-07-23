@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "onboarding-token-persistence",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-23T09:36:54+0900",
+      "summary": "auth/infrastructure/persistence/OnboardingTokenRepository.kt와 V4 migration을 추가해 token hash 비관적 잠금 조회 및 UUID·FK·unique·활성 만료 인덱스 영속성을 구현했다."
     },
     {
       "step": 2,
