@@ -7,7 +7,8 @@
       "name": "restaurant-domain-alignment",
       "status": "completed",
       "started_at": "2026-07-23T14:31:04+0900",
-      "summary": "Restaurant에서 includedInPilot을 제거하고 카카오 장소 정보와 좌표 불변식을 검증하는 도메인 단위 테스트를 추가했다."
+      "summary": "Restaurant에서 includedInPilot을 제거하고 카카오 장소 정보와 좌표 불변식을 검증하는 도메인 단위 테스트를 추가했다.",
+      "completed_at": "2026-07-23T14:33:34+0900"
     },
     {
       "step": 1,
