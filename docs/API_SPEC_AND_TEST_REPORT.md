@@ -1,8 +1,8 @@
 # Rider Voice API 명세 및 테스트 결과
 
-> 기준일: 2026-07-23  
-> 구현 기준: `feat-3-restaurant-search`  
-> Base URL: `http://localhost:8080`  
+> 기준일: 2026-07-23
+> 구현 기준: `feat-3-restaurant-search`
+> Base URL: `http://localhost:8080`
 > API prefix: `/api/v1`
 
 ## 1. 현재 구현 범위
