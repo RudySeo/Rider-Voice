@@ -3,6 +3,7 @@ package com.ridervoice.api.auth.presentation
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
+import com.ridervoice.api.common.security.OnboardingPrincipal
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
@@ -52,7 +53,7 @@ class AuthController(private val auth: AuthService) {
     )
     @PostMapping("/consents")
     fun consent(
-        @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @AuthenticationPrincipal principal: OnboardingPrincipal,
         @Valid @RequestBody request: ConsentRequest,
     ) = auth.agree(principal, request.termsVersion)
 

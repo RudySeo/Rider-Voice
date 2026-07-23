@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.boot.test.context.TestComponent
 import org.springframework.http.HttpHeaders
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.mock.web.MockServletContext
@@ -62,7 +63,7 @@ class SecurityPolicyMockMvcTest {
     }
 
     @Test
-    fun `consent logout and current user require a bearer access token`() {
+    fun `protected endpoints require a bearer token`() {
         mockMvc.post("/api/v1/auth/consents").andExpect { status { isUnauthorized() } }
         mockMvc.post("/api/v1/auth/logout").andExpect { status { isUnauthorized() } }
         mockMvc.get("/api/v1/users/me").andExpect { status { isUnauthorized() } }
@@ -75,10 +76,22 @@ class SecurityPolicyMockMvcTest {
             content { string(not(containsString("invalid-access-token"))) }
         }
 
-        listOf("/api/v1/auth/consents", "/api/v1/auth/logout").forEach { path ->
-            mockMvc.post(path) {
-                header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-            }.andExpect { status { isOk() } }
+    }
+
+    @Test
+    fun `only an onboarding token can access consent`() {
+        mockMvc.post("/api/v1/auth/consents") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
+        }.andExpect {
+            status { isOk() }
+            content { string("OnboardingPrincipal:$TEST_USER_ID:ROLE_ONBOARDING") }
+        }
+
+        mockMvc.post("/api/v1/auth/consents") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+        }.andExpect {
+            status { isForbidden() }
+            jsonPath("$.code") { value("ACCESS_DENIED") }
         }
     }
 
@@ -88,7 +101,37 @@ class SecurityPolicyMockMvcTest {
             header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
         }.andExpect {
             status { isOk() }
-            content { string(TEST_USER_ID.toString()) }
+            content { string("AuthenticatedUserPrincipal:$TEST_USER_ID:ROLE_USER") }
+        }
+    }
+
+    @Test
+    fun `an onboarding token cannot access user scoped or unspecified APIs`() {
+        listOf("/api/v1/users/me", "/api/v1/denied").forEach { path ->
+            mockMvc.get(path) {
+                header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
+            }.andExpect {
+                status { isForbidden() }
+                jsonPath("$.code") { value("ACCESS_DENIED") }
+            }
+        }
+
+        listOf("/api/v1/auth/logout", "/api/v1/review-drafts/fixture").forEach { path ->
+            mockMvc.post(path) {
+                header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
+            }.andExpect {
+                status { isForbidden() }
+                jsonPath("$.code") { value("ACCESS_DENIED") }
+            }
+        }
+    }
+
+    @Test
+    fun `a user token can access user scoped endpoints including future review drafts`() {
+        listOf("/api/v1/auth/logout", "/api/v1/review-drafts/fixture").forEach { path ->
+            mockMvc.post(path) {
+                header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+            }.andExpect { status { isOk() } }
         }
     }
 
@@ -114,7 +157,11 @@ class SecurityPolicyMockMvcTest {
     class SecurityPolicyTestConfiguration {
         @Bean
         fun accessTokenAuthenticator(): AccessTokenAuthenticator = AccessTokenAuthenticator { accessToken ->
-            if (accessToken == "valid-access-token") AuthenticatedUserPrincipal(TEST_USER_ID) else null
+            when (accessToken) {
+                "valid-access-token" -> AuthenticatedUserPrincipal(TEST_USER_ID)
+                "valid-onboarding-token" -> OnboardingPrincipal(TEST_USER_ID)
+                else -> null
+            }
         }
     }
 }
@@ -136,11 +183,23 @@ private class SecurityPolicyFixtureController {
     @PostMapping("/api/v1/auth/refresh")
     fun publicPost() = "ok"
 
-    @PostMapping("/api/v1/auth/consents", "/api/v1/auth/logout")
-    fun protectedPost() = "ok"
+    @PostMapping("/api/v1/auth/consents")
+    fun consent(
+        @AuthenticationPrincipal principal: OnboardingPrincipal,
+        authentication: Authentication,
+    ) = "${principal::class.simpleName}:${principal.userId}:${authentication.authorities.single().authority}"
+
+    @PostMapping("/api/v1/auth/logout")
+    fun logout() = "ok"
 
     @GetMapping("/api/v1/users/me")
-    fun me(@AuthenticationPrincipal principal: AuthenticatedUserPrincipal): String = principal.userId.toString()
+    fun me(
+        @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        authentication: Authentication,
+    ) = "${principal::class.simpleName}:${principal.userId}:${authentication.authorities.single().authority}"
+
+    @PostMapping("/api/v1/review-drafts/fixture")
+    fun reviewDraft() = "ok"
 
     @GetMapping("/api/v1/denied")
     fun denied() = "denied"

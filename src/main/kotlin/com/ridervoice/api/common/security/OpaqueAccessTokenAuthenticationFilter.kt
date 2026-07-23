@@ -39,7 +39,7 @@ class OpaqueAccessTokenAuthenticationFilter(
         val authentication = UsernamePasswordAuthenticationToken(
             principal,
             null,
-            listOf(SimpleGrantedAuthority(USER_AUTHORITY)),
+            listOf(SimpleGrantedAuthority(principal.authority)),
         )
         SecurityContextHolder.getContext().authentication = authentication
         filterChain.doFilter(request, response)
@@ -47,7 +47,6 @@ class OpaqueAccessTokenAuthenticationFilter(
 
     private companion object {
         const val BEARER_PREFIX = "Bearer "
-        const val USER_AUTHORITY = "ROLE_USER"
     }
 }
 

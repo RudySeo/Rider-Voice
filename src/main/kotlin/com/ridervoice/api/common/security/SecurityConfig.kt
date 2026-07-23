@@ -37,12 +37,11 @@ class SecurityConfig(
                 "/api/v1/auth/kakao/callback",
             ).permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
-            it.requestMatchers(
-                HttpMethod.POST,
-                "/api/v1/auth/consents",
-                "/api/v1/auth/logout",
-            ).authenticated()
-            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
+            it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me/review-drafts").hasRole("USER")
+            it.requestMatchers("/api/v1/review-drafts", "/api/v1/review-drafts/**").hasRole("USER")
             it.anyRequest().denyAll()
         }
         .addFilterBefore(accessTokenFilter, AnonymousAuthenticationFilter::class.java)

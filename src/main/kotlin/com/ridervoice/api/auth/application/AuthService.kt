@@ -11,6 +11,7 @@ import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
+import com.ridervoice.api.common.security.OnboardingPrincipal
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -55,7 +56,7 @@ class AuthService(
     }
 
     @Transactional
-    fun agree(principal: AuthenticatedUserPrincipal, version: String): AuthTokens {
+    fun agree(principal: OnboardingPrincipal, version: String): AuthTokens {
         val user = users.findById(principal.userId).orElseThrow()
         user.agreeToTerms(version, clock.instant())
         return issueTokens(user)
