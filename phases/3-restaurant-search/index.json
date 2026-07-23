@@ -55,7 +55,8 @@
       "name": "restaurant-regression-tests",
       "status": "completed",
       "started_at": "2026-07-23T14:56:38+0900",
-      "summary": "application 역방향 의존, adapter stub, 등록 멱등성, ROLE_USER 권한과 공개 OpenAPI DTO 계약을 회귀 검증하고 README의 카카오 로컬 설정·구현 API를 갱신했다."
+      "summary": "application 역방향 의존, adapter stub, 등록 멱등성, ROLE_USER 권한과 공개 OpenAPI DTO 계약을 회귀 검증하고 README의 카카오 로컬 설정·구현 API를 갱신했다.",
+      "completed_at": "2026-07-23T15:01:57+0900"
     }
   ],
   "created_at": "2026-07-23T14:31:04+0900"
