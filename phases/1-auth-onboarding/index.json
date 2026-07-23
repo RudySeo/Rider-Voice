@@ -1,0 +1,39 @@
+{
+  "project": "Rider Voice",
+  "phase": "1-auth-onboarding",
+  "steps": [
+    {
+      "step": 0,
+      "name": "onboarding-token-domain",
+      "status": "completed",
+      "started_at": "2026-07-23T09:32:51+0900",
+      "summary": "auth/domain/OnboardingToken.kt와 단위 테스트를 추가해 SHA-256 hash만 보관하는 5분 만료 일회성 소비 규칙을 구현했다."
+    },
+    {
+      "step": 1,
+      "name": "onboarding-token-persistence",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "bearer-auth-boundary",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "onboarding-consent-flow",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "session-lifecycle-hardening",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "auth-regression-tests",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-23T09:32:51+0900"
+}
