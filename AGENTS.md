@@ -12,7 +12,7 @@
 
 - Spring Boot, Kotlin, Gradle Kotlin DSL
 - Spring MVC, Spring Security, Bean Validation
-- Spring Data JPA, Hibernate, MySQL 9.3, Flyway
+- Spring Data JPA, Hibernate, MySQL 9.3
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK
 - 카카오 REST OAuth, 카카오 로컬 REST API
@@ -39,7 +39,8 @@
 - CRITICAL: Controller는 application input port에 의존하고 repository나 외부 adapter를 직접 호출하지 않는다.
 - CRITICAL: 외부 API는 infrastructure adapter에서만 호출한다.
 - CRITICAL: 클라이언트가 DB나 카카오 API를 직접 호출하게 하지 않는다.
-- CRITICAL: Flyway migration 없이 DB schema를 변경하지 않는다.
+- CRITICAL: 모든 Entity 기본 키는 `BaseEntity`의 `Long IDENTITY` 전략을 사용한다.
+- CRITICAL: 로컬과 통합 테스트에서는 Hibernate `ddl-auto=update`로 Entity mapping을 schema에 반영한다.
 - CRITICAL: 운영 환경에서 Hibernate schema auto-generation을 활성화하지 않는다.
 - CRITICAL: 외부 provider 오류, secret과 stack trace를 클라이언트에 노출하지 않는다.
 - Controller는 HTTP validation, principal 추출, input port 호출과 response 변환만 담당한다.
@@ -53,6 +54,7 @@
 - 모든 class에 interface를 만들지 말고 inbound use case와 outbound dependency에만 port를 둔다.
 - 성공 응답은 기능별 DTO, 오류 응답은 RFC 7807 `ProblemDetail`을 사용한다.
 - 모든 시각은 UTC로 저장하고 API에서는 RFC 3339로 반환한다.
+- Entity 연관관계는 필요한 자식→부모 단방향 `LAZY` 관계만 사용하고 편의를 위한 양방향 컬렉션을 추가하지 않는다.
 
 ## 패키지 규칙
 
@@ -80,7 +82,7 @@ com.ridervoice.api
 - 등록 요청에는 원래 검색어와 선택한 카카오 장소 ID를 받고, 서버가 같은 키워드 검색을 반복해 일치하는 provider 결과로만 등록한다.
 - 사용자 입력의 음식점명, 주소, 좌표와 카카오 장소 ID를 그대로 신뢰하지 않는다.
 - 카카오 로컬 API는 장소 ID 단건 조회를 제공하지 않으므로 클라이언트가 보낸 장소 ID만으로 등록하지 않는다.
-- 기존 `restaurants.included_in_pilot`은 새 Flyway migration으로 제거하고 다른 의미로 재사용하지 않는다.
+- 제거된 지역 파일럿 필드를 다시 추가하거나 다른 의미로 재사용하지 않는다.
 - `kakaoPlaceId` unique 제약과 application 정책으로 중복 등록을 방지한다.
 - 최초 선택 사용자에게 음식점 소유권이나 수정 권한을 부여하지 않는다.
 
@@ -109,7 +111,7 @@ com.ridervoice.api
 
 - CRITICAL: 새 기능은 실패하는 테스트를 먼저 작성하고 테스트가 통과하는 최소 구현을 작성한다.
 - domain 정책은 단위 테스트로 검증한다.
-- JPA, Flyway와 transaction 검증은 실행 중인 로컬 MySQL을 기준으로 수행한다.
+- JPA schema 생성, 연관관계와 transaction 검증은 실행 중인 로컬 MySQL을 기준으로 수행한다.
 - Docker/Testcontainers 기반 통합 테스트를 기본 검증 절차에 포함하지 않는다.
 - 카카오 로컬 adapter는 stub server로 성공, timeout, rate limit과 잘못된 응답을 검증한다.
 - 음식점과 리뷰의 unique 제약은 동시 요청을 포함해 검증한다.

@@ -4,7 +4,6 @@ import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.Restaurant
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
-import java.util.UUID
 
 @Repository
 internal class RestaurantPersistenceAdapter(
@@ -14,7 +13,7 @@ internal class RestaurantPersistenceAdapter(
     override fun searchByNameOrAddress(query: String): List<Restaurant> =
         springDataRepository.findByNameContainingIgnoreCaseOrAddressContainingIgnoreCase(query, query)
 
-    override fun findById(id: UUID): Restaurant? = springDataRepository.findById(id).orElse(null)
+    override fun findById(id: Long): Restaurant? = springDataRepository.findById(id).orElse(null)
 
     override fun findByKakaoPlaceId(kakaoPlaceId: String): Restaurant? =
         springDataRepository.findByKakaoPlaceId(kakaoPlaceId)
@@ -22,7 +21,7 @@ internal class RestaurantPersistenceAdapter(
     override fun save(restaurant: Restaurant): Restaurant = springDataRepository.saveAndFlush(restaurant)
 }
 
-internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, UUID> {
+internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Long> {
     fun findByNameContainingIgnoreCaseOrAddressContainingIgnoreCase(
         name: String,
         address: String,

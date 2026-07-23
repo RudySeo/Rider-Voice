@@ -28,5 +28,5 @@
 ## 하지 말 것
 
 - `ReviewDraft`, 방문 인증, `WriteGrant` 또는 공개 상태를 추가하지 말 것. 이유: 현재 MVP 범위를 벗어난다.
-- Controller, repository 또는 migration을 이 step에 추가하지 말 것. 이유: domain 범위를 유지한다.
+- Controller, repository 또는 schema 설정을 이 step에 추가하지 말 것. 이유: domain 범위를 유지한다.
 - 기존 test를 깨뜨리지 말 것.

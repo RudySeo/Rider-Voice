@@ -12,9 +12,10 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.dao.DataIntegrityViolationException
 import java.math.BigDecimal
-import java.util.UUID
 
 class RestaurantServiceTest {
+
+    private var nextRestaurantId = 1L
 
     @Test
     fun `search merges internal and Kakao candidates by place id and includes registration id`() {
@@ -205,11 +206,12 @@ class RestaurantServiceTest {
 
         override fun searchByNameOrAddress(query: String): List<Restaurant> = searchResults
 
-        override fun findById(id: UUID): Restaurant? = restaurants.values.find { it.id == id }
+        override fun findById(id: Long): Restaurant? = restaurants.values.find { it.id == id }
 
         override fun findByKakaoPlaceId(kakaoPlaceId: String): Restaurant? = restaurants[kakaoPlaceId]
 
         override fun save(restaurant: Restaurant): Restaurant {
+            if (restaurant.id == 0L) restaurant.id = restaurants.size + 100L
             saved += restaurant
             restaurants[restaurant.kakaoPlaceId] = restaurant
             return restaurant
@@ -243,7 +245,7 @@ class RestaurantServiceTest {
         address = address,
         latitude = latitude,
         longitude = longitude,
-    )
+    ).apply { id = nextRestaurantId++ }
 
     private fun place(
         kakaoPlaceId: String,

@@ -30,7 +30,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Optional
-import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -53,7 +52,7 @@ class AuthServiceTest {
         `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "new-subject"))
             .thenReturn(Optional.empty())
         `when`(users.save(org.mockito.ArgumentMatchers.any(User::class.java)))
-            .thenAnswer { it.arguments[0] as User }
+            .thenAnswer { (it.arguments[0] as User).apply { id = 1L } }
 
         val result = auth.callback("code", "state")
         val onboardingToken = requireNotNull(result.onboardingToken)
@@ -69,16 +68,15 @@ class AuthServiceTest {
         verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
         `when`(onboardingTokens.findByTokenHash(captor.value.tokenHash)).thenReturn(Optional.of(captor.value))
         assertThat(auth.authenticate(onboardingToken))
-            .isEqualTo(OnboardingPrincipal(captor.value.userId, captor.value.tokenHash))
+            .isEqualTo(OnboardingPrincipal(captor.value.user.id, captor.value.tokenHash))
     }
 
     @Test
     fun `active user callback returns only regular access and refresh tokens`() {
         prepareCallback("existing-subject")
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val user = User().apply { id = 2L }.also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
         `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "existing-subject"))
-            .thenReturn(Optional.of(OAuthAccount(user.id, OAuthProvider.KAKAO, "existing-subject")))
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+            .thenReturn(Optional.of(OAuthAccount(user, OAuthProvider.KAKAO, "existing-subject")))
         `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
             .thenAnswer { it.arguments[0] as UserSession }
 
@@ -163,7 +161,7 @@ class AuthServiceTest {
         val refreshedTokens = auth.refresh(initialTokens.refreshToken)
 
         assertThat(initialSession.revokedAt).isEqualTo(now)
-        assertThat(initialSession.rotatedToSessionId).isEqualTo(savedSessions.last().id)
+        assertThat(initialSession.rotatedToSession).isSameAs(savedSessions.last())
         assertThat(savedSessions.last().expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         assertThat(auth.authenticate(refreshedTokens.accessToken))
             .isEqualTo(AuthenticatedUserPrincipal(user.id))
@@ -173,10 +171,10 @@ class AuthServiceTest {
 
     @Test
     fun `expired refresh token cannot create a successor session`() {
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val user = User().apply { id = 3L }.also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
         val rawRefreshToken = "expired-refresh-token"
         val expiredSession = UserSession(
-            userId = user.id,
+            user = user,
             refreshTokenHash = sha256(rawRefreshToken),
             expiresAt = now,
         )
@@ -191,9 +189,9 @@ class AuthServiceTest {
 
     @Test
     fun `valid locked onboarding token is consumed with terms agreement and formal token issuance`() {
-        val user = User()
+        val user = User().apply { id = 4L }
         val rawToken = "raw-onboarding-token"
-        val token = onboardingToken(user.id, rawToken)
+        val token = onboardingToken(user, rawToken)
         `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
         `when`(users.findById(user.id)).thenReturn(Optional.of(user))
         `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
@@ -211,9 +209,9 @@ class AuthServiceTest {
 
     @Test
     fun `expired or consumed onboarding token cannot issue a session`() {
-        val user = User()
-        val expired = OnboardingToken(user.id, sha256("expired"), now.minusSeconds(301), now.minusSeconds(1))
-        val consumed = onboardingToken(user.id, "consumed").also { it.consume(now.minusSeconds(1)) }
+        val user = User().apply { id = 5L }
+        val expired = OnboardingToken(user, sha256("expired"), now.minusSeconds(301), now.minusSeconds(1))
+        val consumed = onboardingToken(user, "consumed").also { it.consume(now.minusSeconds(1)) }
         `when`(users.findById(user.id)).thenReturn(Optional.of(user))
 
         listOf(expired, consumed).forEach { token ->
@@ -228,9 +226,9 @@ class AuthServiceTest {
 
     @Test
     fun `onboarding token cannot be used by a different user`() {
-        val owner = User()
-        val otherUserId = UUID.randomUUID()
-        val token = onboardingToken(owner.id, "owner-token")
+        val owner = User().apply { id = 6L }
+        val otherUserId = 7L
+        val token = onboardingToken(owner, "owner-token")
         `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
 
         assertThrows<AuthenticationRequiredException> {
@@ -238,14 +236,14 @@ class AuthServiceTest {
         }
 
         assertThat(token.consumedAt).isNull()
-        verify(users, never()).findById(org.mockito.ArgumentMatchers.any(UUID::class.java))
+        verify(users, never()).findById(org.mockito.ArgumentMatchers.anyLong())
         verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
     }
 
     @Test
     fun `simultaneous duplicate consent consumes one onboarding token only once`() {
-        val user = User()
-        val token = onboardingToken(user.id, "one-use-token")
+        val user = User().apply { id = 8L }
+        val token = onboardingToken(user, "one-use-token")
         `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
         `when`(users.findById(user.id)).thenReturn(Optional.of(user))
         `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
@@ -282,9 +280,9 @@ class AuthServiceTest {
 
     private fun prepareActiveCallback(providerSubject: String): User {
         prepareCallback(providerSubject)
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val user = User().apply { id = 9L }.also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
         `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, providerSubject))
-            .thenReturn(Optional.of(OAuthAccount(user.id, OAuthProvider.KAKAO, providerSubject)))
+            .thenReturn(Optional.of(OAuthAccount(user, OAuthProvider.KAKAO, providerSubject)))
         `when`(users.findById(user.id)).thenReturn(Optional.of(user))
         `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
             .thenAnswer { it.arguments[0] as UserSession }
@@ -298,8 +296,8 @@ class AuthServiceTest {
         }
     }
 
-    private fun onboardingToken(userId: UUID, rawToken: String) = OnboardingToken(
-        userId = userId,
+    private fun onboardingToken(user: User, rawToken: String) = OnboardingToken(
+        user = user,
         tokenHash = sha256(rawToken),
         issuedAt = now,
         expiresAt = now.plusSeconds(5 * 60L),

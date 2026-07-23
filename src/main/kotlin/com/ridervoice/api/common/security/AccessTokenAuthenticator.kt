@@ -1,13 +1,11 @@
 package com.ridervoice.api.common.security
 
-import java.util.UUID
-
 sealed interface BearerPrincipal {
-    val userId: UUID
+    val userId: Long
     val authority: String
 }
 
-data class AuthenticatedUserPrincipal(override val userId: UUID) : BearerPrincipal {
+data class AuthenticatedUserPrincipal(override val userId: Long) : BearerPrincipal {
     override val authority: String
         get() = AUTHORITY
 
@@ -17,7 +15,7 @@ data class AuthenticatedUserPrincipal(override val userId: UUID) : BearerPrincip
 }
 
 data class OnboardingPrincipal(
-    override val userId: UUID,
+    override val userId: Long,
     val tokenHash: String = "",
 ) : BearerPrincipal {
     override val authority: String

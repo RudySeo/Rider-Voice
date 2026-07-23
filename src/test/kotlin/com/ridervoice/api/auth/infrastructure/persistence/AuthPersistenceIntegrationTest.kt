@@ -40,10 +40,10 @@ class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
     @Test
     fun `auth repositories persist and find provider session and login state data`() {
         val user = users.save(User())
-        val account = oauthAccounts.save(OAuthAccount(user.id, OAuthProvider.KAKAO, "provider-subject"))
+        val account = oauthAccounts.save(OAuthAccount(user, OAuthProvider.KAKAO, "provider-subject"))
         val session = userSessions.save(
             UserSession(
-                userId = user.id,
+                user = user,
                 refreshTokenHash = "sha256:refresh-token-hash",
                 expiresAt = Instant.parse("2026-07-23T12:00:00Z"),
             ),
@@ -64,13 +64,13 @@ class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
     }
 
     @Test
-    fun `onboarding token preserves UUID and UTC instants and is loaded with the consuming lock query`() {
+    fun `onboarding token preserves generated identity and UTC instants and is loaded with the consuming lock query`() {
         val issuedAt = Instant.parse("2026-07-23T03:04:05.123456Z")
         val beforeSave = Instant.now()
         val user = users.save(User())
         val token = onboardingTokens.saveAndFlush(
             OnboardingToken(
-                userId = user.id,
+                user = user,
                 tokenHash = "sha256:onboarding-token-hash",
                 issuedAt = issuedAt,
                 expiresAt = issuedAt.plusSeconds(5 * 60L),
@@ -81,7 +81,7 @@ class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
         val persisted = onboardingTokens.findByTokenHashForUpdate(token.tokenHash).orElseThrow()
 
         assertThat(persisted.id).isEqualTo(token.id)
-        assertThat(persisted.userId).isEqualTo(user.id)
+        assertThat(persisted.user.id).isEqualTo(user.id)
         assertThat(persisted.createdAt).isBetween(beforeSave, Instant.now())
         assertThat(persisted.expiresAt).isEqualTo(issuedAt.plusSeconds(5 * 60L))
     }

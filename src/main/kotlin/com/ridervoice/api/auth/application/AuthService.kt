@@ -26,11 +26,10 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.Base64
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 data class AuthTokens(val accessToken: String, val refreshToken: String, val user: UserSummary)
-data class UserSummary(val id: UUID, val status: String, val termsVersion: String?)
+data class UserSummary(val id: Long, val status: String, val termsVersion: String?)
 
 @Service
 class AuthService(
@@ -58,7 +57,9 @@ class AuthService(
         loginState.consume(clock.instant())
         val profile = kakao.getUser(kakao.exchangeCode(code))
         val account = accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, profile.providerSubject).orElse(null)
-        val user = account?.let { users.findById(it.userId).orElseThrow() } ?: users.save(User().also { accounts.save(OAuthAccount(it.id, OAuthProvider.KAKAO, profile.providerSubject)) })
+        val user = account?.user ?: users.save(User()).also {
+            accounts.save(OAuthAccount(it, OAuthProvider.KAKAO, profile.providerSubject))
+        }
         return when (user.status) {
             UserStatus.ACTIVE -> CallbackResult(
                 user = userSummary(user),
@@ -84,7 +85,7 @@ class AuthService(
         val token = onboardingTokens.findByTokenHashForUpdate(principal.tokenHash)
             .orElseThrow { AuthenticationRequiredException("Invalid onboarding token") }
         val now = clock.instant()
-        if (token.userId != principal.userId || !token.isUsableAt(now)) {
+        if (token.user.id != principal.userId || !token.isUsableAt(now)) {
             throw AuthenticationRequiredException("Invalid onboarding token")
         }
         val user = users.findById(principal.userId).orElseThrow()
@@ -99,17 +100,17 @@ class AuthService(
             .orElseThrow { IllegalArgumentException("Invalid refresh token") }
         val now = clock.instant()
         check(session.isActiveAt(now)) { "Refresh session is inactive" }
-        val user = users.findById(session.userId).orElseThrow()
+        val user = session.user
         check(user.status == UserStatus.ACTIVE) { "User is not eligible to refresh a session" }
         val next = issueTokens(user)
-        session.rotateTo(next.sessionId, now)
+        session.rotateTo(next.session, now)
         return next.tokens
     }
 
     @Transactional
     fun logout(principal: AuthenticatedUserPrincipal, refreshToken: String) {
         sessions.findByRefreshTokenHashForUpdate(hash(refreshToken))
-            .filter { it.userId == principal.userId }
+            .filter { it.user.id == principal.userId }
             .ifPresent { session ->
                 session.revoke(clock.instant())
                 accessTokens.entries.removeIf { it.value.sessionId == session.id }
@@ -118,6 +119,7 @@ class AuthService(
 
     fun me(principal: AuthenticatedUserPrincipal): UserSummary = users.findById(principal.userId).map(::userSummary).orElseThrow()
 
+    @Transactional(readOnly = true)
     override fun authenticate(accessToken: String): BearerPrincipal? {
         accessTokens[accessToken]?.let { record ->
             if (!clock.instant().isBefore(record.expiresAt)) {
@@ -131,7 +133,7 @@ class AuthService(
         }
         return onboardingTokens.findByTokenHash(hash(accessToken))
             .filter { it.isUsableAt(clock.instant()) }
-            .map { OnboardingPrincipal(it.userId, it.tokenHash) }
+            .map { OnboardingPrincipal(it.user.id, it.tokenHash) }
             .orElse(null)
     }
 
@@ -140,7 +142,7 @@ class AuthService(
         val issuedAt = clock.instant()
         onboardingTokens.save(
             OnboardingToken(
-                userId = user.id,
+                user = user,
                 tokenHash = hash(rawToken),
                 issuedAt = issuedAt,
                 expiresAt = issuedAt.plusSeconds(ONBOARDING_EXPIRY_SECONDS),
@@ -156,7 +158,7 @@ class AuthService(
         val refresh = randomToken()
         val session = sessions.save(
             UserSession(
-                userId = user.id,
+                user = user,
                 refreshTokenHash = hash(refresh),
                 expiresAt = issuedAt.plus(Duration.ofDays(REFRESH_TOKEN_EXPIRY_DAYS)),
             ),
@@ -168,7 +170,7 @@ class AuthService(
         )
         return IssuedSession(
             tokens = AuthTokens(access, refresh, userSummary(user)),
-            sessionId = session.id,
+            session = session,
         )
     }
     private fun userSummary(user: User) = UserSummary(user.id, user.status.name, user.termsVersion)
@@ -183,14 +185,14 @@ class AuthService(
 }
 
 private data class AccessTokenRecord(
-    val userId: UUID,
-    val sessionId: UUID,
+    val userId: Long,
+    val sessionId: Long,
     val expiresAt: Instant,
 )
 
 private data class IssuedSession(
     val tokens: AuthTokens,
-    val sessionId: UUID,
+    val session: UserSession,
 )
 
 data class CallbackResult(

@@ -4,8 +4,7 @@ import com.ridervoice.api.auth.domain.OAuthAccount
 import com.ridervoice.api.auth.domain.OAuthProvider
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.Optional
-import java.util.UUID
 
-interface OAuthAccountRepository : JpaRepository<OAuthAccount, UUID> {
+interface OAuthAccountRepository : JpaRepository<OAuthAccount, Long> {
     fun findByProviderAndProviderSubject(provider: OAuthProvider, providerSubject: String): Optional<OAuthAccount>
 }

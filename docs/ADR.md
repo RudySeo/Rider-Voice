@@ -18,13 +18,13 @@
 
 **트레이드오프**: Kotlin JPA plugin과 entity proxy 제약을 고려해야 한다.
 
-## ADR-003: MySQL, JPA와 Flyway
+## ADR-003: MySQL, JPA와 Hibernate schema 관리
 
-**결정**: MySQL 9.3을 사용하고 Spring Data JPA/Hibernate로 접근하며 모든 스키마 변경은 Flyway로 관리한다.
+**결정**: MySQL 9.3을 사용하고 Spring Data JPA/Hibernate로 접근한다. 현재 로컬 MVP에서는 별도 DB 형상관리 도구를 사용하지 않고 Entity mapping과 Hibernate `ddl-auto=update`로 schema를 관리한다. 운영 profile에서는 schema 자동 생성을 비활성화한다.
 
 **이유**: 사용자, 음식점과 리뷰 사이의 관계 및 unique 제약을 데이터베이스에서도 보장해야 한다.
 
-**트레이드오프**: 로컬 MySQL이 필요한 통합 테스트는 기본 단위 테스트와 분리해 실행한다. UUID는 `BINARY(16)`, 시각은 UTC `DATETIME(6)`으로 저장한다.
+**트레이드오프**: migration 이력과 rollback을 제공하지 않으므로 운영 배포 전에 schema 관리 방식을 다시 결정해야 한다. 모든 PK는 MySQL `BIGINT AUTO_INCREMENT`와 JPA `GenerationType.IDENTITY`를 사용하고 시각은 UTC로 저장한다.
 
 ## ADR-004: REST와 OpenAPI
 

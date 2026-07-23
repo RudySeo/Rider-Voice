@@ -6,7 +6,7 @@
       "step": 0,
       "name": "auth-domain",
       "status": "completed",
-      "summary": "User·OAuthAccount·UserSession·OAuthLoginState 도메인과 Spring Data 저장소, V2 Flyway migration, Docker 분리형 도메인·통합 테스트를 추가했다.",
+      "summary": "Long IDENTITY 기반 User·OAuthAccount·UserSession·OAuthLoginState 도메인과 Spring Data 저장소, Docker 분리형 도메인·통합 테스트를 추가했다.",
       "started_at": "2026-07-22T21:33:43+0900"
     },
     {
