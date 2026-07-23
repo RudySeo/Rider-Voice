@@ -6,12 +6,14 @@ import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
+import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.auth.infrastructure.persistence.OAuthAccountRepository
 import com.ridervoice.api.auth.infrastructure.persistence.OAuthLoginStateRepository
 import com.ridervoice.api.auth.infrastructure.persistence.OnboardingTokenRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
 import com.ridervoice.api.common.error.AuthenticationRequiredException
+import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OnboardingPrincipal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -24,6 +26,7 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.security.MessageDigest
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Optional
@@ -85,7 +88,65 @@ class AuthServiceTest {
         assertThat(result.tokens?.refreshToken).isNotBlank()
         assertThat(result.onboardingToken).isNull()
         assertThat(result.user.status).isEqualTo("ACTIVE")
+        val sessionCaptor = ArgumentCaptor.forClass(UserSession::class.java)
+        verify(sessions).save(sessionCaptor.capture())
+        assertThat(sessionCaptor.value.expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         verify(onboardingTokens, never()).save(org.mockito.ArgumentMatchers.any(OnboardingToken::class.java))
+    }
+
+    @Test
+    fun `access token expires after fifteen minutes`() {
+        val mutableClock = MutableClock(now)
+        val service = AuthService(kakao, users, accounts, states, sessions, onboardingTokens, mutableClock)
+        val user = prepareActiveCallback("expiring-access-subject")
+
+        val accessToken = requireNotNull(service.callback("code", "state").tokens).accessToken
+
+        mutableClock.advance(Duration.ofMinutes(15).minusMillis(1))
+        assertThat(service.authenticate(accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
+
+        mutableClock.advance(Duration.ofMillis(1))
+        assertThat(service.authenticate(accessToken)).isNull()
+    }
+
+    @Test
+    fun `access token is rejected when current user is suspended or withdrawn`() {
+        val user = prepareActiveCallback("inactive-access-subject")
+        val accessToken = requireNotNull(auth.callback("code", "state").tokens).accessToken
+
+        setStatus(user, UserStatus.SUSPENDED)
+        assertThat(auth.authenticate(accessToken)).isNull()
+
+        setStatus(user, UserStatus.WITHDRAWN)
+        assertThat(auth.authenticate(accessToken)).isNull()
+    }
+
+    @Test
+    fun `access token is invalid after service restart`() {
+        prepareActiveCallback("restart-access-subject")
+        val accessToken = requireNotNull(auth.callback("code", "state").tokens).accessToken
+        val restarted = AuthService(kakao, users, accounts, states, sessions, onboardingTokens, clock)
+
+        assertThat(restarted.authenticate(accessToken)).isNull()
+    }
+
+    @Test
+    fun `logout locks and revokes refresh session and removes its access token`() {
+        val user = prepareActiveCallback("logout-subject")
+        val tokens = requireNotNull(auth.callback("code", "state").tokens)
+        val sessionCaptor = ArgumentCaptor.forClass(UserSession::class.java)
+        verify(sessions).save(sessionCaptor.capture())
+        val session = sessionCaptor.value
+        `when`(sessions.findByRefreshTokenHashForUpdate(sha256(tokens.refreshToken)))
+            .thenReturn(Optional.of(session))
+
+        assertThat(auth.authenticate(tokens.accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
+
+        auth.logout(AuthenticatedUserPrincipal(user.id), tokens.refreshToken)
+
+        assertThat(session.revokedAt).isEqualTo(now)
+        assertThat(auth.authenticate(tokens.accessToken)).isNull()
+        verify(sessions).findByRefreshTokenHashForUpdate(sha256(tokens.refreshToken))
     }
 
     @Test
@@ -179,6 +240,24 @@ class AuthServiceTest {
         `when`(kakao.getUser(oauthToken)).thenReturn(KakaoUserProfile(providerSubject, null))
     }
 
+    private fun prepareActiveCallback(providerSubject: String): User {
+        prepareCallback(providerSubject)
+        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, providerSubject))
+            .thenReturn(Optional.of(OAuthAccount(user.id, OAuthProvider.KAKAO, providerSubject)))
+        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+            .thenAnswer { it.arguments[0] as UserSession }
+        return user
+    }
+
+    private fun setStatus(user: User, status: UserStatus) {
+        User::class.java.getDeclaredField("status").also { field ->
+            field.isAccessible = true
+            field.set(user, status)
+        }
+    }
+
     private fun onboardingToken(userId: UUID, rawToken: String) = OnboardingToken(
         userId = userId,
         tokenHash = sha256(rawToken),
@@ -189,4 +268,18 @@ class AuthServiceTest {
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray())
         .joinToString("") { "%02x".format(it) }
+}
+
+private class MutableClock(
+    private var current: Instant,
+) : Clock() {
+    override fun getZone() = ZoneOffset.UTC
+
+    override fun withZone(zone: java.time.ZoneId): Clock = this
+
+    override fun instant(): Instant = current
+
+    fun advance(duration: Duration) {
+        current = current.plus(duration)
+    }
 }

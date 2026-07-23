@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "session-lifecycle-hardening",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-23T09:55:46+0900",
+      "summary": "AuthService와 UserSessionRepository를 보강해 15분 access token·ACTIVE 상태 검증, 잠금 기반 logout/refresh 회전과 MySQL 동시성 검증을 구현했다."
     },
     {
       "step": 5,

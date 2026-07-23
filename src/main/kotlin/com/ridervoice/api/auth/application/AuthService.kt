@@ -42,7 +42,7 @@ class AuthService(
     private val onboardingTokens: OnboardingTokenRepository,
     private val clock: Clock = Clock.systemUTC(),
 ) : AccessTokenAuthenticator {
-    private val accessUsers = ConcurrentHashMap<String, UUID>()
+    private val accessTokens = ConcurrentHashMap<String, AccessTokenRecord>()
     private val random = SecureRandom()
 
     @Transactional
@@ -63,7 +63,7 @@ class AuthService(
             UserStatus.ACTIVE -> CallbackResult(
                 user = userSummary(user),
                 termsAgreed = true,
-                tokens = issueTokens(user),
+                tokens = issueTokens(user).tokens,
                 onboardingToken = null,
             )
             UserStatus.PENDING_TERMS -> CallbackResult(
@@ -90,30 +90,45 @@ class AuthService(
         val user = users.findById(principal.userId).orElseThrow()
         token.consume(now)
         user.agreeToTerms(version, now)
-        return issueTokens(user)
+        return issueTokens(user).tokens
     }
 
     @Transactional
     fun refresh(refreshToken: String): AuthTokens {
-        val session = sessions.findByRefreshTokenHash(hash(refreshToken)).orElseThrow { IllegalArgumentException("Invalid refresh token") }
-        check(session.isActiveAt(clock.instant())) { "Refresh session is inactive" }
+        val session = sessions.findByRefreshTokenHashForUpdate(hash(refreshToken))
+            .orElseThrow { IllegalArgumentException("Invalid refresh token") }
+        val now = clock.instant()
+        check(session.isActiveAt(now)) { "Refresh session is inactive" }
         val user = users.findById(session.userId).orElseThrow()
+        check(user.status == UserStatus.ACTIVE) { "User is not eligible to refresh a session" }
         val next = issueTokens(user)
-        session.rotateTo(sessions.findByRefreshTokenHash(hash(next.refreshToken)).orElseThrow().id, clock.instant())
-        return next
+        session.rotateTo(next.sessionId, now)
+        return next.tokens
     }
 
     @Transactional
     fun logout(principal: AuthenticatedUserPrincipal, refreshToken: String) {
-        sessions.findByRefreshTokenHash(hash(refreshToken))
+        sessions.findByRefreshTokenHashForUpdate(hash(refreshToken))
             .filter { it.userId == principal.userId }
-            .ifPresent { it.revoke(clock.instant()) }
+            .ifPresent { session ->
+                session.revoke(clock.instant())
+                accessTokens.entries.removeIf { it.value.sessionId == session.id }
+            }
     }
 
     fun me(principal: AuthenticatedUserPrincipal): UserSummary = users.findById(principal.userId).map(::userSummary).orElseThrow()
 
     override fun authenticate(accessToken: String): BearerPrincipal? {
-        accessUsers[accessToken]?.let { return AuthenticatedUserPrincipal(it) }
+        accessTokens[accessToken]?.let { record ->
+            if (!clock.instant().isBefore(record.expiresAt)) {
+                accessTokens.remove(accessToken, record)
+                return null
+            }
+            return users.findById(record.userId)
+                .filter { it.status == UserStatus.ACTIVE }
+                .map { AuthenticatedUserPrincipal(it.id) }
+                .orElse(null)
+        }
         return onboardingTokens.findByTokenHash(hash(accessToken))
             .filter { it.isUsableAt(clock.instant()) }
             .map { OnboardingPrincipal(it.userId, it.tokenHash) }
@@ -134,11 +149,27 @@ class AuthService(
         return rawToken
     }
 
-    private fun issueTokens(user: User): AuthTokens {
-        val access = randomToken(); val refresh = randomToken()
-        accessUsers[access] = user.id
-        sessions.save(UserSession(user.id, hash(refresh), clock.instant().plus(Duration.ofDays(30))))
-        return AuthTokens(access, refresh, userSummary(user))
+    private fun issueTokens(user: User): IssuedSession {
+        check(user.status == UserStatus.ACTIVE) { "Only an active user can start a session" }
+        val issuedAt = clock.instant()
+        val access = randomToken()
+        val refresh = randomToken()
+        val session = sessions.save(
+            UserSession(
+                userId = user.id,
+                refreshTokenHash = hash(refresh),
+                expiresAt = issuedAt.plus(Duration.ofDays(REFRESH_TOKEN_EXPIRY_DAYS)),
+            ),
+        )
+        accessTokens[access] = AccessTokenRecord(
+            userId = user.id,
+            sessionId = session.id,
+            expiresAt = issuedAt.plus(Duration.ofMinutes(ACCESS_TOKEN_EXPIRY_MINUTES)),
+        )
+        return IssuedSession(
+            tokens = AuthTokens(access, refresh, userSummary(user)),
+            sessionId = session.id,
+        )
     }
     private fun userSummary(user: User) = UserSummary(user.id, user.status.name, user.termsVersion)
     private fun randomToken() = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also(random::nextBytes))
@@ -146,8 +177,21 @@ class AuthService(
 
     private companion object {
         const val ONBOARDING_EXPIRY_SECONDS = 5 * 60L
+        const val ACCESS_TOKEN_EXPIRY_MINUTES = 15L
+        const val REFRESH_TOKEN_EXPIRY_DAYS = 30L
     }
 }
+
+private data class AccessTokenRecord(
+    val userId: UUID,
+    val sessionId: UUID,
+    val expiresAt: Instant,
+)
+
+private data class IssuedSession(
+    val tokens: AuthTokens,
+    val sessionId: UUID,
+)
 
 data class CallbackResult(
     val user: UserSummary,
