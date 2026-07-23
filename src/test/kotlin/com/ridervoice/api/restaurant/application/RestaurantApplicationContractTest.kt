@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.UUID
 
 class RestaurantApplicationContractTest {
 
@@ -62,7 +61,7 @@ class RestaurantApplicationContractTest {
             latitude = BigDecimal("37.4987654"),
             longitude = BigDecimal("127.0276543"),
         )
-        val restaurantId = UUID.randomUUID()
+        val restaurantId = 42L
         val useCase = StubRestaurantUseCase(place, restaurantId)
         val kakaoLocalPort = StubKakaoLocalPort(place)
 
@@ -104,7 +103,7 @@ class RestaurantApplicationContractTest {
 
     private class StubRestaurantUseCase(
         private val place: PlaceCandidate,
-        private val restaurantId: UUID,
+        private val restaurantId: Long,
     ) : RestaurantUseCase {
         override fun search(query: RestaurantSearchQuery) = RestaurantSearchResult(
             candidates = listOf(

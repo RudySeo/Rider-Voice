@@ -11,11 +11,11 @@
 - `/build.gradle.kts`
 - `/src/main/resources/application.yml`
 - `/src/main/resources/application-local.yml`
-- `/src/main/resources/db/migration/`
+- `/src/main/kotlin/com/ridervoice/api/common/persistence/BaseEntity.kt`
 
 ## 작업
 
-현재 worktree의 PostgreSQL→MySQL 9.3 전환, 로컬 전용 실행 정책과 Swagger/OpenAPI 변경을 검토해 일관된 baseline으로 완성한다. PostgreSQL 및 Testcontainers 의존성·테스트 지원 코드를 제거하고 기본 `test`, `check`, `build`가 Docker 없이 실행되게 한다. 로컬 datasource는 `rider` DB와 환경변수 override를 유지하며 Flyway V1~V3와 Hibernate `ddl-auto=validate`가 호환되어야 한다.
+현재 worktree의 PostgreSQL→MySQL 9.3 전환, 로컬 전용 실행 정책과 Swagger/OpenAPI 변경을 검토해 일관된 baseline으로 완성한다. PostgreSQL 및 Testcontainers 의존성·테스트 지원 코드를 제거하고 기본 `test`, `check`, `build`가 Docker 없이 실행되게 한다. 로컬 datasource는 `rider` DB와 환경변수 override를 유지하며 Entity mapping과 Hibernate `ddl-auto=update`가 호환되어야 한다.
 
 ## 인수 기준
 
@@ -34,5 +34,5 @@
 ## 하지 말 것
 
 - Docker, Docker Compose 또는 Testcontainers를 실행하거나 유지하지 말 것. 이유: 현재 실행 경계는 로컬 프로세스뿐이다.
-- 기존 MySQL `rider` 데이터를 삭제하지 말 것. 이유: 사용자 로컬 데이터는 보존해야 한다.
+- 운영 profile에서 Hibernate schema auto-generation을 활성화하지 말 것. 이유: 현재 자동 schema 관리는 로컬 MVP 전용이다.
 - 기존 test를 깨뜨리지 말 것.

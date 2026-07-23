@@ -2,7 +2,6 @@ package com.ridervoice.api.restaurant.presentation.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
-import java.util.UUID
 
 @Schema(description = "음식점 검색 결과")
 data class RestaurantSearchResponse(
@@ -16,7 +15,7 @@ data class RestaurantCandidateResponse(
         description = "등록된 내부 음식점 ID. 아직 등록되지 않은 카카오 장소이면 null",
         nullable = true,
     )
-    val restaurantId: UUID?,
+    val restaurantId: Long?,
 
     @field:Schema(description = "카카오 장소 ID", example = "1234567890")
     val kakaoPlaceId: String,
@@ -37,7 +36,7 @@ data class RestaurantCandidateResponse(
 @Schema(description = "내부 음식점 등록 결과")
 data class RestaurantRegistrationResponse(
     @field:Schema(description = "내부 음식점 ID")
-    val restaurantId: UUID,
+    val restaurantId: Long,
 
     @field:Schema(description = "카카오 장소 ID", example = "1234567890")
     val kakaoPlaceId: String,

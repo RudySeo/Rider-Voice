@@ -3,11 +3,9 @@ package com.ridervoice.api.restaurant.domain
 import com.ridervoice.api.common.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.math.BigDecimal
-import java.util.UUID
 
 @Entity
 @Table(
@@ -30,9 +28,6 @@ class Restaurant(
     val latitude: BigDecimal,
     @field:Column(nullable = false, precision = 11, scale = 7)
     val longitude: BigDecimal,
-    @field:Id
-    @field:Column(nullable = false, updatable = false)
-    val id: UUID = UUID.randomUUID(),
 ) : BaseEntity() {
 
     init {

@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext
 import org.springframework.web.servlet.config.annotation.EnableWebMvc
-import java.util.UUID
 
 class SecurityPolicyMockMvcTest {
 
@@ -166,7 +165,7 @@ class SecurityPolicyMockMvcTest {
     }
 }
 
-private val TEST_USER_ID: UUID = UUID.fromString("8cc310ff-f4b7-44a7-bf4d-fd865d555d6f")
+private const val TEST_USER_ID = 42L
 
 @RestController
 @TestComponent

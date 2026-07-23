@@ -1,7 +1,7 @@
 # Rider Voice API 명세 및 테스트 결과
 
 > 기준일: 2026-07-23
-> 구현 기준: `feat-3-restaurant-search`
+> 구현 기준: `feature/long-identity-relations`
 > Base URL: `http://localhost:8080`
 > API prefix: `/api/v1`
 
@@ -85,7 +85,7 @@ Query parameter:
 ```json
 {
   "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "id": 1,
     "status": "PENDING_TERMS",
     "termsVersion": null
   },
@@ -100,7 +100,7 @@ Query parameter:
 ```json
 {
   "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "id": 1,
     "status": "ACTIVE",
     "termsVersion": "2026-07-01"
   },
@@ -109,7 +109,7 @@ Query parameter:
     "accessToken": "access-token",
     "refreshToken": "refresh-token",
     "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "id": 1,
       "status": "ACTIVE",
       "termsVersion": "2026-07-01"
     }
@@ -147,7 +147,7 @@ Content-Type: application/json
   "accessToken": "access-token",
   "refreshToken": "refresh-token",
   "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "id": 1,
     "status": "ACTIVE",
     "termsVersion": "2026-07-01"
   }
@@ -200,7 +200,7 @@ Authorization: Bearer {accessToken}
 
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": 1,
   "status": "ACTIVE",
   "termsVersion": "2026-07-01"
 }
@@ -237,7 +237,7 @@ Query parameter:
       "longitude": 127.0276543
     },
     {
-      "restaurantId": "550e8400-e29b-41d4-a716-446655440001",
+      "restaurantId": 10,
       "kakaoPlaceId": "9876543210",
       "name": "라이더보이스 역삼점",
       "address": "서울 강남구 역삼로 1",
@@ -286,7 +286,7 @@ Content-Type: application/json
 
 ```json
 {
-  "restaurantId": "550e8400-e29b-41d4-a716-446655440001",
+  "restaurantId": 10,
   "kakaoPlaceId": "1234567890",
   "name": "라이더보이스 강남점",
   "address": "서울 강남구 테헤란로 1",
@@ -348,18 +348,18 @@ Content-Type: application/json
 
 | 항목 | 결과 |
 | --- | ---: |
-| 전체 테스트 | 84 |
-| 성공 | 84 |
+| 전체 테스트 | 87 |
+| 성공 | 87 |
 | 실패 | 0 |
 | 건너뜀 | 0 |
 | 성공률 | 100% |
-| 테스트 실행 시간 | 9.600초 |
+| 테스트 suite 실행 시간 | 8.314초 |
 | Gradle 결과 | `BUILD SUCCESSFUL` |
 
 전체 프로젝트 검증 명령도 성공했다.
 
 ```bash
-./gradlew test check build --no-daemon
+./gradlew check build
 ```
 
 ### 8.2 검증 범위
@@ -375,13 +375,15 @@ Content-Type: application/json
 
 ### 8.3 로컬 MySQL 통합 테스트
 
-기본 `test` 결과 84개에는 로컬 MySQL을 사용하는 별도 통합 테스트가 포함되지 않는다. JPA mapping, Flyway migration과 DB unique 제약은 로컬 `rider` 데이터베이스가 실행 중일 때 다음 명령으로 검증한다.
+기본 `test` 결과에는 로컬 MySQL을 사용하는 별도 통합 테스트가 포함되지 않는다. Hibernate schema 생성, JPA 연관관계와 DB unique 제약은 로컬 `rider` 데이터베이스가 실행 중일 때 다음 명령으로 검증한다.
 
 ```bash
 ./gradlew integrationTest
 ```
 
-이 문서의 최신 테스트 결과에는 `integrationTest` 실행 결과를 합산하지 않았다. Docker와 Testcontainers는 사용하지 않는다.
+최신 통합 테스트 결과는 9개 성공, 실패·오류·건너뜀 0개이며 테스트 suite 실행 시간은 12.739초다. 실제 schema에서도 6개 Entity의 `id`가 `BIGINT AUTO_INCREMENT`이고 `oauth_accounts.user_id`, `onboarding_tokens.user_id`, `user_sessions.user_id`, `user_sessions.rotated_to_session_id` 외래 키가 생성된 것을 확인했다.
+
+Flyway나 별도 migration 파일은 사용하지 않는다. 이 문서의 기본 테스트 87개에는 `integrationTest` 9개를 합산하지 않으며 Docker와 Testcontainers도 사용하지 않는다.
 
 ## 9. 다음 구현 대상
 

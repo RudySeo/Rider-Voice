@@ -12,7 +12,6 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
-import java.util.UUID
 
 @SpringBootTest
 @Transactional
@@ -45,7 +44,7 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
         assertThat(foundByKakaoPlaceId?.address).isEqualTo("서울 강남구 테헤란로 1")
         assertThat(foundByKakaoPlaceId?.latitude).isEqualByComparingTo("37.4987654")
         assertThat(foundByKakaoPlaceId?.longitude).isEqualByComparingTo("127.0276543")
-        assertThat(restaurants.findById(UUID.randomUUID())).isNull()
+        assertThat(restaurants.findById(Long.MAX_VALUE)).isNull()
         assertThat(restaurants.findByKakaoPlaceId("missing-place-id")).isNull()
     }
 
@@ -95,7 +94,7 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
     }
 
     @Test
-    fun `migration removes pilot column and preserves Kakao place unique constraint`() {
+    fun `hibernate schema excludes pilot column and preserves Kakao place unique constraint`() {
         val includedInPilotColumnCount = jdbcTemplate.queryForObject(
             """
             SELECT COUNT(*)
@@ -117,9 +116,22 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
             """.trimIndent(),
             Int::class.java,
         )
+        val identityColumnCount = jdbcTemplate.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'restaurants'
+              AND column_name = 'id'
+              AND data_type = 'bigint'
+              AND extra LIKE '%auto_increment%'
+            """.trimIndent(),
+            Int::class.java,
+        )
 
         assertThat(includedInPilotColumnCount).isZero()
         assertThat(kakaoPlaceUniqueConstraintCount).isOne()
+        assertThat(identityColumnCount).isOne()
     }
 
     private fun restaurant(kakaoPlaceId: String, name: String) = Restaurant(

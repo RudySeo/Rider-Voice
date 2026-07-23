@@ -3,11 +3,9 @@ package com.ridervoice.api.auth.domain
 import com.ridervoice.api.common.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import java.time.Instant
-import java.util.UUID
 
 @Entity
 @Table(
@@ -21,9 +19,6 @@ class OAuthLoginState(
     val stateHash: String,
     @field:Column(name = "expires_at", nullable = false, updatable = false)
     val expiresAt: Instant,
-    @field:Id
-    @field:Column(nullable = false, updatable = false)
-    val id: UUID = UUID.randomUUID(),
 ) : BaseEntity() {
 
     @field:Column(name = "consumed_at")

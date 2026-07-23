@@ -1,7 +1,6 @@
 package com.ridervoice.api.restaurant.application.model
 
 import java.math.BigDecimal
-import java.util.UUID
 
 data class RestaurantSearchQuery(
     val query: String,
@@ -21,7 +20,7 @@ data class PlaceCandidate(
 )
 
 data class RestaurantCandidateResult(
-    val restaurantId: UUID?,
+    val restaurantId: Long?,
     val kakaoPlaceId: String,
     val name: String,
     val address: String,
@@ -34,7 +33,7 @@ data class RestaurantSearchResult(
 )
 
 data class RestaurantRegistrationResult(
-    val restaurantId: UUID,
+    val restaurantId: Long,
     val kakaoPlaceId: String,
     val name: String,
     val address: String,

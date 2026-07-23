@@ -39,7 +39,6 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
 import java.math.BigDecimal
-import java.util.UUID
 
 @WebMvcTest(controllers = [RestaurantController::class])
 @Import(
@@ -115,7 +114,7 @@ class RestaurantApiContractMockMvcTest {
 
     @Test
     fun `search maps the validated HTTP query and application result`() {
-        val restaurantId = UUID.fromString("1db6c773-9111-44a1-adb1-8243a2536078")
+        val restaurantId = 42L
         `when`(restaurantUseCase.search(RestaurantSearchQuery("강남 분식"))).thenReturn(
             RestaurantSearchResult(
                 candidates = listOf(
@@ -146,7 +145,7 @@ class RestaurantApiContractMockMvcTest {
             status { isOk() }
             content { contentType(MediaType.APPLICATION_JSON) }
             jsonPath("$.candidates.length()") { value(2) }
-            jsonPath("$.candidates[0].restaurantId") { value(restaurantId.toString()) }
+            jsonPath("$.candidates[0].restaurantId") { value(restaurantId) }
             jsonPath("$.candidates[0].kakaoPlaceId") { value("1234567890") }
             jsonPath("$.candidates[0].name") { value("라이더보이스 강남점") }
             jsonPath("$.candidates[0].address") { value("서울 강남구 테헤란로 1") }
@@ -160,7 +159,7 @@ class RestaurantApiContractMockMvcTest {
 
     @Test
     fun `registration maps the validated request to a command and maps the result`() {
-        val restaurantId = UUID.fromString("1db6c773-9111-44a1-adb1-8243a2536078")
+        val restaurantId = 42L
         val command = RegisterRestaurantCommand(
             query = "강남 분식",
             kakaoPlaceId = "1234567890",
@@ -183,7 +182,7 @@ class RestaurantApiContractMockMvcTest {
         }.andExpect {
             status { isOk() }
             content { contentType(MediaType.APPLICATION_JSON) }
-            jsonPath("$.restaurantId") { value(restaurantId.toString()) }
+            jsonPath("$.restaurantId") { value(restaurantId) }
             jsonPath("$.kakaoPlaceId") { value("1234567890") }
             jsonPath("$.name") { value("라이더보이스 강남점") }
             jsonPath("$.address") { value("서울 강남구 테헤란로 1") }
@@ -273,7 +272,10 @@ class RestaurantApiContractMockMvcTest {
                 value(org.hamcrest.Matchers.aMapWithSize<String, Any>(6))
             }
             jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.restaurantId.type") {
-                value(org.hamcrest.Matchers.containsInAnyOrder("string", "null"))
+                value(org.hamcrest.Matchers.containsInAnyOrder("integer", "null"))
+            }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.restaurantId.format") {
+                value("int64")
             }
             jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.kakaoPlaceId") { exists() }
             jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.name") { exists() }
@@ -283,7 +285,12 @@ class RestaurantApiContractMockMvcTest {
             jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties") {
                 value(org.hamcrest.Matchers.aMapWithSize<String, Any>(6))
             }
-            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.restaurantId") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.restaurantId.type") {
+                value("integer")
+            }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.restaurantId.format") {
+                value("int64")
+            }
             jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.kakaoPlaceId") { exists() }
             jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.name") { exists() }
             jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.address") { exists() }
@@ -295,7 +302,7 @@ class RestaurantApiContractMockMvcTest {
     private companion object {
         const val USER_ACCESS_TOKEN = "valid-user-access-token"
         const val ONBOARDING_TOKEN = "valid-onboarding-token"
-        val TEST_USER_ID: UUID = UUID.fromString("8cc310ff-f4b7-44a7-bf4d-fd865d555d6f")
+        const val TEST_USER_ID = 42L
     }
 
     @TestConfiguration(proxyBeanMethods = false)

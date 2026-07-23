@@ -5,17 +5,16 @@ import org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import org.assertj.core.api.Assertions.assertThatIllegalStateException
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import java.util.UUID
 
 class UserSessionTest {
 
-    private val userId = UUID.randomUUID()
+    private val user = User().apply { id = 1L }
     private val expiresAt = Instant.parse("2026-07-23T12:00:00Z")
 
     @Test
     fun `session keeps only the refresh token hash`() {
         val session = UserSession(
-            userId = userId,
+            user = user,
             refreshTokenHash = "sha256:hashed-value",
             expiresAt = expiresAt,
         )
@@ -27,28 +26,28 @@ class UserSessionTest {
 
     @Test
     fun `rotation revokes the current session and records its successor`() {
-        val session = UserSession(userId, "sha256:current", expiresAt)
-        val successorId = UUID.randomUUID()
+        val session = UserSession(user, "sha256:current", expiresAt).apply { id = 10L }
+        val successor = UserSession(user, "sha256:next", expiresAt.plusSeconds(60)).apply { id = 11L }
         val rotatedAt = expiresAt.minusSeconds(60)
 
         assertThat(session.isActiveAt(rotatedAt)).isTrue()
 
-        session.rotateTo(successorId, rotatedAt)
+        session.rotateTo(successor, rotatedAt)
 
         assertThat(session.isActiveAt(rotatedAt)).isFalse()
         assertThat(session.revokedAt).isEqualTo(rotatedAt)
-        assertThat(session.rotatedToSessionId).isEqualTo(successorId)
+        assertThat(session.rotatedToSession).isSameAs(successor)
         assertThatIllegalStateException()
-            .isThrownBy { session.rotateTo(UUID.randomUUID(), rotatedAt) }
+            .isThrownBy { session.rotateTo(UserSession(user, "sha256:another", expiresAt), rotatedAt) }
     }
 
     @Test
     fun `session cannot rotate to itself or after expiry`() {
-        val session = UserSession(userId, "sha256:current", expiresAt)
+        val session = UserSession(user, "sha256:current", expiresAt)
 
         assertThatIllegalArgumentException()
-            .isThrownBy { session.rotateTo(session.id, expiresAt.minusSeconds(1)) }
+            .isThrownBy { session.rotateTo(session, expiresAt.minusSeconds(1)) }
         assertThatIllegalStateException()
-            .isThrownBy { session.rotateTo(UUID.randomUUID(), expiresAt) }
+            .isThrownBy { session.rotateTo(UserSession(user, "sha256:next", expiresAt), expiresAt) }
     }
 }

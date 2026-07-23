@@ -5,10 +5,11 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.Id
+import jakarta.persistence.FetchType
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import java.util.UUID
 
 @Entity
 @Table(
@@ -25,16 +26,14 @@ import java.util.UUID
     ],
 )
 class OAuthAccount(
-    @field:Column(name = "user_id", nullable = false, updatable = false)
-    val userId: UUID,
+    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @field:JoinColumn(name = "user_id", nullable = false, updatable = false)
+    val user: User,
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, updatable = false, length = 20)
     val provider: OAuthProvider,
     @field:Column(name = "provider_subject", nullable = false, updatable = false, length = 255)
     val providerSubject: String,
-    @field:Id
-    @field:Column(nullable = false, updatable = false)
-    val id: UUID = UUID.randomUUID(),
 ) : BaseEntity() {
 
     init {

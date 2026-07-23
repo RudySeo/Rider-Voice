@@ -31,7 +31,7 @@ Rider Voice MVP는 카카오 로그인 사용자가 음식점을 찾아 픽업 �
 ## 기술 스택
 
 - Backend: Spring Boot, Kotlin, Spring MVC, Spring Security
-- Persistence: MySQL 9.3, Spring Data JPA, Hibernate, Flyway
+- Persistence: MySQL 9.3, Spring Data JPA, Hibernate
 - API: REST, OpenAPI, RFC 7807 `ProblemDetail`
 - External: Kakao REST OAuth, Kakao Local REST API
 - Test: JUnit 5, MockK, 로컬 MySQL 통합 테스트
@@ -40,7 +40,7 @@ Rider Voice MVP는 카카오 로그인 사용자가 음식점을 찾아 픽업 �
 
 구현됨:
 
-- Spring Boot/Kotlin 프로젝트와 MySQL/JPA/Flyway 기반
+- Spring Boot/Kotlin 프로젝트와 MySQL/JPA/Hibernate 기반
 - 공통 보안, 오류 응답과 OpenAPI 기반
 - 카카오 OAuth 로그인
 - 신규 사용자의 일회용 onboarding token과 약관 동의
@@ -106,8 +106,10 @@ API 서버와 MySQL은 로컬 프로세스로 실행합니다. Docker, Docker Co
 
 ```bash
 mysql.server start
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS rider CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
+mysql -u root -p -e "DROP DATABASE IF EXISTS rider; CREATE DATABASE rider CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 ```
+
+위 명령은 기존 개발 schema를 `BIGINT AUTO_INCREMENT` 기준으로 다시 시작할 때 한 번만 사용한다. 이후에는 Hibernate `ddl-auto=update`가 Entity mapping을 로컬 schema에 반영하므로 재시작할 때 DB를 삭제하지 않는다.
 
 `.env.example`을 복사하고 로컬 환경에 맞게 수정합니다. 실제 secret은 커밋하지 않습니다.
 
@@ -150,7 +152,7 @@ set +a
 ./gradlew build
 ```
 
-기본 검증은 DB 통합 테스트를 제외합니다. 실행 중인 로컬 MySQL을 사용하는 JPA와 Flyway 검증은 별도로 실행합니다.
+기본 검증은 DB 통합 테스트를 제외합니다. 실행 중인 로컬 MySQL을 사용하는 JPA schema와 연관관계 검증은 별도로 실행합니다.
 
 ```bash
 ./gradlew integrationTest

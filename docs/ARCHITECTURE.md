@@ -10,7 +10,7 @@
 
 - Spring Boot, Kotlin, Gradle Kotlin DSL
 - Spring MVC, Spring Security, Bean Validation
-- Spring Data JPA, Hibernate, MySQL 9.3, Flyway
+- Spring Data JPA, Hibernate, MySQL 9.3
 - springdoc-openapi, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, Spring MVC 테스트
 - 카카오 REST OAuth, 카카오 로컬 REST API
@@ -92,6 +92,16 @@ application result
 - provider request/response 타입과 JPA 전용 구현 타입은 `infrastructure` 밖으로 노출하지 않는다.
 - 현재 MVP에서는 domain entity에 JPA mapping annotation을 허용하되 persistence 세부사항이 domain behavior나 공개 계약으로 새지 않게 한다.
 
+### 식별자와 연관관계
+
+- 모든 Entity는 `BaseEntity`가 제공하는 `Long` PK와 `GenerationType.IDENTITY`를 사용한다.
+- 공개 API의 `userId`, `restaurantId`와 이후 `reviewId`도 JSON 정수와 OpenAPI `int64`로 표현한다.
+- `OAuthAccount`, `OnboardingToken`, `UserSession`은 `User`를 단방향 `LAZY @ManyToOne`으로 참조한다.
+- refresh session 회전은 이전 `UserSession`이 다음 `UserSession`을 단방향 `LAZY @OneToOne`으로 참조한다.
+- 부모 Entity에는 편의를 위한 역방향 컬렉션을 두지 않고 연관관계에 cascade remove를 사용하지 않는다.
+- 로컬과 통합 테스트 profile은 Hibernate `ddl-auto=update`, 운영 profile은 `ddl-auto=none`을 사용한다.
+- 현재 로컬 MVP에서는 Flyway 또는 별도 DB 형상관리 도구를 사용하지 않는다.
+
 ### 기존 인증 코드 정리 경계
 
 기존 인증 코드는 Controller가 application result를 직접 반환하고 application service가 infrastructure repository를 직접 참조하는 과도기 구조다. 음식점과 리뷰 신규 구현은 위 경계를 먼저 적용한다. 인증 구조 정리는 별도 refactor 작업으로 수행하며 음식점·리뷰 기능 작업에 섞지 않는다.
@@ -162,9 +172,9 @@ ROLE_USER
 ### 인증
 
 - `users`: 내부 사용자 ID, 상태, 약관 동의 정보
-- `oauth_accounts`: provider와 외부 subject의 사용자 연결
-- `onboarding_tokens`: 일회용 token hash와 만료·소비 정보
-- `user_sessions`: refresh token hash와 회전·폐기 정보
+- `oauth_accounts`: `User`와 provider 외부 subject의 연결
+- `onboarding_tokens`: `User`와 연결된 일회용 token hash 및 만료·소비 정보
+- `user_sessions`: `User`와 연결된 refresh token hash 및 다음 session 회전·폐기 정보
 
 ### 음식점
 
@@ -178,9 +188,7 @@ ROLE_USER
 - `ReviewRating`은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`다.
 - 의견은 nullable이며 최대 200자다.
 
-현재 `restaurants.included_in_pilot`은 이전 지역 파일럿 설계의 잔여 필드다. 음식점 검색 구현 시 새 Flyway migration으로 제거하고 다른 의미로 재사용하지 않는다.
-
-모든 기본 키는 UUID를 사용한다. 시각은 UTC로 저장하고 API에서는 RFC 3339로 반환한다. 스키마 변경은 Flyway migration으로만 수행한다.
+모든 기본 키는 `BIGINT AUTO_INCREMENT`를 사용한다. 시각은 UTC로 저장하고 API에서는 RFC 3339로 반환한다. Entity annotation이 로컬 schema의 FK, unique key와 index 기준이다.
 
 ## 6. API 계약
 
@@ -217,7 +225,7 @@ CreateRestaurantRequest
 - kakaoPlaceId: String
 
 CreateReviewRequest
-- restaurantId: UUID
+- restaurantId: Long
 - pickupSpaceCleanliness: ReviewRating
 - packagingStability: ReviewRating
 - orderReadiness: ReviewRating
@@ -243,7 +251,7 @@ UpdateReviewRequest
 
 ### 통합 테스트
 
-- 로컬 MySQL 기준 Flyway migration과 JPA mapping
+- 로컬 MySQL 기준 Hibernate schema 생성과 JPA mapping
 - `kakao_place_id`와 `(author_user_id, restaurant_id)` 동시 중복 생성 방지
 - application service의 리뷰 소유권과 트랜잭션 경계
 - 카카오 로컬 adapter의 성공, timeout, rate limit과 잘못된 응답

@@ -90,6 +90,8 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.paths['/api/v1/users/me'].get.responses['200'].content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/UserSummary")
                 }
+                jsonPath("$.components.schemas.UserSummary.properties.id.type") { value("integer") }
+                jsonPath("$.components.schemas.UserSummary.properties.id.format") { value("int64") }
             }
     }
 

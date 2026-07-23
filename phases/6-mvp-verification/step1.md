@@ -27,7 +27,7 @@
 ## 검증
 
 1. 외부 네트워크, Docker와 Testcontainers 없이 기본 검증 명령이 통과하는지 확인한다.
-2. 로컬 MySQL 환경이 준비된 경우 `./gradlew integrationTest`로 migration과 transaction 제약을 추가 확인한다.
+2. 로컬 MySQL 환경이 준비된 경우 `./gradlew integrationTest`로 Hibernate schema, 연관관계와 transaction 제약을 추가 확인한다.
 3. `phases/6-mvp-verification/index.json`의 step 1과 상위 phase를 완료 상태와 한 줄 summary로 갱신한다.
 
 ## 하지 말 것
