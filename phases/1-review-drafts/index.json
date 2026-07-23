@@ -1,0 +1,10 @@
+{
+  "project": "Rider Voice",
+  "phase": "1-review-drafts",
+  "steps": [
+    { "step": 0, "name": "review-draft-domain", "status": "pending" },
+    { "step": 1, "name": "review-draft-persistence", "status": "pending" },
+    { "step": 2, "name": "review-draft-service", "status": "pending" },
+    { "step": 3, "name": "review-draft-api-tests", "status": "pending" }
+  ]
+}

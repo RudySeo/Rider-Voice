@@ -4,7 +4,7 @@
 
 Rider Voice는 API 서버를 먼저 완성한 뒤 React Native 클라이언트를 연결하는 서버 우선 프로젝트다. 서버는 인증, 음식점, 방문 증빙, OCR, 글쓰기 권한, 리뷰, 리포트 집계, 검수와 정정 요청의 유일한 업무 규칙 소유자다.
 
-React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터베이스, S3, CLOVA OCR 또는 카카오 로컬 API를 직접 호출하지 않는다.
+React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터베이스, 증빙 저장소, 증빙 추출 provider 또는 카카오 로컬 API를 직접 호출하지 않는다.
 
 ## 2. 기술 스택
 
@@ -26,7 +26,8 @@ React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터
 
 - 카카오 REST OAuth: 소셜 로그인
 - 카카오 로컬 REST API: 음식점 검색과 장소 식별
-- NAVER Cloud CLOVA OCR: 배달 완료 화면 문자 인식
+- 방문 증빙 추출 provider: OCR 단계 착수 시 NAVER Cloud CLOVA OCR과 멀티모달 모델을 비교해 결정
+- LangChain 계열 framework: LangChain4j 또는 별도 Python 서비스 여부를 OCR 단계 ADR에서 결정
 
 ### 후속 운영 인프라
 
@@ -96,7 +97,7 @@ feature/
 - 비즈니스 규칙과 상태 전이는 application 및 domain 계층에 둔다.
 - 트랜잭션 경계는 application service에 둔다.
 - JPA Entity를 API 요청 또는 응답 DTO로 직접 사용하지 않는다.
-- domain/application 계층은 카카오, CLOVA, S3 같은 외부 SDK 타입에 의존하지 않는다.
+- domain/application 계층은 카카오, 증빙 추출 provider, S3 같은 외부 SDK 타입에 의존하지 않는다.
 - 외부 연동은 port interface와 infrastructure adapter로 격리한다.
 - Repository interface는 기능 패키지 내부에 두고 구현 세부사항을 외부로 노출하지 않는다.
 - 기능 간 호출은 공개 application interface 또는 식별자 기반으로 수행한다.
@@ -112,25 +113,40 @@ React Native 또는 테스트 클라이언트
   -> GET /api/v1/auth/kakao/callback
   -> 카카오 token/user 조회 adapter
   -> User upsert
-  -> 서비스 access token + rotating refresh token 발급
+  -> 신규 회원은 짧은 수명의 일회용 onboarding token 발급
+  -> POST /api/v1/auth/consents
+  -> 약관 동의 후 서비스 access token + rotating refresh token 발급
 ```
 
 - 카카오 access token은 계정 확인 후 장기 보관하지 않는다.
 - 서비스 refresh token은 원문이 아니라 해시로 저장한다.
 - access token은 짧은 만료 시간을 사용하고 refresh token은 회전시킨다.
+- onboarding token은 약관 동의에만 사용할 수 있고 다른 인증 API 권한을 갖지 않는다.
 
-### 5.2 방문 증빙과 OCR
+### 5.2 리뷰 초안
 
 ```text
-POST /api/v1/visits/upload-url
+인증된 ACTIVE 사용자
+  -> 음식점 선택
+  -> POST /api/v1/review-drafts
+  -> PATCH /api/v1/review-drafts/{id}
+  -> 본인 소유 ReviewDraft 저장
+  -> 공개·리포트 집계·관리자 검수에서 제외
+```
+
+ReviewDraft는 방문 인증 전 작성 편의를 위한 별도 모델이다. 일부 답변이 비어 있어도 저장할 수 있지만 제공된 값은 정식 리뷰와 같은 형식 제약을 적용한다. Review나 WriteGrant 상태를 갖지 않으며 방문 인증을 우회하는 수단으로 사용하지 않는다.
+
+### 5.3 방문 증빙과 OCR
+
+```text
+POST /api/v1/visits/upload-ticket
   -> 권한과 파일 제한 검증
-  -> S3 presigned upload URL 발급
-  -> 클라이언트가 비공개 S3에 직접 업로드
+  -> EvidenceStoragePort를 통해 로컬 업로드 권한 발급
 POST /api/v1/visits
   -> VisitEvidence 생성
-  -> SQS OCR 작업 발행
-OCR worker
-  -> CLOVA OCR 호출
+  -> EvidenceProcessingPort에 추출 작업 발행
+증빙 추출 adapter
+  -> 선택된 OCR 또는 멀티모달 provider 호출
   -> 배민 화면 파싱
   -> 주문 HMAC/이미지 해시 중복 검사
   -> 카카오 장소 후보 연결
@@ -139,25 +155,29 @@ OCR worker
   -> 원본 즉시 삭제
 ```
 
-### 5.3 리뷰와 리포트
+현재 로컬 단계에서는 filesystem 저장소와 in-process 작업 adapter를 사용한다. OCR 공급자, LangChain4j와 별도 Python LangChain 서비스 중 선택은 이 단계 착수 시 비교 검증하고 ADR로 확정한다. S3와 SQS adapter는 후속 운영 단계에서만 구현한다.
+
+### 5.4 정식 리뷰와 리포트
 
 ```text
 유효한 WriteGrant
+  + 본인 소유 ReviewDraft
   -> POST /api/v1/write-grants/{id}/review
   -> WriteGrant 원자적 소진
-  -> Review + ReviewAnswer 저장
+  -> 초안 내용으로 Review + ReviewAnswer 저장
   -> 자유 의견 검수 큐 생성
   -> 리포트 집계 대상 반영
   -> 주기적 ReportSnapshot 계산
   -> 공개 조회 API 제공
 ```
 
-WriteGrant 확인과 리뷰 생성은 같은 트랜잭션에서 수행하고 비관적 잠금 또는 조건부 갱신으로 중복 소진을 방지한다.
+ReviewDraft 확인·전환, WriteGrant 확인·소진과 리뷰 생성은 같은 트랜잭션에서 수행하고 비관적 잠금 또는 조건부 갱신으로 중복 소진을 방지한다.
 
 ## 6. 도메인 상태
 
 ```text
 UserStatus
+- PENDING_TERMS
 - ACTIVE
 - RATE_LIMITED
 - SUSPENDED
@@ -197,6 +217,10 @@ ReportStatus
 - PUBLISHED
 - TEMPORARILY_HIDDEN
 
+ReviewDraftStatus
+- ACTIVE
+- CONVERTING
+
 CorrectionStatus
 - RECEIVED
 - VERIFYING_OWNER
@@ -213,6 +237,7 @@ CorrectionStatus
 
 - `users`: 내부 사용자 ID, 상태, 약관 버전과 동의 시각
 - `oauth_accounts`: provider, 외부 subject, 사용자 연결
+- `onboarding_tokens`: 약관 동의 전용 token hash, 사용자, 만료·소비 시각
 - `user_sessions`: refresh token hash, 만료, 폐기, rotation 정보
 
 ### 음식점과 방문
@@ -223,6 +248,7 @@ CorrectionStatus
 
 ### 리뷰와 리포트
 
+- `review_drafts`: 작성자, 음식점, 부분 응답과 선택 자유 의견. 방문 인증 전 비공개 데이터. 활성 초안은 사용자·음식점당 하나이며, 정식 리뷰 전환 transaction에서 소비 후 삭제한다.
 - `reviews`: 작성자, 음식점, 방문 증빙, 집계 상태, 제출 시각
 - `review_answers`: 리뷰, 평가 항목, 응답 값
 - `review_comments`: 원문, 공개용 본문, 검수 상태
@@ -256,6 +282,7 @@ CorrectionStatus
 ```text
 GET    /api/v1/auth/kakao/authorize
 GET    /api/v1/auth/kakao/callback
+POST   /api/v1/auth/consents
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
 GET    /api/v1/users/me
@@ -264,7 +291,12 @@ GET    /api/v1/restaurants/search
 GET    /api/v1/restaurants/{id}/report
 GET    /api/v1/restaurants/{id}/methodology
 
-POST   /api/v1/visits/upload-url
+POST   /api/v1/review-drafts
+GET    /api/v1/review-drafts/{id}
+PATCH  /api/v1/review-drafts/{id}
+GET    /api/v1/users/me/review-drafts
+
+POST   /api/v1/visits/upload-ticket
 POST   /api/v1/visits
 GET    /api/v1/visits/{id}
 POST   /api/v1/visits/{id}/confirm-restaurant
@@ -292,14 +324,14 @@ POST   /api/v1/comments/{id}/reports
 
 ## 10. 보안과 개인정보
 
-- 증빙 버킷은 public access를 완전히 차단한다.
-- presigned URL은 짧은 만료 시간과 파일 형식·크기 제한을 적용한다.
-- 클라이언트가 제출한 S3 object key를 그대로 신뢰하지 않는다.
+- 현재 로컬 증빙 저장소는 서버가 생성한 key와 짧은 수명의 upload ticket만 허용하고 파일 형식·크기와 경로 탈출을 검증한다.
+- 후속 S3 adapter의 증빙 버킷은 public access를 완전히 차단하고 presigned URL에 짧은 만료 시간과 파일 형식·크기 제한을 적용한다.
+- 클라이언트가 제출한 파일 key 또는 경로를 그대로 신뢰하지 않는다.
 - OCR 성공 원본은 즉시 삭제하고 수동 검수 원본은 최대 72시간 후 삭제한다.
 - 주문 식별자는 server-side secret을 사용하는 HMAC으로 저장한다.
 - 소셜 계정 정보와 공개 리뷰 응답을 분리한다.
 - 관리자 작업에는 role 검사와 감사 로그를 적용한다.
-- refresh token, provider secret, HMAC secret과 KMS key 정보는 Secrets Manager에서 주입한다.
+- 현재 로컬 secret은 환경변수로 주입하고, 후속 운영 단계의 refresh token, provider secret, HMAC secret과 KMS key 정보는 Secrets Manager에서 주입한다.
 - 위험 제출에는 rate limit과 검수 보류를 적용한다.
 
 ## 11. 테스트 전략
@@ -311,14 +343,15 @@ POST   /api/v1/comments/{id}/reports
 - 리뷰 집계 포함 한도
 - 공개 표본과 기간 계산
 - OCR 파싱과 장소 후보 점수 계산
+- 리뷰 초안의 본인 접근 제한과 공개·집계 제외
 - 개인정보 및 금지 표현 탐지
 
 ### 통합 테스트
 
 - 실행 중인 로컬 MySQL을 사용한 JPA와 Flyway 검증
-- 카카오·CLOVA·카카오 로컬 adapter의 stub server 테스트
-- S3와 SQS 경계 테스트
-- 로그인부터 방문, 글쓰기 권한, 리뷰, 리포트까지 전체 흐름
+- 카카오·증빙 추출 provider·카카오 로컬 adapter의 stub server 테스트
+- 현재 로컬 filesystem과 in-process 작업 adapter의 경계 테스트. S3와 SQS 경계 테스트는 후속 운영 단계에서 추가
+- 로그인, 리뷰 초안, 방문, 글쓰기 권한, 정식 리뷰 전환과 리포트까지 전체 흐름
 - 동시에 같은 WriteGrant를 제출했을 때 하나만 성공하는지 검증
 
 ### API 계약 테스트
@@ -334,12 +367,13 @@ POST   /api/v1/comments/{id}/reports
 3. 공통 오류, 보안, OpenAPI
 4. 카카오 로그인과 서비스 세션
 5. 음식점과 파일럿 지역
-6. 증빙 업로드와 비동기 OCR
-7. WriteGrant와 리뷰
-8. 집계 리포트
-9. 관리자 검수, 신고, 정정
-10. 보안·통합·성능 테스트
-11. OpenAPI 계약 확정
-12. React Native 앱 개발
+6. 로그인 사용자의 리뷰 초안
+7. 증빙 업로드, 추출 provider 선정과 비동기 OCR
+8. WriteGrant와 정식 리뷰 전환
+9. 집계 리포트
+10. 관리자 검수, 신고, 정정
+11. 보안·통합·성능 테스트
+12. OpenAPI 계약 확정
+13. React Native 앱 개발
 
 AWS/ECS 배포, 운영 인프라, Docker 기반 테스트와 production readiness 검증은 현재 작업 범위에서 제외한다. 사용자가 착수를 명시적으로 요청할 때 별도 계획으로 진행한다.

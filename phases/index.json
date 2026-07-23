@@ -10,7 +10,15 @@
       "status": "completed"
     },
     {
+      "dir": "1-auth-onboarding",
+      "status": "pending"
+    },
+    {
       "dir": "1-restaurant-search",
+      "status": "pending"
+    },
+    {
+      "dir": "1-review-drafts",
       "status": "pending"
     },
     {

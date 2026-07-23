@@ -36,7 +36,7 @@ Rider Voice는 계정의 라이더 자격을 별도로 심사하지 않습니다
 - Backend: Spring Boot, Kotlin, Spring MVC, Spring Security
 - Persistence: MySQL 9.3, Spring Data JPA, Hibernate, Flyway
 - API: REST, OpenAPI, RFC 7807 ProblemDetail
-- External: Kakao REST OAuth, Kakao Local API, NAVER CLOVA OCR
+- External: Kakao REST OAuth, Kakao Local API, 방문 증빙 추출 provider는 후속 ADR에서 결정
 - Test: JUnit 5, MockK, 로컬 MySQL 검증
 - Client 예정: React Native iOS/Android
 
@@ -58,6 +58,8 @@ Rider Voice는 계정의 라이더 자격을 별도로 심사하지 않습니다
 - 현재 사용자 조회 API
 
 현재 access token은 로컬 개발을 위한 메모리 저장 방식입니다. 배포 단계에서 JWT 검증과 영속 세션 저장소로 교체합니다.
+
+다음 구현 목표는 신규 사용자의 약관 동의 전용 온보딩 토큰, 음식점 검색과 비공개 리뷰 초안입니다. 방문 증빙 전 작성물은 정식 리뷰가 아니며 공개 또는 리포트 집계에 포함되지 않습니다.
 
 ## API
 
@@ -149,7 +151,7 @@ src/main/kotlin/com/ridervoice/api
 ├── auth          # 카카오 인증과 서비스 세션
 ├── restaurant    # 음식점과 지역 제한
 ├── visit         # 방문 증빙과 OCR
-├── review        # WriteGrant와 리뷰
+├── review        # 리뷰 초안, WriteGrant와 정식 리뷰
 ├── report        # 음식점 리포트 집계
 ├── moderation    # 관리자 검수와 신고
 └── correction    # 음식점 정정 요청
@@ -159,15 +161,16 @@ src/main/kotlin/com/ridervoice/api
 
 ## 로컬 개발 로드맵
 
-1. 카카오 인증·인가와 OpenAPI 계약 안정화
+1. 약관 동의 전용 온보딩 토큰과 카카오 인증 계약 보완
 2. 음식점 검색 및 파일럿 지역 제한
-3. 증빙 업로드와 CLOVA OCR 방문 인증
-4. WriteGrant와 구조화 리뷰
-5. 리포트 집계
-6. 관리자 검수·신고·정정 API
-7. 보안·통합·성능 검증
-8. OpenAPI 계약 확정
-9. React Native 클라이언트
+3. 로그인 사용자의 비공개 리뷰 초안
+4. 증빙 업로드, OCR provider·LangChain 구성 결정과 방문 인증
+5. WriteGrant와 정식 리뷰 전환
+6. 리포트 집계
+7. 관리자 검수·신고·정정 API
+8. 보안·통합·성능 검증
+9. OpenAPI 계약 확정
+10. React Native 클라이언트
 
 AWS/ECS 배포와 운영 인프라 구성은 현재 작업 범위에서 제외합니다. 사용자가 배포 착수를 명시적으로 요청할 때 별도 계획으로 진행합니다.
 

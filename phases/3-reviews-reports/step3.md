@@ -7,7 +7,7 @@
 - `/phases/3-reviews-reports/step2.md`
 
 ## 작업
-`GET /api/v1/write-grants/{id}`, `POST /api/v1/write-grants/{id}/review`, `GET /api/v1/users/me/reviews`를 구현한다. Bean Validation, idempotency header, Bearer 인증, cursor pagination, 기능별 response DTO, ProblemDetail과 Swagger schema를 포함한다.
+`GET /api/v1/write-grants/{id}`, `POST /api/v1/write-grants/{id}/review`, `GET /api/v1/users/me/reviews`를 구현한다. 정식 리뷰 제출 request는 본인 소유 `reviewDraftId`를 요구한다. Bean Validation, idempotency header, Bearer 인증, cursor pagination, 기능별 response DTO, ProblemDetail과 Swagger schema를 포함한다.
 
 ## 인수 기준
 ```bash

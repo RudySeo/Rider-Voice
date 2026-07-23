@@ -6,7 +6,7 @@
     { "step": 1, "name": "evidence-persistence", "status": "pending" },
     { "step": 2, "name": "local-evidence-storage", "status": "pending" },
     { "step": 3, "name": "ocr-job-pipeline", "status": "pending" },
-    { "step": 4, "name": "clova-ocr-adapter", "status": "pending" },
+    { "step": 4, "name": "evidence-extraction-adapter", "status": "pending" },
     { "step": 5, "name": "baemin-parser", "status": "pending" },
     { "step": 6, "name": "verification-policy", "status": "pending" },
     { "step": 7, "name": "write-grant-domain", "status": "pending" },

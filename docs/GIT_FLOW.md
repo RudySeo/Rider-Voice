@@ -61,9 +61,11 @@ master → hotfix/<short-name> → master
 서버 API와 OpenAPI 계약을 먼저 완성한다.
 
 1. 인증·인가
-2. 음식점·지역 제한
-3. 방문 증빙·OCR
-4. WriteGrant·리뷰
-5. 리포트·관리자 기능
-6. 보안·통합 검증
-7. React Native 클라이언트
+2. 약관 동의 온보딩 보완
+3. 음식점·지역 제한
+4. 비공개 리뷰 초안
+5. 방문 증빙·OCR provider 선정
+6. WriteGrant·정식 리뷰 전환
+7. 리포트·관리자 기능
+8. 보안·통합 검증
+9. React Native 클라이언트

@@ -10,7 +10,7 @@
 
 ## 작업
 
-token 만료·폐기·rotation replay, endpoint role, 입력 크기, rate limit interface, 민감정보 로그와 오류 노출을 점검하고 보강한다. presigned 대체 upload ticket, object key, place ID와 role 같은 사용자 입력을 신뢰하지 않는지 테스트한다.
+onboarding token scope·만료·재사용, access/refresh token 폐기·rotation replay, endpoint role, 입력 크기, rate limit interface, 민감정보 로그와 오류 노출을 점검하고 보강한다. local upload ticket, object key, place ID, reviewDraftId와 role 같은 사용자 입력을 신뢰하지 않는지 테스트한다.
 
 ## 인수 기준
 

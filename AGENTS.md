@@ -26,7 +26,8 @@
 
 - 카카오 REST OAuth
 - 카카오 로컬 REST API
-- NAVER Cloud CLOVA OCR
+- 방문 증빙 추출 provider는 OCR 단계 착수 시 NAVER Cloud CLOVA OCR과 멀티모달 모델을 비교해 결정한다.
+- LangChain 계열 framework의 실행 형태도 OCR 단계의 ADR에서 결정한다.
 
 ### 후속 운영 인프라
 
@@ -56,8 +57,9 @@
 - CRITICAL: Controller에 비즈니스 로직이나 JPA query를 작성하지 않는다.
 - CRITICAL: JPA Entity를 API request 또는 response로 직접 사용하지 않는다.
 - CRITICAL: 외부 API, S3와 SQS는 infrastructure adapter에서만 호출한다.
-- CRITICAL: React Native 또는 다른 클라이언트가 DB, S3, CLOVA, 카카오 로컬 API를 직접 호출하게 하지 않는다.
+- CRITICAL: React Native 또는 다른 클라이언트가 DB, 증빙 저장소, 증빙 추출 provider 또는 카카오 로컬 API를 직접 호출하게 하지 않는다.
 - CRITICAL: 유효한 `WriteGrant` 없이 리뷰를 생성하지 않는다.
+- CRITICAL: 방문 인증 전 `ReviewDraft`는 정식 리뷰가 아니며 공개, 리포트 집계 또는 관리자 검수 대상에 포함하지 않는다.
 - CRITICAL: `WriteGrant` 확인과 소진, 리뷰 생성은 하나의 트랜잭션에서 원자적으로 처리한다.
 - CRITICAL: 하나의 방문 증빙으로 두 개 이상의 리뷰를 생성하지 않는다.
 - CRITICAL: OCR 증빙 원본이나 카카오 계정 정보를 공개 API 응답에 포함하지 않는다.
@@ -141,11 +143,12 @@ com.ridervoice.api
 1. Spring Boot/Kotlin 프로젝트 기반
 2. MySQL, JPA, Flyway
 3. 공통 오류, 보안, OpenAPI
-4. 카카오 로그인과 세션
+4. 카카오 로그인, 온보딩 토큰과 세션
 5. 음식점과 지역 제한
-6. 증빙 업로드와 OCR
-7. WriteGrant와 리뷰
-8. 리포트 집계
-9. 관리자 검수, 신고, 정정
-10. 서버 보안·통합·성능 검증
-11. React Native 앱
+6. 로그인 사용자의 리뷰 초안
+7. 증빙 업로드와 OCR provider 선정
+8. WriteGrant와 정식 리뷰 전환
+9. 리포트 집계
+10. 관리자 검수, 신고, 정정
+11. 서버 보안·통합·성능 검증
+12. React Native 앱

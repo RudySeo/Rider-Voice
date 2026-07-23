@@ -10,7 +10,7 @@
 
 ## 작업
 
-카카오 로그인 adapter stub부터 음식점 검색, 증빙 검증, WriteGrant, 리뷰 제출과 리포트 공개까지 핵심 흐름의 Docker 없는 테스트를 작성한다. 외부 카카오/CLOVA는 HTTP stub, 저장소는 계층별 fake 또는 실행 중인 로컬 MySQL 정책을 사용한다.
+카카오 로그인과 onboarding token adapter stub부터 음식점 검색, 리뷰 초안, 증빙 검증, WriteGrant, 초안의 정식 리뷰 전환과 리포트 공개까지 핵심 흐름의 Docker 없는 테스트를 작성한다. 외부 카카오와 선택된 증빙 추출 provider는 stub, 저장소는 계층별 fake 또는 실행 중인 로컬 MySQL 정책을 사용한다.
 
 ## 인수 기준
 
