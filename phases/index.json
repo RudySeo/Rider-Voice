@@ -11,7 +11,8 @@
     },
     {
       "dir": "1-auth-onboarding",
-      "status": "completed"
+      "status": "completed",
+      "completed_at": "2026-07-23T10:09:22+0900"
     },
     {
       "dir": "1-restaurant-search",
