@@ -149,6 +149,18 @@ def package_scripts(package_json: Path) -> set[str] | None:
     return set(scripts) if isinstance(scripts, dict) else set()
 
 
+def run_check(label: str, command: list[str], root: Path) -> bool:
+    print(f"pre-commit: running {label}", file=sys.stderr)
+    result = subprocess.run(
+        command,
+        cwd=root,
+        stdout=sys.stderr,
+        stderr=sys.stderr,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def main() -> int:
     payload = read_payload()
     tool_input = payload.get("tool_input")
@@ -165,42 +177,45 @@ def main() -> int:
         return 0
 
     package_json = root / "package.json"
-    if not package_json.is_file():
-        deny("PRE-COMMIT CHECK: package.json이 없어 lint, build, test를 실행할 수 없습니다.")
-        return 0
+    gradle_wrapper = root / "gradlew"
 
-    required_checks = ("lint", "build", "test")
-    scripts = package_scripts(package_json)
-    if scripts is None:
-        deny("PRE-COMMIT CHECK: package.json을 읽거나 파싱할 수 없습니다.")
-        return 0
-
-    missing = [name for name in required_checks if name not in scripts]
-    if missing:
-        deny(
-            "PRE-COMMIT CHECK: package.json에 필요한 npm script가 없습니다: "
-            + ", ".join(missing)
-        )
-        return 0
-
-    if shutil.which("npm") is None:
-        deny("PRE-COMMIT CHECK: npm 실행 파일을 찾을 수 없습니다.")
-        return 0
-
-    for check in required_checks:
-        print(f"pre-commit: running npm run {check}", file=sys.stderr)
-        result = subprocess.run(
-            ["npm", "run", check],
-            cwd=root,
-            stdout=sys.stderr,
-            stderr=sys.stderr,
-            check=False,
-        )
-        if result.returncode != 0:
-            deny(f"PRE-COMMIT CHECK: npm run {check} 실패로 commit을 중단했습니다.")
+    if package_json.is_file():
+        required_checks = ("lint", "build", "test")
+        scripts = package_scripts(package_json)
+        if scripts is None:
+            deny("PRE-COMMIT CHECK: package.json을 읽거나 파싱할 수 없습니다.")
             return 0
 
-    print("pre-commit: lint, build, and test passed", file=sys.stderr)
+        missing = [name for name in required_checks if name not in scripts]
+        if missing:
+            deny(
+                "PRE-COMMIT CHECK: package.json에 필요한 npm script가 없습니다: "
+                + ", ".join(missing)
+            )
+            return 0
+
+        if shutil.which("npm") is None:
+            deny("PRE-COMMIT CHECK: npm 실행 파일을 찾을 수 없습니다.")
+            return 0
+
+        for check in required_checks:
+            if not run_check(f"npm run {check}", ["npm", "run", check], root):
+                deny(f"PRE-COMMIT CHECK: npm run {check} 실패로 commit을 중단했습니다.")
+                return 0
+
+        print("pre-commit: npm lint, build, and test passed", file=sys.stderr)
+        return 0
+
+    if gradle_wrapper.is_file():
+        for check in ("test", "check", "build"):
+            if not run_check(f"./gradlew {check}", [str(gradle_wrapper), check], root):
+                deny(f"PRE-COMMIT CHECK: ./gradlew {check} 실패로 commit을 중단했습니다.")
+                return 0
+
+        print("pre-commit: Gradle test, check, and build passed", file=sys.stderr)
+        return 0
+
+    deny("PRE-COMMIT CHECK: 지원하는 package.json 또는 Gradle Wrapper를 찾을 수 없습니다.")
     return 0
 
 

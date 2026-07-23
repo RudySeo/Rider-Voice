@@ -1,285 +1,191 @@
-# Rider Voice 아키텍처
+# Rider Voice MVP 아키텍처
 
-## 1. 개요
+## 1. 범위
 
-Rider Voice는 API 서버를 먼저 완성한 뒤 React Native 클라이언트를 연결하는 서버 우선 프로젝트다. 서버는 인증, 음식점, 방문 증빙, OCR, 글쓰기 권한, 리뷰, 리포트 집계, 검수와 정정 요청의 유일한 업무 규칙 소유자다.
+현재 서버는 카카오 인증, 음식점 검색·등록과 비공개 리뷰 CRUD만 담당한다. 방문 증빙, OCR, 공개 리포트, 검수와 정정은 현재 아키텍처 범위가 아니다.
 
-React Native 앱은 서버가 발행한 OpenAPI 계약만 사용하며 데이터베이스, 증빙 저장소, 증빙 추출 provider 또는 카카오 로컬 API를 직접 호출하지 않는다.
+서버는 인증·권한, 카카오 장소 검증, 음식점 중복 방지와 리뷰 소유권 규칙의 유일한 기준이다. 클라이언트는 데이터베이스나 카카오 API를 직접 호출하지 않는다.
 
-## 2. 기술 스택
+## 2. 기술 스택과 실행 경계
 
-### 서버
+- Spring Boot, Kotlin, Gradle Kotlin DSL
+- Spring MVC, Spring Security, Bean Validation
+- Spring Data JPA, Hibernate, MySQL 9.3, Flyway
+- springdoc-openapi, RFC 7807 `ProblemDetail`
+- JUnit 5, MockK, Spring MVC 테스트
+- 카카오 REST OAuth, 카카오 로컬 REST API
 
-- Spring Boot
-- Kotlin
-- Gradle Kotlin DSL
-- Spring MVC
-- Spring Security
-- Spring Data JPA / Hibernate
-- MySQL 9.3
-- Flyway
-- Bean Validation
-- springdoc-openapi
-- JUnit 5, Kotest 또는 AssertJ, MockK
-
-### 외부 서비스
-
-- 카카오 REST OAuth: 소셜 로그인
-- 카카오 로컬 REST API: 음식점 검색과 장소 식별
-- 방문 증빙 추출 provider: OCR 단계 착수 시 NAVER Cloud CLOVA OCR과 멀티모달 모델을 비교해 결정
-- LangChain 계열 framework: LangChain4j 또는 별도 Python 서비스 여부를 OCR 단계 ADR에서 결정
-
-### 후속 운영 인프라
-
-- Amazon RDS for MySQL
-- Amazon S3 비공개 버킷
-- Amazon SQS와 Dead Letter Queue
-- Amazon ECS Fargate
-- AWS KMS, Secrets Manager, CloudWatch, WAF
-- 현재 로컬 개발 단계에서는 위 AWS 리소스를 구성하거나 배포하지 않는다.
-
-### 현재 로컬 실행 경계
-
-- Spring Boot API와 MySQL 9.3을 로컬 프로세스로 직접 실행한다.
-- 로컬 데이터베이스명은 `rider`를 사용한다.
-- Docker, Docker Compose와 Testcontainers는 현재 실행 및 검증 경로에서 사용하지 않는다.
-- 배포와 production readiness 검증은 사용자가 별도로 착수를 요청하기 전까지 수행하지 않는다.
-
-### 후속 클라이언트
-
-- React Native
-- iOS와 Android 동시 지원
-- 서버 API와 OpenAPI 계약이 안정화된 후 개발
-- Expo 또는 Bare React Native 선택은 클라이언트 착수 시 별도 ADR로 결정
+API 서버와 `rider` MySQL 데이터베이스는 로컬 프로세스로 실행한다. 사용자가 별도로 요청하기 전에는 Docker, Docker Compose, Testcontainers, AWS 리소스와 배포 작업을 사용하지 않는다.
 
 ## 3. 프로젝트 구조
 
-서버 코드는 기능 중심 패키지와 기능 내부 계층을 함께 사용한다.
-
 ```text
-src/
-├── main/
-│   ├── kotlin/com/ridervoice/api/
-│   │   ├── RiderVoiceApplication.kt
-│   │   ├── common/
-│   │   │   ├── config/
-│   │   │   ├── error/
-│   │   │   ├── security/
-│   │   │   ├── persistence/
-│   │   │   └── time/
-│   │   ├── auth/
-│   │   ├── restaurant/
-│   │   ├── visit/
-│   │   ├── review/
-│   │   ├── report/
-│   │   ├── moderation/
-│   │   └── correction/
-│   └── resources/
-│       ├── application.yml
-│       └── db/migration/
-└── test/
-    └── kotlin/com/ridervoice/api/
+com.ridervoice.api
+├── common
+├── auth
+├── restaurant
+└── review
 ```
 
-각 기능 패키지는 필요한 범위에서 다음 계층을 사용한다.
+각 기능은 가벼운 헥사고날 구조를 사용한다.
 
 ```text
-feature/
-├── presentation/      # Controller, request/response DTO
-├── application/       # use case, transaction boundary
-├── domain/            # entity behavior, value object, policy
-└── infrastructure/    # JPA repository, provider adapter
+feature
+├── presentation
+│   ├── FeatureController.kt
+│   ├── dto
+│   │   ├── FeatureRequests.kt
+│   │   └── FeatureResponses.kt
+│   └── FeatureHttpMapper.kt
+├── application
+│   ├── port
+│   │   ├── in
+│   │   │   └── FeatureUseCase.kt
+│   │   └── out
+│   │       ├── FeatureRepository.kt
+│   │       └── ExternalProviderPort.kt
+│   ├── model
+│   │   ├── FeatureCommands.kt
+│   │   └── FeatureResults.kt
+│   └── FeatureService.kt
+├── domain
+│   ├── Feature.kt
+│   └── FeaturePolicy.kt
+└── infrastructure
+    ├── persistence
+    │   └── JpaFeatureRepository.kt
+    └── external
+        └── ExternalProviderAdapter.kt
 ```
 
-## 4. 계층 규칙
-
-- Controller는 HTTP 요청 검증, application use case 호출, 응답 변환만 담당한다.
-- 비즈니스 규칙과 상태 전이는 application 및 domain 계층에 둔다.
-- 트랜잭션 경계는 application service에 둔다.
-- JPA Entity를 API 요청 또는 응답 DTO로 직접 사용하지 않는다.
-- domain/application 계층은 카카오, 증빙 추출 provider, S3 같은 외부 SDK 타입에 의존하지 않는다.
-- 외부 연동은 port interface와 infrastructure adapter로 격리한다.
-- Repository interface는 기능 패키지 내부에 두고 구현 세부사항을 외부로 노출하지 않는다.
-- 기능 간 호출은 공개 application interface 또는 식별자 기반으로 수행한다.
-
-## 5. 핵심 데이터 흐름
-
-### 5.1 카카오 로그인
+### 의존 방향
 
 ```text
-React Native 또는 테스트 클라이언트
-  -> GET /api/v1/auth/kakao/authorize
-  -> 카카오 로그인 및 authorization code
-  -> GET /api/v1/auth/kakao/callback
-  -> 카카오 token/user 조회 adapter
-  -> User upsert
-  -> 신규 회원은 짧은 수명의 일회용 onboarding token 발급
-  -> POST /api/v1/auth/consents
-  -> 약관 동의 후 서비스 access token + rotating refresh token 발급
+HTTP request
+  -> presentation DTO
+  -> application input port (command)
+  -> domain
+  -> application output port
+  -> infrastructure adapter
+
+application result
+  -> presentation response DTO
+  -> HTTP response
 ```
 
+- Controller는 HTTP validation, principal 추출, input port 호출과 response 변환만 담당한다.
+- Controller는 request DTO를 application에 그대로 전달하지 않고 command로 변환한다.
+- application은 HTTP request/response DTO, Spring MVC, Swagger, Jackson과 infrastructure 구현 타입을 알지 못한다.
+- input port는 application use case의 공개 계약이며 Controller는 이 interface에 의존한다.
+- repository와 외부 provider interface는 `application/port/out`에 두고 infrastructure adapter가 구현한다.
+- application result를 API 응답으로 직접 반환하지 않고 presentation mapper가 response DTO로 변환한다.
+- JPA Entity를 request, response, command 또는 result로 직접 사용하지 않는다.
+- 트랜잭션 경계와 소유권 검사는 application service에 둔다.
+- 모든 내부 class에 interface를 만들지 않는다. Controller가 호출하는 use case와 application이 사용하는 외부 경계에만 port를 둔다.
+
+### DTO와 모델 규칙
+
+- request/response DTO는 `presentation/dto`에 두며 Bean Validation과 OpenAPI schema annotation을 가질 수 있다.
+- 작은 DTO는 class마다 파일을 만들지 않고 `FeatureRequests.kt`, `FeatureResponses.kt`처럼 역할별로 묶는다.
+- command/result는 `application/model`에 두며 HTTP annotation이나 provider 타입을 포함하지 않는다.
+- HTTP mapping은 `presentation`의 명시적 mapper 또는 extension function에서 수행한다.
+- provider request/response 타입과 JPA 전용 구현 타입은 `infrastructure` 밖으로 노출하지 않는다.
+- 현재 MVP에서는 domain entity에 JPA mapping annotation을 허용하되 persistence 세부사항이 domain behavior나 공개 계약으로 새지 않게 한다.
+
+### 기존 인증 코드 정리 경계
+
+기존 인증 코드는 Controller가 application result를 직접 반환하고 application service가 infrastructure repository를 직접 참조하는 과도기 구조다. 음식점과 리뷰 신규 구현은 위 경계를 먼저 적용한다. 인증 구조 정리는 별도 refactor 작업으로 수행하며 음식점·리뷰 기능 작업에 섞지 않는다.
+
+## 4. 핵심 흐름
+
+### 4.1 카카오 로그인
+
+```text
+GET /api/v1/auth/kakao/authorize
+  -> 카카오 로그인과 authorization code
+GET /api/v1/auth/kakao/callback
+  -> 카카오 token/user adapter
+  -> User 및 OAuthAccount 확인
+  -> 신규 사용자는 onboarding token 발급
+POST /api/v1/auth/consents
+  -> ACTIVE 전환
+  -> access token과 rotating refresh token 발급
+```
+
+- onboarding token은 약관 동의 API에만 사용할 수 있다.
 - 카카오 access token은 계정 확인 후 장기 보관하지 않는다.
-- 서비스 refresh token은 원문이 아니라 해시로 저장한다.
-- access token은 짧은 만료 시간을 사용하고 refresh token은 회전시킨다.
-- onboarding token은 약관 동의에만 사용할 수 있고 다른 인증 API 권한을 갖지 않는다.
+- refresh token은 원문이 아니라 해시로 저장하고 갱신할 때 회전시킨다.
 
-### 5.2 리뷰 초안
+### 4.2 음식점 검색과 지연 등록
 
 ```text
-인증된 ACTIVE 사용자
-  -> 음식점 선택
-  -> POST /api/v1/review-drafts
-  -> PATCH /api/v1/review-drafts/{id}
-  -> 본인 소유 ReviewDraft 저장
-  -> 공개·리포트 집계·관리자 검수에서 제외
+GET /api/v1/restaurants/search?query=...
+  -> 내부 음식점 검색
+  -> KakaoLocalPort를 통한 카카오 장소 검색
+  -> 내부 등록 여부를 포함한 장소 후보 DTO 반환
+
+POST /api/v1/restaurants
+  -> 원래 query와 선택한 kakaoPlaceId 입력
+  -> 서버가 같은 카카오 키워드 검색을 다시 수행
+  -> 결과에 일치하는 장소가 있는지 검증
+  -> kakaoPlaceId unique key로 Restaurant upsert
+  -> 내부 restaurantId 반환
 ```
 
-ReviewDraft는 방문 인증 전 작성 편의를 위한 별도 모델이다. 일부 답변이 비어 있어도 저장할 수 있지만 제공된 값은 정식 리뷰와 같은 형식 제약을 적용한다. Review나 WriteGrant 상태를 갖지 않으며 방문 인증을 우회하는 수단으로 사용하지 않는다.
+- 외부 API 타입은 infrastructure adapter 밖으로 노출하지 않는다.
+- 클라이언트가 보낸 이름, 주소, 좌표를 음식점 기준 정보로 신뢰하지 않는다.
+- 카카오 로컬 API는 장소 ID 단건 조회를 제공하지 않으므로 클라이언트가 보낸 장소 ID만으로 등록하지 않는다.
+- 등록 요청의 원래 검색어로 카카오 키워드 검색을 반복하고, 결과에서 같은 장소 ID를 찾은 경우에만 provider 응답의 이름·주소·좌표를 저장한다.
+- 동시 최초 등록 요청도 하나의 Restaurant만 생성되도록 DB unique 제약과 충돌 후 재조회로 처리한다.
+- 음식점을 최초 선택한 사용자에게 소유권이나 수정 권한을 부여하지 않는다.
 
-### 5.3 방문 증빙과 OCR
+### 4.3 비공개 리뷰 CRUD
 
 ```text
-POST /api/v1/visits/upload-ticket
-  -> 권한과 파일 제한 검증
-  -> EvidenceStoragePort를 통해 로컬 업로드 권한 발급
-POST /api/v1/visits
-  -> VisitEvidence 생성
-  -> EvidenceProcessingPort에 추출 작업 발행
-증빙 추출 adapter
-  -> 선택된 OCR 또는 멀티모달 provider 호출
-  -> 배민 화면 파싱
-  -> 주문 HMAC/이미지 해시 중복 검사
-  -> 카카오 장소 후보 연결
-  -> 자동 승인 또는 MANUAL_REVIEW
-  -> 승인 시 WriteGrant 발급
-  -> 원본 즉시 삭제
+ROLE_USER
+  + restaurantId
+  + 6개 ReviewRating
+  + 선택 comment
+  -> Review 생성
+  -> 본인 리뷰 목록·상세 조회
+  -> 본인 리뷰 수정 또는 삭제
 ```
 
-현재 로컬 단계에서는 filesystem 저장소와 in-process 작업 adapter를 사용한다. OCR 공급자, LangChain4j와 별도 Python LangChain 서비스 중 선택은 이 단계 착수 시 비교 검증하고 ADR로 확정한다. S3와 SQS adapter는 후속 운영 단계에서만 구현한다.
+- 사용자와 음식점 조합당 리뷰는 하나다.
+- 중복 생성은 `409 Conflict`로 반환하고 기존 리뷰를 변경하지 않는다.
+- 타인의 리뷰 ID는 상세·수정·삭제 요청에서 `404 Not Found`로 처리한다.
+- 리뷰는 비공개이며 방문 인증, 공개 조회와 집계 상태를 갖지 않는다.
+- 삭제는 현재 MVP에서 hard delete다.
 
-### 5.4 정식 리뷰와 리포트
-
-```text
-유효한 WriteGrant
-  + 본인 소유 ReviewDraft
-  -> POST /api/v1/write-grants/{id}/review
-  -> WriteGrant 원자적 소진
-  -> 초안 내용으로 Review + ReviewAnswer 저장
-  -> 자유 의견 검수 큐 생성
-  -> 리포트 집계 대상 반영
-  -> 주기적 ReportSnapshot 계산
-  -> 공개 조회 API 제공
-```
-
-ReviewDraft 확인·전환, WriteGrant 확인·소진과 리뷰 생성은 같은 트랜잭션에서 수행하고 비관적 잠금 또는 조건부 갱신으로 중복 소진을 방지한다.
-
-## 6. 도메인 상태
-
-```text
-UserStatus
-- PENDING_TERMS
-- ACTIVE
-- RATE_LIMITED
-- SUSPENDED
-- WITHDRAWN
-
-VisitStatus
-- UPLOADED
-- OCR_PROCESSING
-- NEEDS_CONFIRMATION
-- MANUAL_REVIEW
-- VERIFIED
-- REJECTED
-- DUPLICATE
-- EXPIRED
-
-WriteGrantStatus
-- AVAILABLE
-- CONSUMED
-- EXPIRED
-- REVOKED
-
-ReviewStatus
-- SUBMITTED
-- INCLUDED
-- HELD
-- REMOVED
-
-CommentStatus
-- PENDING
-- APPROVED
-- REDACTED
-- REVISION_REQUIRED
-- REJECTED
-
-ReportStatus
-- COLLECTING
-- PUBLISHED
-- TEMPORARILY_HIDDEN
-
-ReviewDraftStatus
-- ACTIVE
-- CONVERTING
-
-CorrectionStatus
-- RECEIVED
-- VERIFYING_OWNER
-- REVIEWING
-- RESOLVED
-- REJECTED
-```
-
-상태 전이는 enum 값을 임의로 덮어쓰지 않고 domain method를 통해서만 수행한다.
-
-## 7. 핵심 데이터 모델
+## 5. 도메인과 데이터 모델
 
 ### 인증
 
-- `users`: 내부 사용자 ID, 상태, 약관 버전과 동의 시각
-- `oauth_accounts`: provider, 외부 subject, 사용자 연결
-- `onboarding_tokens`: 약관 동의 전용 token hash, 사용자, 만료·소비 시각
-- `user_sessions`: refresh token hash, 만료, 폐기, rotation 정보
+- `users`: 내부 사용자 ID, 상태, 약관 동의 정보
+- `oauth_accounts`: provider와 외부 subject의 사용자 연결
+- `onboarding_tokens`: 일회용 token hash와 만료·소비 정보
+- `user_sessions`: refresh token hash와 회전·폐기 정보
 
-### 음식점과 방문
+### 음식점
 
-- `restaurants`: 카카오 장소 ID, 이름, 주소, 좌표, 파일럿 포함 여부
-- `visit_evidences`: 사용자, 앱 종류, OCR 상태, 완료 시각, 주문 HMAC, 이미지 해시, 장소 매칭 신뢰도, 원본 삭제 시각
-- `write_grants`: 사용자, 방문, 음식점, 상태, 만료 및 소진 시각
+- `restaurants`: `kakao_place_id`, 이름, 주소, 좌표, 마지막 동기화 시각
+- `kakao_place_id`에 unique 제약을 둔다.
 
-### 리뷰와 리포트
+### 리뷰
 
-- `review_drafts`: 작성자, 음식점, 부분 응답과 선택 자유 의견. 방문 인증 전 비공개 데이터. 활성 초안은 사용자·음식점당 하나이며, 정식 리뷰 전환 transaction에서 소비 후 삭제한다.
-- `reviews`: 작성자, 음식점, 방문 증빙, 집계 상태, 제출 시각
-- `review_answers`: 리뷰, 평가 항목, 응답 값
-- `review_comments`: 원문, 공개용 본문, 검수 상태
-- `report_snapshots`: 음식점, 집계 기간, 항목별 표본 수·분포·긍정 비율
+- `reviews`: 작성자, 음식점, 6개 평가 값, 선택 의견, 생성·수정 시각
+- `(author_user_id, restaurant_id)`에 unique 제약을 둔다.
+- `ReviewRating`은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`다.
+- 의견은 nullable이며 최대 200자다.
 
-### 운영
+현재 `restaurants.included_in_pilot`은 이전 지역 파일럿 설계의 잔여 필드다. 음식점 검색 구현 시 새 Flyway migration으로 제거하고 다른 의미로 재사용하지 않는다.
 
-- `moderation_cases`: 대상, 탐지 규칙, 상태, 관리자 판단
-- `correction_requests`: 음식점, 요청자 연락 수단, 요청 사유, 처리 결과
-- `audit_logs`: 행위자, 작업 종류, 대상, 사유, 변경 전후 메타데이터
+모든 기본 키는 UUID를 사용한다. 시각은 UTC로 저장하고 API에서는 RFC 3339로 반환한다. 스키마 변경은 Flyway migration으로만 수행한다.
 
-모든 기본 키는 UUID를 사용한다. 모든 시각은 UTC로 저장하고 API에서는 RFC 3339 형식으로 반환한다.
-
-## 8. API 규칙
-
-- API prefix는 `/api/v1`을 사용한다.
-- 성공 응답은 기능별 response DTO를 직접 반환한다.
-- 오류는 RFC 7807 `ProblemDetail` 형식을 사용한다.
-- 요청 DTO는 Bean Validation으로 검증한다.
-- 목록 API는 cursor pagination을 기본으로 한다.
-- 외부 provider 오류 메시지, stack trace, secret을 클라이언트에 노출하지 않는다.
-- OpenAPI 문서를 API 계약의 기준으로 사용한다.
-- React Native 타입과 클라이언트는 OpenAPI에서 생성한다.
-- Swagger UI는 로컬 `/swagger-ui.html`, OpenAPI JSON은 `/v3/api-docs`에서 제공한다.
-- endpoint 추가 또는 request/response 변경 시 Controller annotation과 공개 DTO schema를 함께 갱신한다.
-- 인증 endpoint에는 Bearer 인증 요구사항을 명시하고 공개 endpoint에는 전역 인증 요구사항을 적용하지 않는다.
-- 멱등성이 필요한 방문 생성과 리뷰 제출 요청에는 idempotency key를 지원한다.
-
-주요 API:
+## 6. API 계약
 
 ```text
+# 구현됨
 GET    /api/v1/auth/kakao/authorize
 GET    /api/v1/auth/kakao/callback
 POST   /api/v1/auth/consents
@@ -287,93 +193,70 @@ POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
 GET    /api/v1/users/me
 
+# MVP 다음 구현 대상
 GET    /api/v1/restaurants/search
-GET    /api/v1/restaurants/{id}/report
-GET    /api/v1/restaurants/{id}/methodology
-
-POST   /api/v1/review-drafts
-GET    /api/v1/review-drafts/{id}
-PATCH  /api/v1/review-drafts/{id}
-GET    /api/v1/users/me/review-drafts
-
-POST   /api/v1/visits/upload-ticket
-POST   /api/v1/visits
-GET    /api/v1/visits/{id}
-POST   /api/v1/visits/{id}/confirm-restaurant
-
-GET    /api/v1/write-grants/{id}
-POST   /api/v1/write-grants/{id}/review
-GET    /api/v1/users/me/reviews
-
-POST   /api/v1/restaurants/{id}/corrections
-GET    /api/v1/corrections/{publicToken}
-POST   /api/v1/comments/{id}/reports
+POST   /api/v1/restaurants
+POST   /api/v1/reviews
+GET    /api/v1/reviews
+GET    /api/v1/reviews/{reviewId}
+PATCH  /api/v1/reviews/{reviewId}
+DELETE /api/v1/reviews/{reviewId}
 ```
 
-관리자 API는 `/api/v1/admin` 아래에 두고 관리자 role을 요구한다.
+- 인증과 현재 사용자 API를 제외한 MVP 신규 API는 `ROLE_USER`를 요구한다.
+- 목록 API는 cursor pagination을 사용한다.
+- 성공 응답은 기능별 DTO, 오류 응답은 안정적인 `code`를 포함한 `ProblemDetail`을 사용한다.
+- request DTO는 Bean Validation으로 검증한다.
+- endpoint와 DTO 변경은 같은 변경에서 OpenAPI annotation과 schema에 반영한다.
 
-## 9. 데이터베이스 규칙
+공개 request 필드:
 
-- MySQL을 단일 source of truth로 사용한다.
-- JPA `ddl-auto`는 로컬·운영 모두 schema 생성 용도로 사용하지 않는다.
-- 모든 스키마 변경은 순서가 있는 Flyway migration으로 작성한다.
-- 조회 패턴을 기준으로 인덱스를 명시한다.
-- N+1 문제를 방지하기 위해 fetch join, entity graph 또는 projection을 의도적으로 사용한다.
-- 집계 조회는 JPA projection 또는 명시적 query를 사용하고 entity graph 전체 로딩을 피한다.
-- 운영 리포트는 원본 리뷰를 매번 전체 계산하지 않고 `report_snapshots`로 제공한다.
+```text
+CreateRestaurantRequest
+- query: String
+- kakaoPlaceId: String
 
-## 10. 보안과 개인정보
+CreateReviewRequest
+- restaurantId: UUID
+- pickupSpaceCleanliness: ReviewRating
+- packagingStability: ReviewRating
+- orderReadiness: ReviewRating
+- handoffAccuracy: ReviewRating
+- staffInteraction: ReviewRating
+- riderRespect: ReviewRating
+- comment: String?  # 최대 200자
 
-- 현재 로컬 증빙 저장소는 서버가 생성한 key와 짧은 수명의 upload ticket만 허용하고 파일 형식·크기와 경로 탈출을 검증한다.
-- 후속 S3 adapter의 증빙 버킷은 public access를 완전히 차단하고 presigned URL에 짧은 만료 시간과 파일 형식·크기 제한을 적용한다.
-- 클라이언트가 제출한 파일 key 또는 경로를 그대로 신뢰하지 않는다.
-- OCR 성공 원본은 즉시 삭제하고 수동 검수 원본은 최대 72시간 후 삭제한다.
-- 주문 식별자는 server-side secret을 사용하는 HMAC으로 저장한다.
-- 소셜 계정 정보와 공개 리뷰 응답을 분리한다.
-- 관리자 작업에는 role 검사와 감사 로그를 적용한다.
-- 현재 로컬 secret은 환경변수로 주입하고, 후속 운영 단계의 refresh token, provider secret, HMAC secret과 KMS key 정보는 Secrets Manager에서 주입한다.
-- 위험 제출에는 rate limit과 검수 보류를 적용한다.
+UpdateReviewRequest
+- 위 6개 ReviewRating: 각각 optional, 전달된 항목만 변경
+- comment: optional, 빈 문자열은 의견 삭제
+```
 
-## 11. 테스트 전략
+리뷰 수정 요청은 평가나 의견 중 하나 이상을 포함해야 한다. 의견의 앞뒤 공백은 제거하고 빈 문자열은 `null`로 정규화한다.
+
+## 7. 테스트 전략
 
 ### 단위 테스트
 
-- 상태 전이와 도메인 정책
-- WriteGrant 만료·소진·재사용 방지
-- 리뷰 집계 포함 한도
-- 공개 표본과 기간 계산
-- OCR 파싱과 장소 후보 점수 계산
-- 리뷰 초안의 본인 접근 제한과 공개·집계 제외
-- 개인정보 및 금지 표현 탐지
+- 리뷰 평가 값과 의견 길이 검증
+- 리뷰 수정 정책
+- 음식점과 리뷰 도메인 규칙
 
 ### 통합 테스트
 
-- 실행 중인 로컬 MySQL을 사용한 JPA와 Flyway 검증
-- 카카오·증빙 추출 provider·카카오 로컬 adapter의 stub server 테스트
-- 현재 로컬 filesystem과 in-process 작업 adapter의 경계 테스트. S3와 SQS 경계 테스트는 후속 운영 단계에서 추가
-- 로그인, 리뷰 초안, 방문, 글쓰기 권한, 정식 리뷰 전환과 리포트까지 전체 흐름
-- 동시에 같은 WriteGrant를 제출했을 때 하나만 성공하는지 검증
+- 로컬 MySQL 기준 Flyway migration과 JPA mapping
+- `kakao_place_id`와 `(author_user_id, restaurant_id)` 동시 중복 생성 방지
+- application service의 리뷰 소유권과 트랜잭션 경계
+- 카카오 로컬 adapter의 성공, timeout, rate limit과 잘못된 응답
 
 ### API 계약 테스트
 
-- OpenAPI 문서 생성과 schema 변경 검증
-- 인증·권한별 성공 및 실패 응답
-- ProblemDetail의 type, status, code, detail 일관성
+- 로그인 사용자 리뷰 CRUD 성공
+- 미인증 요청 거부
+- 타인 리뷰 접근 비노출
+- 잘못된 enum, 누락된 평가와 200자 초과 의견 거부
+- 중복 리뷰 생성 시 `409 Conflict`
+- `/v3/api-docs`의 인증 요구사항과 DTO schema 검증
 
-## 12. 로컬 개발 순서
+## 8. 후속 확장 경계
 
-1. Spring Boot/Kotlin 프로젝트 기반
-2. MySQL, JPA, Flyway와 공통 테스트 환경
-3. 공통 오류, 보안, OpenAPI
-4. 카카오 로그인과 서비스 세션
-5. 음식점과 파일럿 지역
-6. 로그인 사용자의 리뷰 초안
-7. 증빙 업로드, 추출 provider 선정과 비동기 OCR
-8. WriteGrant와 정식 리뷰 전환
-9. 집계 리포트
-10. 관리자 검수, 신고, 정정
-11. 보안·통합·성능 테스트
-12. OpenAPI 계약 확정
-13. React Native 앱 개발
-
-AWS/ECS 배포, 운영 인프라, Docker 기반 테스트와 production readiness 검증은 현재 작업 범위에서 제외한다. 사용자가 착수를 명시적으로 요청할 때 별도 계획으로 진행한다.
+방문 인증을 구현하기 전까지 현재 리뷰를 인증 리뷰로 표현하거나 공개하지 않는다. 후속 단계에서는 별도 ADR을 먼저 작성해 증빙 방식, 인증 리뷰 전환, 공개 기준과 보관 정책을 결정한다. 현재 MVP에 미래 상태 enum, OCR port, `WriteGrant`, 리포트 또는 관리자 모델을 미리 추가하지 않는다.

@@ -10,32 +10,24 @@
       "status": "completed"
     },
     {
-      "dir": "1-auth-onboarding",
+      "dir": "2-auth-onboarding",
       "status": "completed",
       "completed_at": "2026-07-23T10:09:22+0900"
     },
     {
-      "dir": "1-restaurant-search",
+      "dir": "3-restaurant-search",
       "status": "pending"
     },
     {
-      "dir": "1-review-drafts",
+      "dir": "4-private-review-crud",
       "status": "pending"
     },
     {
-      "dir": "2-local-visit-verification",
+      "dir": "5-auth-hexagonal-refactor",
       "status": "pending"
     },
     {
-      "dir": "3-reviews-reports",
-      "status": "pending"
-    },
-    {
-      "dir": "4-moderation-corrections",
-      "status": "pending"
-    },
-    {
-      "dir": "5-local-hardening",
+      "dir": "6-mvp-verification",
       "status": "pending"
     }
   ]
