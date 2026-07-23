@@ -1,0 +1,19 @@
+package com.ridervoice.api.common.error
+
+open class ApiException(
+    val errorCode: ApiErrorCode,
+    message: String? = null,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
+
+class BadRequestException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.BAD_REQUEST, message, cause)
+
+class AuthenticationRequiredException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.AUTHENTICATION_REQUIRED, message, cause)
+
+class ResourceNotFoundException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.RESOURCE_NOT_FOUND, message, cause)
+
+class StateConflictException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.STATE_CONFLICT, message, cause)
