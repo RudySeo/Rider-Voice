@@ -53,13 +53,16 @@ Rider Voice는 계정의 라이더 자격을 별도로 심사하지 않습니다
 - Kakao authorization code 교환
 - Kakao 사용자 정보 조회 adapter
 - 카카오 로그인 callback 기본 흐름
-- 약관 동의에 따른 사용자 활성화
-- access/refresh token 발급·갱신·로그아웃 API
+- 신규 사용자의 약관 동의 전용 onboarding token 발급과 일회성 소비
+- 약관 동의에 따른 사용자 활성화와 정식 access/refresh token 발급
+- refresh token 회전과 세션 잠금 기반 갱신·로그아웃 API
 - 현재 사용자 조회 API
 
-현재 access token은 로컬 개발을 위한 메모리 저장 방식입니다. 배포 단계에서 JWT 검증과 영속 세션 저장소로 교체합니다.
+신규 `PENDING_TERMS` 사용자의 카카오 callback은 약관 동의 API에만 사용할 수 있는 `ROLE_ONBOARDING` onboarding token을 반환합니다. 이 token은 5분 동안 유효하며 한 번 동의에 사용하면 다시 사용할 수 없습니다. 동의가 완료된 `ACTIVE` 사용자에게는 `ROLE_USER` access token과 rotating refresh token을 발급합니다. access token은 15분, refresh token session은 30일 동안 유효하며 갱신 시 기존 refresh token을 폐기합니다. 로그아웃은 해당 refresh session과 연결된 access token을 무효화합니다.
 
-다음 구현 목표는 신규 사용자의 약관 동의 전용 온보딩 토큰, 음식점 검색과 비공개 리뷰 초안입니다. 방문 증빙 전 작성물은 정식 리뷰가 아니며 공개 또는 리포트 집계에 포함되지 않습니다.
+현재 access token은 로컬 개발을 위한 메모리 저장 방식이고, onboarding token과 refresh session은 원문 대신 SHA-256 hash로 MySQL에 저장합니다. 서버 재시작 시 메모리 access token은 무효화됩니다. 배포 단계의 token 검증·저장 방식은 운영 요구사항과 함께 별도로 결정합니다.
+
+다음 구현 목표는 음식점 검색과 비공개 리뷰 초안입니다. 방문 증빙 전 작성물은 정식 리뷰가 아니며 공개 또는 리포트 집계에 포함되지 않습니다.
 
 ## API
 
@@ -71,6 +74,12 @@ POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/users/me
 ```
+
+- 공개: 카카오 authorize/callback, refresh
+- `ROLE_ONBOARDING`: consents 전용
+- `ROLE_USER`: logout, users/me 및 이후 로그인 사용자 API
+
+인증·인가 오류는 RFC 7807 `ProblemDetail`과 안정적인 `code`로 반환하며 token, 외부 provider 오류와 stack trace를 응답에 포함하지 않습니다.
 
 ## Swagger / OpenAPI
 

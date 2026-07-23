@@ -2,26 +2,37 @@ package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.common.config.OpenApiConfiguration
+import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.SecurityProblemHandler
+import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
+import org.mockito.Mockito.`when`
 import org.springdoc.core.configuration.SpringDocConfiguration
 import org.springdoc.core.properties.SpringDocConfigProperties
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration
 
 @WebMvcTest(controllers = [AuthController::class, UserController::class])
-@Import(OpenApiConfiguration::class, SecurityProblemHandler::class)
+@Import(OpenApiConfiguration::class, GlobalExceptionHandler::class, SecurityProblemHandler::class)
 @ImportAutoConfiguration(
     SpringDocConfiguration::class,
     SpringDocConfigProperties::class,
     SpringDocWebMvcConfiguration::class,
 )
+@ExtendWith(OutputCaptureExtension::class)
 class AuthApiContractMockMvcTest {
 
     @Autowired
@@ -54,5 +65,79 @@ class AuthApiContractMockMvcTest {
                 }
                 jsonPath("$.paths['/api/v1/auth/consents'].post.security[0].onboardingBearerAuth") { isArray() }
             }
+    }
+
+    @Test
+    fun `generated OpenAPI describes public and scoped authentication lifecycle contracts`() {
+        mockMvc.get("/v3/api-docs")
+            .andExpect {
+                status { isOk() }
+                jsonPath("$.paths['/api/v1/auth/kakao/authorize'].get.security") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/kakao/callback'].get.security") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/refresh'].post.security") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/refresh'].post.requestBody.content['application/json'].schema['\$ref']") {
+                    value("#/components/schemas/TokenRequest")
+                }
+                jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['200'].content['application/json'].schema['\$ref']") {
+                    value("#/components/schemas/AuthTokens")
+                }
+                jsonPath("$.paths['/api/v1/auth/logout'].post.security[0].bearerAuth") { isArray() }
+                jsonPath("$.paths['/api/v1/auth/logout'].post.requestBody.content['application/json'].schema['\$ref']") {
+                    value("#/components/schemas/TokenRequest")
+                }
+                jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204']") { exists() }
+                jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth") { isArray() }
+                jsonPath("$.paths['/api/v1/users/me'].get.responses['200'].content['application/json'].schema['\$ref']") {
+                    value("#/components/schemas/UserSummary")
+                }
+            }
+    }
+
+    @Test
+    fun `Kakao provider failure returns sanitized problem detail without leaking response or logs`(output: CapturedOutput) {
+        val providerToken = "kakao-provider-token-should-never-leak"
+        val providerStackMarker = "at.private.ProviderClient.exchange(ProviderClient.kt:99)"
+        val sensitiveProviderFailure = "$providerToken\n$providerStackMarker"
+        `when`(authService.callback("provider-code", "oauth-state"))
+            .thenThrow(RuntimeException(sensitiveProviderFailure))
+
+        mockMvc.get("/api/v1/auth/kakao/callback") {
+            param("code", "provider-code")
+            param("state", "oauth-state")
+        }.andExpect {
+            status { isInternalServerError() }
+            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.type") { value("urn:ridervoice:error:internal-error") }
+            jsonPath("$.status") { value(500) }
+            jsonPath("$.code") { value("INTERNAL_ERROR") }
+            jsonPath("$.detail") { value("An unexpected error occurred.") }
+            content { string(not(containsString(sensitiveProviderFailure))) }
+        }
+
+        assertThat(output.all)
+            .doesNotContain(providerToken)
+            .doesNotContain(providerStackMarker)
+    }
+
+    @Test
+    fun `refresh failure returns stable problem detail without leaking token to response or logs`(output: CapturedOutput) {
+        val rawRefreshToken = "refresh-token-should-never-leak"
+        `when`(authService.refresh(rawRefreshToken))
+            .thenThrow(IllegalArgumentException("Invalid refresh token: $rawRefreshToken"))
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"refreshToken":"$rawRefreshToken"}"""
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.type") { value("urn:ridervoice:error:bad-request") }
+            jsonPath("$.status") { value(400) }
+            jsonPath("$.code") { value("BAD_REQUEST") }
+            jsonPath("$.detail") { value("The request is invalid.") }
+            content { string(not(containsString(rawRefreshToken))) }
+        }
+
+        assertThat(output.all).doesNotContain(rawRefreshToken)
     }
 }

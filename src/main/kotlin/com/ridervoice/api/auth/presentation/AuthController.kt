@@ -9,6 +9,7 @@ import com.ridervoice.api.common.security.OnboardingPrincipal
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -70,6 +71,7 @@ class AuthController(private val auth: AuthService) {
         summary = "서비스 로그아웃",
         security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
     )
+    @ApiResponse(responseCode = "204", description = "로그아웃 완료")
     @PostMapping("/logout")
     fun logout(
         @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,

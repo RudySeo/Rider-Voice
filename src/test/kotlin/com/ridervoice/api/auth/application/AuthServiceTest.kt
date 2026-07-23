@@ -150,6 +150,46 @@ class AuthServiceTest {
     }
 
     @Test
+    fun `refresh rotates a thirty day session and rejects reuse of the previous refresh token`() {
+        val user = prepareActiveCallback("refresh-subject")
+        val savedSessions = mutableListOf<UserSession>()
+        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+            .thenAnswer { (it.arguments[0] as UserSession).also(savedSessions::add) }
+        val initialTokens = requireNotNull(auth.callback("code", "state").tokens)
+        val initialSession = savedSessions.single()
+        `when`(sessions.findByRefreshTokenHashForUpdate(sha256(initialTokens.refreshToken)))
+            .thenReturn(Optional.of(initialSession))
+
+        val refreshedTokens = auth.refresh(initialTokens.refreshToken)
+
+        assertThat(initialSession.revokedAt).isEqualTo(now)
+        assertThat(initialSession.rotatedToSessionId).isEqualTo(savedSessions.last().id)
+        assertThat(savedSessions.last().expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
+        assertThat(auth.authenticate(refreshedTokens.accessToken))
+            .isEqualTo(AuthenticatedUserPrincipal(user.id))
+        assertThrows<IllegalStateException> { auth.refresh(initialTokens.refreshToken) }
+        assertThat(savedSessions).hasSize(2)
+    }
+
+    @Test
+    fun `expired refresh token cannot create a successor session`() {
+        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val rawRefreshToken = "expired-refresh-token"
+        val expiredSession = UserSession(
+            userId = user.id,
+            refreshTokenHash = sha256(rawRefreshToken),
+            expiresAt = now,
+        )
+        `when`(sessions.findByRefreshTokenHashForUpdate(expiredSession.refreshTokenHash))
+            .thenReturn(Optional.of(expiredSession))
+
+        assertThrows<IllegalStateException> { auth.refresh(rawRefreshToken) }
+
+        verify(users, never()).findById(user.id)
+        verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
+    }
+
+    @Test
     fun `valid locked onboarding token is consumed with terms agreement and formal token issuance`() {
         val user = User()
         val rawToken = "raw-onboarding-token"
