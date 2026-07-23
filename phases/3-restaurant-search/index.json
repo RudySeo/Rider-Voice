@@ -15,7 +15,8 @@
       "name": "restaurant-application-ports",
       "status": "completed",
       "started_at": "2026-07-23T14:33:34+0900",
-      "summary": "음식점 검색·선택 등록 use case와 저장소·카카오 로컬 output port, provider 비종속 application 경계 모델을 정의했다."
+      "summary": "음식점 검색·선택 등록 use case와 저장소·카카오 로컬 output port, provider 비종속 application 경계 모델을 정의했다.",
+      "completed_at": "2026-07-23T14:36:42+0900"
     },
     {
       "step": 2,
