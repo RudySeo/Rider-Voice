@@ -1,11 +1,36 @@
 {
   "phases": [
-    { "dir": "0-backend-foundation", "status": "pending" },
-    { "dir": "1-kakao-auth", "status": "pending" },
-    { "dir": "1-identity-restaurants", "status": "pending" },
-    { "dir": "2-visit-verification", "status": "pending" },
-    { "dir": "3-reviews-reports", "status": "pending" },
-    { "dir": "4-operations-hardening", "status": "pending" },
-    { "dir": "5-aws-deployment", "status": "pending" }
+    {
+      "dir": "0-local-foundation",
+      "status": "completed",
+      "completed_at": "2026-07-23T00:12:37+0900"
+    },
+    {
+      "dir": "1-kakao-auth",
+      "status": "completed"
+    },
+    {
+      "dir": "2-auth-onboarding",
+      "status": "completed",
+      "completed_at": "2026-07-23T10:09:22+0900"
+    },
+    {
+      "dir": "3-restaurant-search",
+      "status": "completed",
+      "summary": "카카오 장소 검색·재검증 기반 멱등 등록과 persistence·adapter·application·presentation 계층 및 전체 회귀 검증을 완료했다.",
+      "completed_at": "2026-07-23T15:01:57+0900"
+    },
+    {
+      "dir": "4-private-review-crud",
+      "status": "pending"
+    },
+    {
+      "dir": "5-auth-hexagonal-refactor",
+      "status": "pending"
+    },
+    {
+      "dir": "6-mvp-verification",
+      "status": "pending"
+    }
   ]
 }

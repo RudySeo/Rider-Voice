@@ -1,0 +1,8 @@
+{
+  "project": "Rider Voice",
+  "phase": "6-mvp-verification",
+  "steps": [
+    { "step": 0, "name": "api-security-contracts", "status": "pending" },
+    { "step": 1, "name": "mvp-flow-regression", "status": "pending" }
+  ]
+}

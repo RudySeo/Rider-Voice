@@ -1,0 +1,64 @@
+{
+  "project": "Rider Voice",
+  "phase": "3-restaurant-search",
+  "steps": [
+    {
+      "step": 0,
+      "name": "restaurant-domain-alignment",
+      "status": "completed",
+      "started_at": "2026-07-23T14:31:04+0900",
+      "summary": "Restaurant에서 includedInPilot을 제거하고 카카오 장소 정보와 좌표 불변식을 검증하는 도메인 단위 테스트를 추가했다.",
+      "completed_at": "2026-07-23T14:33:34+0900"
+    },
+    {
+      "step": 1,
+      "name": "restaurant-application-ports",
+      "status": "completed",
+      "started_at": "2026-07-23T14:33:34+0900",
+      "summary": "음식점 검색·선택 등록 use case와 저장소·카카오 로컬 output port, provider 비종속 application 경계 모델을 정의했다.",
+      "completed_at": "2026-07-23T14:36:42+0900"
+    },
+    {
+      "step": 2,
+      "name": "restaurant-persistence-adapter",
+      "status": "completed",
+      "started_at": "2026-07-23T14:36:42+0900",
+      "summary": "application RestaurantRepository port를 구현하는 internal Spring Data persistence adapter와 included_in_pilot 제거 V5 migration을 추가하고 조회·검색·저장·unique 충돌을 통합 검증했다.",
+      "completed_at": "2026-07-23T14:41:15+0900"
+    },
+    {
+      "step": 3,
+      "name": "kakao-local-adapter",
+      "status": "completed",
+      "started_at": "2026-07-23T14:41:16+0900",
+      "summary": "Kakao Local 설정과 FD6 키워드 검색 adapter를 추가하고 성공·빈 결과·timeout·429·4xx/5xx·손상 JSON을 로컬 HTTP stub 계약 테스트로 검증했다.",
+      "completed_at": "2026-07-23T14:44:38+0900"
+    },
+    {
+      "step": 4,
+      "name": "restaurant-application-service",
+      "status": "completed",
+      "started_at": "2026-07-23T14:44:38+0900",
+      "summary": "내부·카카오 후보 병합과 원검색어 재검증, 기존·동시 unique 충돌 멱등 등록을 처리하는 RestaurantService와 단위 테스트를 추가했다.",
+      "completed_at": "2026-07-23T14:48:48+0900"
+    },
+    {
+      "step": 5,
+      "name": "restaurant-presentation-api",
+      "status": "completed",
+      "started_at": "2026-07-23T14:48:48+0900",
+      "summary": "RestaurantController와 분리된 request·response DTO 및 HTTP mapper를 추가하고 ROLE_USER 보안, Bean Validation, ProblemDetail과 OpenAPI 계약을 MockMvc로 검증했다.",
+      "completed_at": "2026-07-23T14:56:37+0900"
+    },
+    {
+      "step": 6,
+      "name": "restaurant-regression-tests",
+      "status": "completed",
+      "started_at": "2026-07-23T14:56:38+0900",
+      "summary": "application 역방향 의존, adapter stub, 등록 멱등성, ROLE_USER 권한과 공개 OpenAPI DTO 계약을 회귀 검증하고 README의 카카오 로컬 설정·구현 API를 갱신했다.",
+      "completed_at": "2026-07-23T15:01:57+0900"
+    }
+  ],
+  "created_at": "2026-07-23T14:31:04+0900",
+  "completed_at": "2026-07-23T15:01:57+0900"
+}
