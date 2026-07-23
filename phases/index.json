@@ -17,7 +17,8 @@
     {
       "dir": "3-restaurant-search",
       "status": "completed",
-      "summary": "카카오 장소 검색·재검증 기반 멱등 등록과 persistence·adapter·application·presentation 계층 및 전체 회귀 검증을 완료했다."
+      "summary": "카카오 장소 검색·재검증 기반 멱등 등록과 persistence·adapter·application·presentation 계층 및 전체 회귀 검증을 완료했다.",
+      "completed_at": "2026-07-23T15:01:57+0900"
     },
     {
       "dir": "4-private-review-crud",
