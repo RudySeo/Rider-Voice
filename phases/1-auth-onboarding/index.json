@@ -7,7 +7,8 @@
       "name": "onboarding-token-domain",
       "status": "completed",
       "started_at": "2026-07-23T09:32:51+0900",
-      "summary": "auth/domain/OnboardingToken.kt와 단위 테스트를 추가해 SHA-256 hash만 보관하는 5분 만료 일회성 소비 규칙을 구현했다."
+      "summary": "auth/domain/OnboardingToken.kt와 단위 테스트를 추가해 SHA-256 hash만 보관하는 5분 만료 일회성 소비 규칙을 구현했다.",
+      "completed_at": "2026-07-23T09:36:54+0900"
     },
     {
       "step": 1,
