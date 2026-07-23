@@ -31,7 +31,8 @@
       "name": "onboarding-consent-flow",
       "status": "completed",
       "started_at": "2026-07-23T09:46:48+0900",
-      "summary": "AuthService·AuthController와 onboarding/OpenAPI 테스트를 갱신해 5분 일회용 onboarding token callback 및 잠금 기반 원자적 약관 동의·정식 세션 발급 흐름을 구현했다."
+      "summary": "AuthService·AuthController와 onboarding/OpenAPI 테스트를 갱신해 5분 일회용 onboarding token callback 및 잠금 기반 원자적 약관 동의·정식 세션 발급 흐름을 구현했다.",
+      "completed_at": "2026-07-23T09:55:46+0900"
     },
     {
       "step": 4,
