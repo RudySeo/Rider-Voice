@@ -23,7 +23,8 @@
       "name": "bearer-auth-boundary",
       "status": "completed",
       "started_at": "2026-07-23T09:42:54+0900",
-      "summary": "common/security에 scope별 BearerPrincipal과 authority 보존 경계를 추가하고 consent는 ROLE_ONBOARDING, 사용자·리뷰 초안 API는 ROLE_USER로 제한했다."
+      "summary": "common/security에 scope별 BearerPrincipal과 authority 보존 경계를 추가하고 consent는 ROLE_ONBOARDING, 사용자·리뷰 초안 API는 ROLE_USER로 제한했다.",
+      "completed_at": "2026-07-23T09:46:48+0900"
     },
     {
       "step": 3,
