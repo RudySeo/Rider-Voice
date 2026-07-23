@@ -260,11 +260,35 @@ class RestaurantApiContractMockMvcTest {
             jsonPath("$.components.schemas.CreateRestaurantRequest.required") {
                 value(org.hamcrest.Matchers.containsInAnyOrder("query", "kakaoPlaceId"))
             }
+            jsonPath("$.components.schemas.CreateRestaurantRequest.properties") {
+                value(org.hamcrest.Matchers.aMapWithSize<String, Any>(2))
+            }
             jsonPath("$.components.schemas.CreateRestaurantRequest.properties.query.minLength") { value(1) }
             jsonPath("$.components.schemas.CreateRestaurantRequest.properties.kakaoPlaceId.minLength") { value(1) }
+            jsonPath("$.components.schemas.RestaurantSearchResponse.properties") {
+                value(org.hamcrest.Matchers.aMapWithSize<String, Any>(1))
+            }
+            jsonPath("$.components.schemas.RestaurantSearchResponse.properties.candidates") { exists() }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties") {
+                value(org.hamcrest.Matchers.aMapWithSize<String, Any>(6))
+            }
             jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.restaurantId.type") {
                 value(org.hamcrest.Matchers.containsInAnyOrder("string", "null"))
             }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.kakaoPlaceId") { exists() }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.name") { exists() }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.address") { exists() }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.latitude") { exists() }
+            jsonPath("$.components.schemas.RestaurantCandidateResponse.properties.longitude") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties") {
+                value(org.hamcrest.Matchers.aMapWithSize<String, Any>(6))
+            }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.restaurantId") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.kakaoPlaceId") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.name") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.address") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.latitude") { exists() }
+            jsonPath("$.components.schemas.RestaurantRegistrationResponse.properties.longitude") { exists() }
         }
     }
 

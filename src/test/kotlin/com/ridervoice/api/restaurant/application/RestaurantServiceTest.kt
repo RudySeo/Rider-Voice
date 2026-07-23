@@ -146,6 +146,25 @@ class RestaurantServiceTest {
     }
 
     @Test
+    fun `repeated registration returns one internal restaurant without saving a duplicate`() {
+        val selected = place(kakaoPlaceId = "idempotent-place")
+        val repository = FakeRestaurantRepository()
+        val kakaoLocal = FakeKakaoLocalPort(results = listOf(selected))
+        val service = RestaurantService(repository, kakaoLocal)
+        val command = RegisterRestaurantCommand(
+            query = "반복 검색어",
+            kakaoPlaceId = selected.kakaoPlaceId,
+        )
+
+        val first = service.register(command)
+        val second = service.register(command)
+
+        assertThat(second.restaurantId).isEqualTo(first.restaurantId)
+        assertThat(repository.saved).hasSize(1)
+        assertThat(kakaoLocal.queries).containsExactly("반복 검색어", "반복 검색어")
+    }
+
+    @Test
     fun `register returns the concurrent winner after a unique constraint race`() {
         val selected = place(kakaoPlaceId = "racing-place")
         val winner = restaurant(kakaoPlaceId = selected.kakaoPlaceId, name = "동시 등록 승자")

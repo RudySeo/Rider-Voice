@@ -13,9 +13,32 @@ import com.ridervoice.api.restaurant.domain.Restaurant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.UUID
 
 class RestaurantApplicationContractTest {
+
+    @Test
+    fun `application layer has no reverse dependency on presentation or infrastructure`() {
+        val forbiddenPackages = listOf(
+            "com.ridervoice.api.restaurant.presentation",
+            "com.ridervoice.api.restaurant.infrastructure",
+        )
+        val applicationSources = Files.walk(Path.of("src/main/kotlin/com/ridervoice/api/restaurant/application"))
+            .use { paths ->
+                paths
+                    .filter { Files.isRegularFile(it) && it.toString().endsWith(".kt") }
+                    .toList()
+            }
+
+        assertThat(applicationSources).isNotEmpty
+        applicationSources.forEach { source ->
+            assertThat(Files.readString(source))
+                .describedAs("forbidden reverse dependency in %s", source)
+                .doesNotContain(*forbiddenPackages.toTypedArray())
+        }
+    }
 
     @Test
     fun `registration command accepts only original query and selected Kakao place id`() {

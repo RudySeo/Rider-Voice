@@ -46,13 +46,14 @@ Rider Voice MVP는 카카오 로그인 사용자가 음식점을 찾아 픽업 �
 - 신규 사용자의 일회용 onboarding token과 약관 동의
 - access token, rotating refresh session, 갱신과 로그아웃
 - 현재 사용자 조회 API
-- 음식점 기본 entity와 persistence 기반
+- 카카오 로컬 음식점 검색과 내부 음식점 후보 병합
+- 원래 검색어 재검증 기반의 선택 장소 멱등 등록
+- 음식점 API의 `ROLE_USER` 권한, Bean Validation과 OpenAPI 계약
 
 다음 구현 대상:
 
-1. 카카오 로컬 음식점 검색과 선택된 장소의 지연 등록
-2. 로그인 사용자의 비공개 리뷰 CRUD
-3. 권한, unique 제약과 OpenAPI 회귀 검증
+1. 로그인 사용자의 비공개 리뷰 CRUD
+2. MVP API 권한, unique 제약과 OpenAPI 회귀 검증
 
 방문 증빙, OCR, `WriteGrant`, 공개 리포트, 관리자 기능, 사용자 앱과 배포 인프라는 현재 범위가 아닙니다.
 
@@ -67,13 +68,13 @@ POST /api/v1/auth/consents
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/users/me
+GET  /api/v1/restaurants/search
+POST /api/v1/restaurants
 ```
 
 ### MVP 다음 구현 대상
 
 ```text
-GET    /api/v1/restaurants/search
-POST   /api/v1/restaurants
 POST   /api/v1/reviews
 GET    /api/v1/reviews
 GET    /api/v1/reviews/{reviewId}
@@ -81,7 +82,7 @@ PATCH  /api/v1/reviews/{reviewId}
 DELETE /api/v1/reviews/{reviewId}
 ```
 
-신규 음식점 및 리뷰 API는 `ROLE_USER`를 요구합니다. 사용자는 자신의 리뷰만 조회·수정·삭제할 수 있으며 중복 리뷰 생성은 `409 Conflict`, 타인 리뷰 접근은 `404 Not Found`로 처리합니다.
+음식점 API와 이후 리뷰 API는 `ROLE_USER`를 요구합니다. 사용자는 자신의 리뷰만 조회·수정·삭제할 수 있으며 중복 리뷰 생성은 `409 Conflict`, 타인 리뷰 접근은 `404 Not Found`로 처리합니다.
 
 ## Swagger / OpenAPI
 
@@ -118,10 +119,15 @@ cp .env.example .env
 KAKAO_CLIENT_ID=your-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
 KAKAO_REDIRECT_URI=http://localhost:8080/api/v1/auth/kakao/callback
+KAKAO_LOCAL_REST_API_KEY=your-kakao-rest-api-key
+KAKAO_LOCAL_BASE_URL=https://dapi.kakao.com
+KAKAO_LOCAL_TIMEOUT=2s
 DB_URL="jdbc:mysql://localhost:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
 DB_USERNAME=root
 DB_PASSWORD=1234
 ```
+
+`KAKAO_LOCAL_REST_API_KEY`에는 카카오 디벨로퍼스 앱의 REST API 키를 설정합니다. `KAKAO_LOCAL_BASE_URL`과 `KAKAO_LOCAL_TIMEOUT`은 각각 위 기본값을 사용하므로 로컬에서 별도 조정이 필요한 경우에만 변경합니다.
 
 카카오 디벨로퍼스에 다음 Redirect URI를 등록합니다.
 
