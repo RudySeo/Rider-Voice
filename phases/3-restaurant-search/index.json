@@ -47,7 +47,8 @@
       "name": "restaurant-presentation-api",
       "status": "completed",
       "started_at": "2026-07-23T14:48:48+0900",
-      "summary": "RestaurantController와 분리된 request·response DTO 및 HTTP mapper를 추가하고 ROLE_USER 보안, Bean Validation, ProblemDetail과 OpenAPI 계약을 MockMvc로 검증했다."
+      "summary": "RestaurantController와 분리된 request·response DTO 및 HTTP mapper를 추가하고 ROLE_USER 보안, Bean Validation, ProblemDetail과 OpenAPI 계약을 MockMvc로 검증했다.",
+      "completed_at": "2026-07-23T14:56:37+0900"
     },
     {
       "step": 6,
