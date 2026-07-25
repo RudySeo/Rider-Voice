@@ -53,7 +53,9 @@
     {
       "step": 6,
       "name": "review-integration",
-      "status": "pending"
+      "status": "completed",
+      "summary": "4종 restaurant target 리뷰 생성, concurrent state 생성·90일 잠금·sequence와 latest/history 수정·삭제·state retention을 검증하는 MySQL integration-tag 회귀 테스트를 추가했다.",
+      "started_at": "2026-07-26T01:48:37+0900"
     }
   ],
   "created_at": "2026-07-26T01:11:20+0900"
