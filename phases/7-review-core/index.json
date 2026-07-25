@@ -2,12 +2,43 @@
   "project": "Rider Voice",
   "phase": "7-review-core",
   "steps": [
-    { "step": 0, "name": "review-domain", "status": "pending" },
-    { "step": 1, "name": "review-application-contracts", "status": "pending" },
-    { "step": 2, "name": "review-persistence", "status": "pending" },
-    { "step": 3, "name": "review-create-service", "status": "pending" },
-    { "step": 4, "name": "review-owner-service", "status": "pending" },
-    { "step": 5, "name": "review-api", "status": "pending" },
-    { "step": 6, "name": "review-integration", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "review-domain",
+      "status": "completed",
+      "summary": "Review 엔티티와 5개 rating·6개 필수 평가, 의견 검수/공개 상태, Asia/Seoul 방문 연월 및 90일·current/history 도메인 정책과 단위 테스트를 추가했다.",
+      "started_at": "2026-07-26T01:11:20+0900"
+    },
+    {
+      "step": 1,
+      "name": "review-application-contracts",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "review-persistence",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "review-create-service",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "review-owner-service",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "review-api",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "review-integration",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-26T01:11:20+0900"
 }
