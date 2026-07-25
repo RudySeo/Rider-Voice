@@ -23,7 +23,8 @@
       "name": "comment-moderation-service",
       "status": "completed",
       "started_at": "2026-07-26T02:41:57+0900",
-      "summary": "CommentModerationService·input/output port와 ADMIN DB 재검증, ACTIVE PENDING cursor queue, 비관적 잠금 approve/reject 및 동일 transaction audit service test를 추가했다."
+      "summary": "CommentModerationService·input/output port와 ADMIN DB 재검증, ACTIVE PENDING cursor queue, 비관적 잠금 approve/reject 및 동일 transaction audit service test를 추가했다.",
+      "completed_at": "2026-07-26T02:47:25+0900"
     },
     {
       "step": 3,
