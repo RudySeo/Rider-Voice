@@ -2,12 +2,43 @@
   "project": "Rider Voice",
   "phase": "9-moderation-admin",
   "steps": [
-    { "step": 0, "name": "moderation-domain", "status": "pending" },
-    { "step": 1, "name": "moderation-persistence", "status": "pending" },
-    { "step": 2, "name": "comment-moderation-service", "status": "pending" },
-    { "step": 3, "name": "reporting-service", "status": "pending" },
-    { "step": 4, "name": "admin-security-api", "status": "pending" },
-    { "step": 5, "name": "restaurant-canonical-merge", "status": "pending" },
-    { "step": 6, "name": "moderation-regression", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "moderation-domain",
+      "status": "completed",
+      "started_at": "2026-07-26T02:29:57+0900",
+      "summary": "Provider·HTTP 비종속 신고 상태·사유·결정 enum과 comment/report 전이, full exclusion pointer·cooldown 지시 및 merge·pickup relink audit 정책·도메인 테스트를 추가했다."
+    },
+    {
+      "step": 1,
+      "name": "moderation-persistence",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "comment-moderation-service",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "reporting-service",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "admin-security-api",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "restaurant-canonical-merge",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "moderation-regression",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-26T02:29:57+0900"
 }
