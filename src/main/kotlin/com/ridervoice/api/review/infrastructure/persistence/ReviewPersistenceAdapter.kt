@@ -2,8 +2,10 @@ package com.ridervoice.api.review.infrastructure.persistence
 
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.restaurant.domain.Restaurant
+import com.ridervoice.api.review.application.model.AggregateReviewInput
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
+import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
@@ -11,10 +13,62 @@ import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
+import com.ridervoice.api.review.domain.ReviewRatings
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 import java.time.Instant
+
+@Component
+internal class AggregateReviewQueryPersistenceAdapter(
+    private val states: SpringDataAuthorRestaurantReviewStateRepository,
+) : AggregateReviewQuery {
+
+    override fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput> {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+        return latestByAuthor(
+            states.findCurrentAggregateRowsByRestaurantId(restaurantId, ReviewVisibilityStatus.ACTIVE),
+        )
+    }
+
+    override fun findLatestCurrentActiveByPickupLocationId(
+        pickupLocationId: Long,
+    ): List<AggregateReviewInput> {
+        require(pickupLocationId > 0) { "Pickup location ID must be positive" }
+        return latestByAuthor(
+            states.findCurrentAggregateRowsByPickupLocationId(
+                pickupLocationId,
+                ReviewVisibilityStatus.ACTIVE,
+            ),
+        )
+    }
+
+    private fun latestByAuthor(rows: List<AggregateReviewProjection>): List<AggregateReviewInput> =
+        rows.groupBy(AggregateReviewProjection::authorUserId)
+            .map { (_, authorRows) ->
+                authorRows.maxWith(
+                    compareBy<AggregateReviewProjection>(AggregateReviewProjection::createdAt)
+                        .thenBy(AggregateReviewProjection::reviewId),
+                )
+            }
+            .sortedBy(AggregateReviewProjection::authorUserId)
+            .map { it.toInput() }
+
+    private fun AggregateReviewProjection.toInput() = AggregateReviewInput(
+        reviewId = reviewId,
+        authorUserId = authorUserId,
+        ratings = ReviewRatings(
+            pickupSpaceCleanliness = pickupSpaceCleanliness,
+            packagingStability = packagingStability,
+            orderReadiness = orderReadiness,
+            handoffAccuracy = handoffAccuracy,
+            staffInteraction = staffInteraction,
+            riderRespect = riderRespect,
+        ),
+        createdAt = createdAt,
+    )
+}
 
 @Component
 internal class ReviewPersistenceAdapter(

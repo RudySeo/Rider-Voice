@@ -52,3 +52,15 @@ data class MyReviewListResult(
     val items: List<ReviewResult>,
     val nextCursor: ReviewCursor?,
 )
+
+data class AggregateReviewInput(
+    val reviewId: Long,
+    val authorUserId: Long,
+    val ratings: ReviewRatings,
+    val createdAt: Instant,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(authorUserId > 0) { "Author user ID must be positive" }
+    }
+}

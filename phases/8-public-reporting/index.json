@@ -2,11 +2,38 @@
   "project": "Rider Voice",
   "phase": "8-public-reporting",
   "steps": [
-    { "step": 0, "name": "aggregate-query-contracts", "status": "pending" },
-    { "step": 1, "name": "aggregate-policy-service", "status": "pending" },
-    { "step": 2, "name": "public-restaurant-detail", "status": "pending" },
-    { "step": 3, "name": "public-review-list", "status": "pending" },
-    { "step": 4, "name": "search-cache-rate-limit", "status": "pending" },
-    { "step": 5, "name": "public-reporting-regression", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "aggregate-query-contracts",
+      "status": "completed",
+      "started_at": "2026-07-26T01:54:13+0900",
+      "summary": "Entity 비노출 AggregateReviewInput·query port와 current ACTIVE projection adapter를 추가해 브랜드 및 장소 author별 최신(createdAt, reviewId) 리뷰 조회 계약을 정의했다."
+    },
+    {
+      "step": 1,
+      "name": "aggregate-policy-service",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "public-restaurant-detail",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "public-review-list",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "search-cache-rate-limit",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "public-reporting-regression",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-26T01:54:13+0900"
 }

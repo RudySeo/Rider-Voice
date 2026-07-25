@@ -2,6 +2,8 @@ package com.ridervoice.api.review.infrastructure.persistence
 
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
+import com.ridervoice.api.review.domain.ReviewRating
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -67,6 +69,54 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
 internal interface SpringDataAuthorRestaurantReviewStateRepository :
     JpaRepository<AuthorRestaurantReviewState, Long> {
 
+    @Query(
+        """
+        select review.id as reviewId,
+               review.author.id as authorUserId,
+               review.createdAt as createdAt,
+               review.ratings.pickupSpaceCleanliness as pickupSpaceCleanliness,
+               review.ratings.packagingStability as packagingStability,
+               review.ratings.orderReadiness as orderReadiness,
+               review.ratings.handoffAccuracy as handoffAccuracy,
+               review.ratings.staffInteraction as staffInteraction,
+               review.ratings.riderRespect as riderRespect
+        from AuthorRestaurantReviewState state
+        join state.currentReview review
+        where state.restaurant.id = :restaurantId
+          and review.restaurant.id = :restaurantId
+          and state.author.id = review.author.id
+          and review.visibilityStatus = :visibilityStatus
+        """,
+    )
+    fun findCurrentAggregateRowsByRestaurantId(
+        @Param("restaurantId") restaurantId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
+    ): List<AggregateReviewProjection>
+
+    @Query(
+        """
+        select review.id as reviewId,
+               review.author.id as authorUserId,
+               review.createdAt as createdAt,
+               review.ratings.pickupSpaceCleanliness as pickupSpaceCleanliness,
+               review.ratings.packagingStability as packagingStability,
+               review.ratings.orderReadiness as orderReadiness,
+               review.ratings.handoffAccuracy as handoffAccuracy,
+               review.ratings.staffInteraction as staffInteraction,
+               review.ratings.riderRespect as riderRespect
+        from AuthorRestaurantReviewState state
+        join state.currentReview review
+        where state.restaurant.pickupLocation.id = :pickupLocationId
+          and review.restaurant.pickupLocation.id = :pickupLocationId
+          and state.author.id = review.author.id
+          and review.visibilityStatus = :visibilityStatus
+        """,
+    )
+    fun findCurrentAggregateRowsByPickupLocationId(
+        @Param("pickupLocationId") pickupLocationId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
+    ): List<AggregateReviewProjection>
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
         """
@@ -93,4 +143,16 @@ internal interface SpringDataAuthorRestaurantReviewStateRepository :
         @Param("authorUserId") authorUserId: Long,
         @Param("restaurantIds") restaurantIds: Set<Long>,
     ): List<AuthorRestaurantReviewState>
+}
+
+internal interface AggregateReviewProjection {
+    val reviewId: Long
+    val authorUserId: Long
+    val createdAt: Instant
+    val pickupSpaceCleanliness: ReviewRating
+    val packagingStability: ReviewRating
+    val orderReadiness: ReviewRating
+    val handoffAccuracy: ReviewRating
+    val staffInteraction: ReviewRating
+    val riderRespect: ReviewRating
 }

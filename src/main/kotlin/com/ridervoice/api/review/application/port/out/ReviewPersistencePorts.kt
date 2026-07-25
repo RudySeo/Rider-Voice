@@ -1,5 +1,6 @@
 package com.ridervoice.api.review.application.port.out
 
+import com.ridervoice.api.review.application.model.AggregateReviewInput
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
 import com.ridervoice.api.review.domain.Review
@@ -8,6 +9,12 @@ import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import com.ridervoice.api.review.domain.VisitMonth
 import java.time.Instant
+
+interface AggregateReviewQuery {
+    fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput>
+
+    fun findLatestCurrentActiveByPickupLocationId(pickupLocationId: Long): List<AggregateReviewInput>
+}
 
 interface ReviewRepository {
     fun create(command: NewReviewPersistenceCommand): SavedReviewSnapshot
