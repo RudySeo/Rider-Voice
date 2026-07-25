@@ -5,11 +5,27 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "pickup_locations")
+@Table(
+    name = "pickup_locations",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_pickup_locations_location_key",
+            columnNames = ["location_key"],
+        ),
+    ],
+    indexes = [
+        Index(
+            name = "idx_pickup_locations_normalized_address",
+            columnList = "normalized_address",
+        ),
+    ],
+)
 class PickupLocation(
     standardAddress: String,
     detailAddress: String?,

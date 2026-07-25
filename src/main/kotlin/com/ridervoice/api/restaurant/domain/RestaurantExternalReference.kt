@@ -6,15 +6,37 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.ForeignKey
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(name = "restaurant_external_references")
+@Table(
+    name = "restaurant_external_references",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_restaurant_external_references_provider_place",
+            columnNames = ["provider", "external_place_id"],
+        ),
+    ],
+    indexes = [
+        Index(
+            name = "idx_restaurant_external_references_restaurant",
+            columnList = "restaurant_id",
+        ),
+    ],
+)
 class RestaurantExternalReference(
     @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @field:JoinColumn(name = "restaurant_id", nullable = false, updatable = false)
+    @field:JoinColumn(
+        name = "restaurant_id",
+        nullable = false,
+        updatable = false,
+        foreignKey = ForeignKey(name = "fk_restaurant_external_references_restaurant"),
+    )
     val restaurant: Restaurant,
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, updatable = false, length = 20)
