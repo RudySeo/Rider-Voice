@@ -15,7 +15,8 @@
       "name": "review-application-contracts",
       "status": "completed",
       "summary": "create/update/delete/my-review-list input port, phase 6 sealed restaurant target를 사용하는 command, Entity 비노출 result·createdAt+ID cursor 및 review/state repository output port와 dependency contract test를 추가했다.",
-      "started_at": "2026-07-26T01:16:43+0900"
+      "started_at": "2026-07-26T01:16:43+0900",
+      "completed_at": "2026-07-26T01:21:59+0900"
     },
     {
       "step": 2,
