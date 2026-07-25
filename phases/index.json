@@ -47,7 +47,8 @@
     },
     {
       "dir": "9-moderation-admin",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-26T03:22:26+0900"
     },
     {
       "dir": "10-mvp-verification",
