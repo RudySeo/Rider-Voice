@@ -7,7 +7,8 @@
       "name": "legacy-contract-removal",
       "status": "completed",
       "started_at": "2026-07-25T23:30:09+0900",
-      "summary": "OpenApiConfiguration과 SecurityConfig에서 공개·미인증 서비스 문구를 반영하고 legacy review-drafts 허용 matcher를 제거했으며 관련 계약 테스트를 보강했다."
+      "summary": "OpenApiConfiguration과 SecurityConfig에서 공개·미인증 서비스 문구를 반영하고 legacy review-drafts 허용 matcher를 제거했으며 관련 계약 테스트를 보강했다.",
+      "completed_at": "2026-07-25T23:34:04+0900"
     },
     {
       "step": 1,
