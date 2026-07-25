@@ -13,10 +13,8 @@
     {
       "step": 1,
       "name": "mysql-schema-concurrency",
-      "status": "error",
-      "started_at": "2026-07-26T03:44:39+0900",
-      "error_message": "[3회 시도 후 실패] Step did not update status",
-      "failed_at": "2026-07-26T03:44:49+0900"
+      "status": "blocked",
+      "blocked_reason": "Harness Codex 실행 한도가 소진되어 2026-07-30 08:55까지 새 step session을 시작할 수 없음"
     },
     {
       "step": 2,
