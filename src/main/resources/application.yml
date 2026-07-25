@@ -35,6 +35,6 @@ kakao:
     client-secret: ${KAKAO_CLIENT_SECRET:}
     redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/v1/auth/kakao/callback}
   local:
-    rest-api-key: ${KAKAO_LOCAL_REST_API_KEY:}
+    rest-api-key: ${KAKAO_LOCAL_REST_API_KEY:${KAKAO_CLIENT_ID:}}
     base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}
     timeout: ${KAKAO_LOCAL_TIMEOUT:2s}

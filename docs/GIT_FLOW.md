@@ -60,12 +60,12 @@ master → hotfix/<short-name> → master
 
 서버 API와 OpenAPI 계약을 먼저 완성한다.
 
-1. 인증·인가
-2. 약관 동의 온보딩 보완
-3. 음식점·지역 제한
-4. 비공개 리뷰 초안
-5. 방문 증빙·OCR provider 선정
-6. WriteGrant·정식 리뷰 전환
-7. 리포트·관리자 기능
-8. 보안·통합 검증
-9. React Native 클라이언트
+1. 공개 리뷰 PRD·ADR·아키텍처와 OpenAPI 계약
+2. Spring Security OAuth2 Client 기반 카카오 로그인 전환
+3. 픽업 장소·배달 브랜드·외부 참조 모델
+4. 리뷰 이력, 90일 작성 제한과 의견 검수
+5. 공개 음식점 조회와 작성자 5명 집계
+6. 신고, 관리자 처리와 음식점 병합
+7. 보안·동시성·로컬 MySQL 통합 검증
+8. 실제 사용자용 웹 또는 React Native 클라이언트
+9. schema migration과 배포 인프라는 운영 결정 후 진행
