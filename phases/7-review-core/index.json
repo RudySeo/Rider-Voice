@@ -7,7 +7,8 @@
       "name": "review-domain",
       "status": "completed",
       "summary": "Review 엔티티와 5개 rating·6개 필수 평가, 의견 검수/공개 상태, Asia/Seoul 방문 연월 및 90일·current/history 도메인 정책과 단위 테스트를 추가했다.",
-      "started_at": "2026-07-26T01:11:20+0900"
+      "started_at": "2026-07-26T01:11:20+0900",
+      "completed_at": "2026-07-26T01:16:43+0900"
     },
     {
       "step": 1,
