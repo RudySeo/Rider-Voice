@@ -1,8 +1,14 @@
 package com.ridervoice.api.moderation.infrastructure.persistence
 
 import com.ridervoice.api.auth.domain.User
+import com.ridervoice.api.auth.domain.UserRole
+import com.ridervoice.api.auth.domain.UserStatus
+import com.ridervoice.api.moderation.application.model.CommentModerationCursor
+import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
+import com.ridervoice.api.moderation.application.port.out.ReviewCommentDecisionPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.ReviewCommentModerationRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationCursor
 import com.ridervoice.api.moderation.application.port.out.NewRestaurantInfoReportPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.NewReviewReportPersistenceCommand
@@ -11,6 +17,7 @@ import com.ridervoice.api.moderation.application.port.out.RestaurantInfoReportRe
 import com.ridervoice.api.moderation.application.port.out.ReviewReportDecisionPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ReviewReportRepository
 import com.ridervoice.api.moderation.application.port.out.StoredModerationAudit
+import com.ridervoice.api.moderation.application.port.out.StoredReviewComment
 import com.ridervoice.api.moderation.application.port.out.StoredRestaurantInfoReport
 import com.ridervoice.api.moderation.application.port.out.StoredReviewReport
 import com.ridervoice.api.moderation.domain.ModerationAudit
@@ -19,10 +26,83 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReport
 import com.ridervoice.api.moderation.domain.ReviewReport
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.domain.Review
+import com.ridervoice.api.review.domain.ReviewCommentStatus
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 import java.time.Instant
+
+@Component
+internal class ModerationAdminPersistenceAdapter(
+    private val users: SpringDataModerationAdminRepository,
+) : ModerationAdminRepository {
+    override fun isActiveAdmin(userId: Long): Boolean = users.existsByIdAndRoleAndStatus(
+        userId,
+        UserRole.ADMIN,
+        UserStatus.ACTIVE,
+    )
+}
+
+@Component
+internal class ReviewCommentModerationPersistenceAdapter(
+    private val reviews: SpringDataReviewCommentModerationRepository,
+) : ReviewCommentModerationRepository {
+
+    override fun findPending(
+        cursor: CommentModerationCursor?,
+        limit: Int,
+    ): List<StoredReviewComment> {
+        require(limit > 0) { "Comment moderation query limit must be positive" }
+        val pageable = PageRequest.of(0, limit)
+        val rows = if (cursor == null) {
+            reviews.findAllPendingComments(
+                ReviewCommentStatus.PENDING,
+                ReviewVisibilityStatus.ACTIVE,
+                pageable,
+            )
+        } else {
+            reviews.findAllPendingCommentsBeforeCursor(
+                ReviewCommentStatus.PENDING,
+                ReviewVisibilityStatus.ACTIVE,
+                cursor.createdAt,
+                cursor.reviewId,
+                pageable,
+            )
+        }
+        return rows.map { it.toStoredComment() }
+    }
+
+    override fun findForUpdate(reviewId: Long): StoredReviewComment? =
+        reviews.findByIdForUpdate(reviewId).orElse(null)?.toStoredComment()
+
+    override fun saveDecision(
+        command: ReviewCommentDecisionPersistenceCommand,
+    ): StoredReviewComment {
+        val review = reviews.findByIdForUpdate(command.reviewId).orElseThrow {
+            IllegalStateException("Review ${command.reviewId} disappeared during comment moderation")
+        }
+        check(review.commentModerationStatus == command.expectedStatus) {
+            "Review ${command.reviewId} comment status changed during moderation"
+        }
+        when (command.nextStatus) {
+            ReviewCommentStatus.PUBLISHED -> review.publishComment()
+            ReviewCommentStatus.REJECTED -> review.rejectComment()
+            else -> error("Unsupported comment moderation target status: ${command.nextStatus}")
+        }
+        return reviews.saveAndFlush(review).toStoredComment()
+    }
+
+    private fun Review.toStoredComment() = StoredReviewComment(
+        reviewId = id,
+        authorUserId = author.id,
+        comment = requireNotNull(comment) { "Pending review comment must exist" },
+        commentModerationStatus = commentModerationStatus,
+        visibilityStatus = visibilityStatus,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+    )
+}
 
 @Component
 internal class ReviewReportPersistenceAdapter(

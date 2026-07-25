@@ -7,7 +7,52 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportReason
+import com.ridervoice.api.moderation.application.model.CommentModerationCursor
+import com.ridervoice.api.review.domain.ReviewCommentStatus
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import java.time.Instant
+
+fun interface ModerationAdminRepository {
+    fun isActiveAdmin(userId: Long): Boolean
+}
+
+interface ReviewCommentModerationRepository {
+    fun findPending(cursor: CommentModerationCursor?, limit: Int): List<StoredReviewComment>
+    fun findForUpdate(reviewId: Long): StoredReviewComment?
+    fun saveDecision(command: ReviewCommentDecisionPersistenceCommand): StoredReviewComment
+}
+
+data class ReviewCommentDecisionPersistenceCommand(
+    val reviewId: Long,
+    val expectedStatus: ReviewCommentStatus,
+    val nextStatus: ReviewCommentStatus,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(expectedStatus == ReviewCommentStatus.PENDING) {
+            "A comment moderation decision must start from pending"
+        }
+        require(nextStatus in setOf(ReviewCommentStatus.PUBLISHED, ReviewCommentStatus.REJECTED)) {
+            "A comment moderation decision must publish or reject"
+        }
+    }
+}
+
+data class StoredReviewComment(
+    val reviewId: Long,
+    val authorUserId: Long,
+    val comment: String,
+    val commentModerationStatus: ReviewCommentStatus,
+    val visibilityStatus: ReviewVisibilityStatus,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(authorUserId > 0) { "Review author user ID must be positive" }
+        require(comment.isNotBlank()) { "Moderated review comment must not be blank" }
+    }
+}
 
 data class ModerationCursor(
     val createdAt: Instant,
