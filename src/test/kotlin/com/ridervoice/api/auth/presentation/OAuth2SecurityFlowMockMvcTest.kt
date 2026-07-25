@@ -40,6 +40,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.json.JsonCompareMode
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.bind.annotation.GetMapping
@@ -122,16 +123,60 @@ class OAuth2SecurityFlowMockMvcTest {
         }.andExpect {
             status { isOk() }
             content { contentTypeCompatibleWith("application/json") }
-            jsonPath("$.termsAgreed") { value(true) }
-            jsonPath("$.onboardingToken") { doesNotExist() }
-            jsonPath("$.tokens.accessToken") { value("service-access-token") }
-            jsonPath("$.tokens.refreshToken") { value("service-refresh-token") }
+            content {
+                json(
+                    """
+                    {
+                      "termsAgreed": true,
+                      "onboardingToken": null,
+                      "tokens": {
+                        "accessToken": "service-access-token",
+                        "refreshToken": "service-refresh-token"
+                      }
+                    }
+                    """.trimIndent(),
+                    JsonCompareMode.STRICT,
+                )
+            }
         }.andReturn()
 
         val login = context.getBean(RecordingSocialLoginUseCase::class.java)
         assertThat(login.command).isEqualTo(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "123456789"))
         assertThat(callback.request.getSession(false)).isNull()
         assertThat(session.isInvalid).isTrue()
+    }
+
+    @Test
+    fun `callback returns only an onboarding token when terms are not agreed`() {
+        val authorization = beginAuthorization()
+        val session = authorization.request.getSession(false) as MockHttpSession
+        val state = queryParameter(authorization.response.getHeader("Location")!!, "state")
+        context.getBean(RecordingSocialLoginUseCase::class.java).result = CompleteSocialLoginResult(
+            user = UserSummary(42L, "PENDING_TERMS", UserRole.USER, null),
+            termsAgreed = false,
+            onboardingToken = "onboarding-token",
+            tokens = null,
+        )
+
+        mockMvc.get("/api/v1/auth/oauth2/callback/kakao") {
+            param("code", "authorization-code")
+            param("state", state)
+            this.session = session
+        }.andExpect {
+            status { isOk() }
+            content {
+                json(
+                    """
+                    {
+                      "termsAgreed": false,
+                      "onboardingToken": "onboarding-token",
+                      "tokens": null
+                    }
+                    """.trimIndent(),
+                    JsonCompareMode.STRICT,
+                )
+            }
+        }
     }
 
     @Test
@@ -201,6 +246,7 @@ class OAuth2SecurityFlowMockMvcTest {
     SecurityProblemHandler::class,
     OAuth2LoginSuccessHandler::class,
     OAuth2LoginFailureHandler::class,
+    AuthResponseMapper::class,
     OAuth2SecurityFlowFixtureController::class,
     RecordingSocialLoginUseCase::class,
 )
@@ -240,15 +286,16 @@ private class OAuth2SecurityFlowTestConfiguration {
 @TestComponent
 private class RecordingSocialLoginUseCase : CompleteSocialLoginUseCase {
     lateinit var command: CompleteSocialLoginCommand
+    var result = CompleteSocialLoginResult(
+        user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
+        termsAgreed = true,
+        onboardingToken = null,
+        tokens = ServiceTokens("service-access-token", "service-refresh-token"),
+    )
 
     override fun complete(command: CompleteSocialLoginCommand): CompleteSocialLoginResult {
         this.command = command
-        return CompleteSocialLoginResult(
-            user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
-            termsAgreed = true,
-            onboardingToken = null,
-            tokens = ServiceTokens("service-access-token", "service-refresh-token"),
-        )
+        return result
     }
 }
 

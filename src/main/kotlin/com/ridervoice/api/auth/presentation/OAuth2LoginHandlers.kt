@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectMapper
 @Component
 class OAuth2LoginSuccessHandler(
     private val completeSocialLogin: CompleteSocialLoginUseCase,
+    private val responseMapper: AuthResponseMapper,
     private val objectMapper: ObjectMapper,
     private val failureHandler: OAuth2LoginFailureHandler,
 ) : AuthenticationSuccessHandler {
@@ -37,16 +38,7 @@ class OAuth2LoginSuccessHandler(
             val result = completeSocialLogin.complete(
                 CompleteSocialLoginCommand(provider, oauth.principal.name),
             )
-            val body = mapOf(
-                "termsAgreed" to result.termsAgreed,
-                "onboardingToken" to result.onboardingToken,
-                "tokens" to result.tokens?.let {
-                    mapOf(
-                        "accessToken" to it.accessToken,
-                        "refreshToken" to it.refreshToken,
-                    )
-                },
-            )
+            val body = responseMapper.toOAuth2LoginResponse(result)
 
             destroyTemporarySession(request)
             response.status = HttpServletResponse.SC_OK

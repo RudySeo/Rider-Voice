@@ -2,6 +2,8 @@ package com.ridervoice.api.common.config
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.presentation.AuthController
+import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
+import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
 import com.ridervoice.api.common.security.SecurityConfig
@@ -69,6 +71,8 @@ class FoundationVerificationTest {
     @Import(
         AuthController::class,
         UserController::class,
+        AuthResponseMapper::class,
+        AuthOpenApiConfiguration::class,
         OpenApiConfiguration::class,
         SecurityConfig::class,
         OpaqueAccessTokenAuthenticationFilter::class,

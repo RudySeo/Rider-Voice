@@ -27,7 +27,8 @@ class OpenApiConfiguration {
                 SecurityScheme()
                     .type(SecurityScheme.Type.HTTP)
                     .scheme("bearer")
-                    .bearerFormat("opaque"),
+                    .bearerFormat("opaque")
+                    .description("ROLE_USER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
             ).addSecuritySchemes(
                 ONBOARDING_BEARER_AUTH,
                 SecurityScheme()
