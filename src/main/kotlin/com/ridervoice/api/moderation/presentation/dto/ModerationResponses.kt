@@ -6,6 +6,7 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportReason
 import com.ridervoice.api.review.domain.ReviewCommentStatus
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
 
@@ -96,4 +97,21 @@ data class PendingRestaurantInfoReportPageResponse(
     val items: List<PendingRestaurantInfoReportResponse>,
     @field:Schema(description = "createdAt과 reportId 기반 opaque cursor", nullable = true)
     val nextCursor: String?,
+)
+
+data class RestaurantMergeResponse(
+    @field:Schema(format = "int64")
+    val restaurantId: Long,
+    val status: RestaurantStatus,
+    @field:Schema(format = "int64")
+    val canonicalRestaurantId: Long,
+    val completedAt: Instant,
+)
+
+data class RestaurantPickupRelinkResponse(
+    @field:Schema(format = "int64")
+    val restaurantId: Long,
+    @field:Schema(format = "int64")
+    val pickupLocationId: Long,
+    val completedAt: Instant,
 )

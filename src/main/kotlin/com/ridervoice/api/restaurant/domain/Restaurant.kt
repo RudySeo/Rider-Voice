@@ -80,4 +80,12 @@ class Restaurant(
         this.canonicalRestaurant = canonicalRestaurant
         status = RestaurantStatus.MERGED
     }
+
+    fun relinkPickupLocation(pickupLocation: PickupLocation) {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be relinked" }
+        require(this.pickupLocation !== pickupLocation) {
+            "Restaurant is already linked to the pickup location"
+        }
+        this.pickupLocation = pickupLocation
+    }
 }

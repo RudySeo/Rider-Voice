@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Positive
 
 data class CreateReviewReportRequest(
     @field:NotNull
@@ -50,4 +51,22 @@ data class ModerationPageRequest(
     @field:Max(50)
     @field:Schema(defaultValue = "20", minimum = "1", maximum = "50")
     val size: Int = 20,
+)
+
+data class MergeRestaurantRequest(
+    @field:NotNull
+    @field:Positive
+    @field:Schema(format = "int64")
+    val canonicalRestaurantId: Long?,
+    @field:Schema(nullable = true, description = "관리자 병합 사유")
+    val reason: String? = null,
+)
+
+data class RelinkRestaurantPickupLocationRequest(
+    @field:NotNull
+    @field:Positive
+    @field:Schema(format = "int64")
+    val pickupLocationId: Long?,
+    @field:Schema(nullable = true, description = "관리자 픽업 장소 정정 사유")
+    val reason: String? = null,
 )

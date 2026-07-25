@@ -39,14 +39,7 @@ class Review(
         foreignKey = ForeignKey(name = "fk_reviews_author_user"),
     )
     val author: User,
-    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @field:JoinColumn(
-        name = "restaurant_id",
-        nullable = false,
-        updatable = false,
-        foreignKey = ForeignKey(name = "fk_reviews_restaurant"),
-    )
-    val restaurant: Restaurant,
+    restaurant: Restaurant,
     @field:Convert(converter = VisitMonthAttributeConverter::class)
     @field:Column(name = "visit_month", nullable = false, updatable = false, length = 7)
     val visitMonth: VisitMonth,
@@ -55,6 +48,15 @@ class Review(
     @field:Column(name = "submission_sequence", nullable = false, updatable = false)
     val sequence: Long,
 ) : BaseEntity() {
+
+    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @field:JoinColumn(
+        name = "restaurant_id",
+        nullable = false,
+        foreignKey = ForeignKey(name = "fk_reviews_restaurant"),
+    )
+    final var restaurant: Restaurant = restaurant
+        private set
 
     @field:Embedded
     final var ratings: ReviewRatings = ratings
@@ -127,6 +129,10 @@ class Review(
             "Only an active review can be excluded"
         }
         visibilityStatus = ReviewVisibilityStatus.EXCLUDED
+    }
+
+    fun relinkToRestaurant(restaurant: Restaurant) {
+        this.restaurant = restaurant
     }
 
     private companion object {

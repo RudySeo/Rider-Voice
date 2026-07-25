@@ -23,15 +23,21 @@ import jakarta.persistence.Table
     ],
 )
 class RestaurantPlatform(
+    restaurant: Restaurant,
+    @field:Enumerated(EnumType.STRING)
+    @field:Column(nullable = false, updatable = false, length = 32)
+    val platform: DeliveryPlatform,
+) : BaseEntity() {
     @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
     @field:JoinColumn(
         name = "restaurant_id",
         nullable = false,
-        updatable = false,
         foreignKey = ForeignKey(name = "fk_restaurant_platforms_restaurant"),
     )
-    val restaurant: Restaurant,
-    @field:Enumerated(EnumType.STRING)
-    @field:Column(nullable = false, updatable = false, length = 32)
-    val platform: DeliveryPlatform,
-) : BaseEntity()
+    final var restaurant: Restaurant = restaurant
+        private set
+
+    fun relinkToRestaurant(restaurant: Restaurant) {
+        this.restaurant = restaurant
+    }
+}

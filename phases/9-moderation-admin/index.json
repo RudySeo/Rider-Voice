@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "restaurant-canonical-merge",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T03:04:45+0900",
+      "summary": "ADMIN canonical 병합·pickup relink API와 원자적 review state 충돌 해소, cooldown 유지, review·external reference·platform 이전 및 audit을 구현했다.",
+      "completed_at": "2026-07-26T03:12:34+0900"
     },
     {
       "step": 6,

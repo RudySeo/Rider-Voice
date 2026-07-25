@@ -1,0 +1,239 @@
+package com.ridervoice.api.moderation.application
+
+import com.ridervoice.api.common.error.StateConflictException
+import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
+import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
+import com.ridervoice.api.moderation.application.port.out.MergedAuthorReviewState
+import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
+import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
+import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
+import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
+import com.ridervoice.api.moderation.application.port.out.StoredModerationAudit
+import com.ridervoice.api.moderation.domain.ModerationAuditAction
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
+import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Test
+import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+
+class RestaurantAdministrationServiceTest {
+
+    @Test
+    fun `merge keeps latest valid current per author maximum cooldown and audits the full move`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(
+                DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID),
+                CANONICAL_ID to restaurant(CANONICAL_ID, CANONICAL_PICKUP_ID),
+            ),
+            states = listOf(
+                state(11L, DUPLICATE_ID, 101L, "2026-07-20T00:00:00Z", 3, "2026-07-20T00:00:00Z"),
+                state(11L, CANONICAL_ID, 100L, "2026-07-10T00:00:00Z", 5, "2026-07-10T00:00:00Z"),
+                state(
+                    12L,
+                    DUPLICATE_ID,
+                    201L,
+                    "2026-07-24T00:00:00Z",
+                    2,
+                    "2026-07-24T00:00:00Z",
+                    ReviewVisibilityStatus.EXCLUDED,
+                ),
+                state(12L, CANONICAL_ID, 200L, "2026-07-21T00:00:00Z", 1, "2026-07-21T00:00:00Z"),
+            ),
+        )
+        val audits = FakeAuditRepository()
+        val service = service(repository, audits)
+
+        val result = service.merge(
+            MergeRestaurantCommand(ADMIN_ID, DUPLICATE_ID, CANONICAL_ID, "중복 확인"),
+        )
+
+        assertThat(result.restaurantId).isEqualTo(DUPLICATE_ID)
+        assertThat(result.canonicalRestaurantId).isEqualTo(CANONICAL_ID)
+        assertThat(result.status).isEqualTo(RestaurantStatus.MERGED)
+        assertThat(repository.mergeCommand!!.authorStates).containsExactlyInAnyOrder(
+            MergedAuthorReviewState(11L, Instant.parse("2026-07-20T00:00:00Z"), 5, 101L),
+            MergedAuthorReviewState(12L, Instant.parse("2026-07-24T00:00:00Z"), 2, 200L),
+        )
+        assertThat(repository.mergeCommand!!.transferReviews).isTrue()
+        assertThat(repository.mergeCommand!!.transferExternalReferences).isTrue()
+        assertThat(repository.mergeCommand!!.transferPlatforms).isTrue()
+        assertThat(audits.commands.single().action)
+            .isEqualTo(ModerationAuditAction.DUPLICATE_RESTAURANT_MERGED)
+        assertThat(audits.commands.single().reason).isEqualTo("중복 확인")
+        assertThat(audits.commands.single().afterState).contains("canonicalRestaurantId=$CANONICAL_ID")
+    }
+
+    @Test
+    fun `merge rejects self merge and non-active targets before mutation`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(
+                DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID),
+                CANONICAL_ID to restaurant(CANONICAL_ID, CANONICAL_PICKUP_ID, RestaurantStatus.MERGED),
+            ),
+        )
+        val service = service(repository, FakeAuditRepository())
+
+        assertThatThrownBy {
+            service.merge(MergeRestaurantCommand(ADMIN_ID, DUPLICATE_ID, DUPLICATE_ID, null))
+        }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy {
+            service.merge(MergeRestaurantCommand(ADMIN_ID, DUPLICATE_ID, CANONICAL_ID, null))
+        }.isInstanceOf(StateConflictException::class.java)
+        assertThat(repository.mergeCommand).isNull()
+    }
+
+    @Test
+    fun `pickup relink preserves restaurant identity and audits old and new locations`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID)),
+            pickupLocationIds = setOf(CANONICAL_PICKUP_ID),
+        )
+        val audits = FakeAuditRepository()
+        val service = service(repository, audits)
+
+        val result = service.relinkPickupLocation(
+            RelinkRestaurantPickupLocationCommand(ADMIN_ID, DUPLICATE_ID, CANONICAL_PICKUP_ID, "주소 정정"),
+        )
+
+        assertThat(result.restaurantId).isEqualTo(DUPLICATE_ID)
+        assertThat(result.pickupLocationId).isEqualTo(CANONICAL_PICKUP_ID)
+        assertThat(repository.relinkCommand).isEqualTo(
+            RestaurantPickupRelinkPersistenceCommand(DUPLICATE_ID, CANONICAL_PICKUP_ID),
+        )
+        assertThat(audits.commands.single().action)
+            .isEqualTo(ModerationAuditAction.RESTAURANT_PICKUP_RELINKED)
+        assertThat(audits.commands.single().beforeState).contains("pickupLocationId=$PICKUP_ID")
+        assertThat(audits.commands.single().afterState).contains("pickupLocationId=$CANONICAL_PICKUP_ID")
+    }
+
+    @Test
+    fun `service is transactional`() {
+        assertThat(
+            RestaurantAdministrationService::class.java.getMethod(
+                "merge",
+                MergeRestaurantCommand::class.java,
+            ).getAnnotation(Transactional::class.java),
+        ).isNotNull
+        assertThat(
+            RestaurantAdministrationService::class.java.getMethod(
+                "relinkPickupLocation",
+                RelinkRestaurantPickupLocationCommand::class.java,
+            ).getAnnotation(Transactional::class.java),
+        ).isNotNull
+    }
+
+    private fun service(
+        repository: RestaurantAdministrationRepository,
+        audits: ModerationAuditRepository,
+    ) = RestaurantAdministrationService(
+        admins = ModerationAdminRepository { true },
+        restaurants = repository,
+        audits = audits,
+        clock = Clock.fixed(NOW, ZoneOffset.UTC),
+    )
+
+    private fun restaurant(
+        id: Long,
+        pickupLocationId: Long,
+        status: RestaurantStatus = RestaurantStatus.ACTIVE,
+    ) = StoredAdminRestaurant(id, "브랜드-$id", "브랜드-$id", pickupLocationId, status, null)
+
+    private fun state(
+        authorUserId: Long,
+        restaurantId: Long,
+        currentReviewId: Long?,
+        lastSubmittedAt: String,
+        lastSequence: Long,
+        currentReviewCreatedAt: String?,
+        visibilityStatus: ReviewVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
+    ) = AdminRestaurantReviewState(
+        authorUserId = authorUserId,
+        restaurantId = restaurantId,
+        lastSubmittedAt = Instant.parse(lastSubmittedAt),
+        lastSequence = lastSequence,
+        currentReviewId = currentReviewId,
+        currentReviewCreatedAt = currentReviewCreatedAt?.let(Instant::parse),
+        currentReviewVisibilityStatus = currentReviewId?.let { visibilityStatus },
+    )
+
+    private class FakeRestaurantAdministrationRepository(
+        private val restaurants: MutableMap<Long, StoredAdminRestaurant>,
+        private val states: List<AdminRestaurantReviewState> = emptyList(),
+        private val pickupLocationIds: Set<Long> = emptySet(),
+    ) : RestaurantAdministrationRepository {
+        var mergeCommand: RestaurantMergePersistenceCommand? = null
+        var relinkCommand: RestaurantPickupRelinkPersistenceCommand? = null
+
+        override fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant> =
+            restaurantIds.mapNotNull(restaurants::get)
+
+        override fun findReviewStatesForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReviewState> =
+            states.filter { it.restaurantId in restaurantIds }
+
+        override fun pickupLocationExists(pickupLocationId: Long): Boolean = pickupLocationId in pickupLocationIds
+
+        override fun restaurantNameExistsAtPickupLocation(
+            pickupLocationId: Long,
+            normalizedName: String,
+            excludedRestaurantId: Long,
+        ): Boolean = false
+
+        override fun merge(command: RestaurantMergePersistenceCommand): StoredAdminRestaurant {
+            mergeCommand = command
+            val merged = restaurants.getValue(command.duplicateRestaurantId).copy(
+                status = RestaurantStatus.MERGED,
+                canonicalRestaurantId = command.canonicalRestaurantId,
+            )
+            restaurants[merged.restaurantId] = merged
+            return merged
+        }
+
+        override fun relinkPickupLocation(
+            command: RestaurantPickupRelinkPersistenceCommand,
+        ): StoredAdminRestaurant {
+            relinkCommand = command
+            val relinked = restaurants.getValue(command.restaurantId).copy(
+                pickupLocationId = command.pickupLocationId,
+            )
+            restaurants[relinked.restaurantId] = relinked
+            return relinked
+        }
+    }
+
+    private class FakeAuditRepository : ModerationAuditRepository {
+        val commands = mutableListOf<ModerationAuditPersistenceCommand>()
+
+        override fun append(command: ModerationAuditPersistenceCommand): StoredModerationAudit {
+            commands += command
+            return StoredModerationAudit(
+                auditId = commands.size.toLong(),
+                actorUserId = command.actorUserId,
+                action = command.action,
+                targetType = command.targetType,
+                targetId = command.targetId,
+                reason = command.reason,
+                beforeState = command.beforeState,
+                afterState = command.afterState,
+                occurredAt = command.occurredAt,
+                createdAt = command.occurredAt,
+            )
+        }
+    }
+
+    private companion object {
+        const val ADMIN_ID = 1L
+        const val DUPLICATE_ID = 10L
+        const val CANONICAL_ID = 20L
+        const val PICKUP_ID = 100L
+        const val CANONICAL_PICKUP_ID = 200L
+        val NOW: Instant = Instant.parse("2026-07-26T00:00:00Z")
+    }
+}

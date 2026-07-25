@@ -10,15 +10,21 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUse
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
+import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.presentation.dto.CommentDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
 import com.ridervoice.api.moderation.presentation.dto.ModerationPageRequest
+import com.ridervoice.api.moderation.presentation.dto.MergeRestaurantRequest
 import com.ridervoice.api.moderation.presentation.dto.PendingRestaurantInfoReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewCommentPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportResponse
+import com.ridervoice.api.moderation.presentation.dto.RelinkRestaurantPickupLocationRequest
+import com.ridervoice.api.moderation.presentation.dto.RestaurantMergeResponse
+import com.ridervoice.api.moderation.presentation.dto.RestaurantPickupRelinkResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewCommentDecisionResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportResponse
@@ -212,6 +218,63 @@ class AdminModerationController(
     ): RestaurantInfoReportResponse = mapper.toResponse(
         decideRestaurantReport.decideRestaurantInfoReport(
             mapper.toRestaurantReportDecisionCommand(principal.userId, reportId, request),
+        ),
+    )
+}
+
+@Validated
+@RestController
+@RequestMapping("/api/v1/admin/restaurants")
+@Tag(name = "Restaurant Admin", description = "관리자 음식점 병합과 픽업 장소 정정 API")
+@SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)
+@ApiResponses(
+    ApiResponse(
+        responseCode = "400",
+        content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemDetail::class))],
+    ),
+    ApiResponse(
+        responseCode = "401",
+        content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemDetail::class))],
+    ),
+    ApiResponse(
+        responseCode = "403",
+        content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemDetail::class))],
+    ),
+    ApiResponse(
+        responseCode = "404",
+        content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemDetail::class))],
+    ),
+    ApiResponse(
+        responseCode = "409",
+        content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemDetail::class))],
+    ),
+)
+class AdminRestaurantController(
+    private val mergeRestaurant: MergeRestaurantUseCase,
+    private val relinkRestaurant: RelinkRestaurantPickupLocationUseCase,
+    private val mapper: RestaurantAdministrationHttpMapper,
+) {
+    @Operation(summary = "중복 음식점을 canonical 음식점으로 병합")
+    @ApiResponse(responseCode = "200", description = "음식점 병합 완료")
+    @PostMapping("/{restaurantId}/merge")
+    fun merge(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @RequestBody request: MergeRestaurantRequest,
+    ): RestaurantMergeResponse = mapper.toResponse(
+        mergeRestaurant.merge(mapper.toMergeCommand(principal.userId, restaurantId, request)),
+    )
+
+    @Operation(summary = "음식점 픽업 장소 재연결")
+    @ApiResponse(responseCode = "200", description = "픽업 장소 재연결 완료")
+    @PatchMapping("/{restaurantId}/pickup-location")
+    fun relinkPickupLocation(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @RequestBody request: RelinkRestaurantPickupLocationRequest,
+    ): RestaurantPickupRelinkResponse = mapper.toResponse(
+        relinkRestaurant.relinkPickupLocation(
+            mapper.toRelinkCommand(principal.userId, restaurantId, request),
         ),
     )
 }

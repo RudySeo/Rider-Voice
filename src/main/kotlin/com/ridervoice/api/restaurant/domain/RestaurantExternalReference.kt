@@ -30,24 +30,30 @@ import jakarta.persistence.UniqueConstraint
     ],
 )
 class RestaurantExternalReference(
-    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @field:JoinColumn(
-        name = "restaurant_id",
-        nullable = false,
-        updatable = false,
-        foreignKey = ForeignKey(name = "fk_restaurant_external_references_restaurant"),
-    )
-    val restaurant: Restaurant,
+    restaurant: Restaurant,
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, updatable = false, length = 20)
     val provider: RestaurantExternalProvider,
     externalPlaceId: String,
 ) : BaseEntity() {
 
+    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @field:JoinColumn(
+        name = "restaurant_id",
+        nullable = false,
+        foreignKey = ForeignKey(name = "fk_restaurant_external_references_restaurant"),
+    )
+    final var restaurant: Restaurant = restaurant
+        private set
+
     @field:Column(name = "external_place_id", nullable = false, updatable = false, length = 255)
     val externalPlaceId: String = externalPlaceId.trim()
 
     init {
         require(this.externalPlaceId.isNotEmpty()) { "External place ID must not be blank" }
+    }
+
+    fun relinkToRestaurant(restaurant: Restaurant) {
+        this.restaurant = restaurant
     }
 }
