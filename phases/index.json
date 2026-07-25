@@ -42,7 +42,8 @@
     },
     {
       "dir": "8-public-reporting",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-26T02:29:42+0900"
     },
     {
       "dir": "9-moderation-admin",
