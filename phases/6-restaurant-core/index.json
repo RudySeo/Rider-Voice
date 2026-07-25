@@ -31,7 +31,8 @@
       "name": "kakao-local-adapter",
       "status": "completed",
       "started_at": "2026-07-26T00:43:34+0900",
-      "summary": "Spring RestClient 기반 Kakao Local keyword·address adapter와 환경변수 key fallback, provider 비종속 오류 변환 및 credential 없는 HTTP stub 테스트를 추가했다."
+      "summary": "Spring RestClient 기반 Kakao Local keyword·address adapter와 환경변수 key fallback, provider 비종속 오류 변환 및 credential 없는 HTTP stub 테스트를 추가했다.",
+      "completed_at": "2026-07-26T00:49:26+0900"
     },
     {
       "step": 4,
