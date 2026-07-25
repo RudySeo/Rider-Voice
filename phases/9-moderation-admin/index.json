@@ -55,7 +55,8 @@
       "name": "moderation-regression",
       "status": "completed",
       "started_at": "2026-07-26T03:18:15+0900",
-      "summary": "의견 승인·수정·재검수와 신고 full exclusion의 5명→4명 집계 비공개 전환 회귀 테스트를 보강하고 moderation 권한·unique·audit·canonical merge·OpenAPI 및 전체 빌드를 검증했다."
+      "summary": "의견 승인·수정·재검수와 신고 full exclusion의 5명→4명 집계 비공개 전환 회귀 테스트를 보강하고 moderation 권한·unique·audit·canonical merge·OpenAPI 및 전체 빌드를 검증했다.",
+      "completed_at": "2026-07-26T03:22:26+0900"
     }
   ],
   "created_at": "2026-07-26T02:29:57+0900"
