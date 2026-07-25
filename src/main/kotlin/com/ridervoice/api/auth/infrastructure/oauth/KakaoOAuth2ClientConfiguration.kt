@@ -14,6 +14,9 @@ class KakaoOAuth2ClientConfiguration {
     @Bean
     fun kakaoClientRegistrationFactory(properties: KakaoOAuth2Properties) =
         KakaoClientRegistrationFactory(properties)
+
+    @Bean
+    fun kakaoOAuth2UserService() = KakaoOAuth2UserService()
 }
 
 class KakaoClientRegistrationFactory(

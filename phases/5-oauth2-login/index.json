@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "oauth2-provider-adapter",
-      "status": "pending"
+      "status": "completed",
+      "summary": "KakaoOAuth2UserService와 local HTTP stub 테스트를 추가해 top-level id만 subject로 축소하고 손상·4xx/5xx 응답을 안전한 OAuth failure로 변환한다.",
+      "started_at": "2026-07-26T00:01:24+0900"
     },
     {
       "step": 3,
