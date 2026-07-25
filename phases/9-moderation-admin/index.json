@@ -31,7 +31,8 @@
       "name": "reporting-service",
       "status": "completed",
       "started_at": "2026-07-26T02:47:25+0900",
-      "summary": "USER 리뷰·음식점 신고와 통합 24시간 20건 제한, 공개 의견 임시 숨김·복원, ADMIN 기각·의견 숨김·리뷰 제외 및 restaurant report audit를 원자적 서비스로 추가했다."
+      "summary": "USER 리뷰·음식점 신고와 통합 24시간 20건 제한, 공개 의견 임시 숨김·복원, ADMIN 기각·의견 숨김·리뷰 제외 및 restaurant report audit를 원자적 서비스로 추가했다.",
+      "completed_at": "2026-07-26T02:55:58+0900"
     },
     {
       "step": 4,
