@@ -63,6 +63,87 @@ class ReviewAggregateServiceTest {
     }
 
     @Test
+    fun `brand and pickup location independently publish at five distinct authors`() {
+        val fourAuthors = (1L..4L).map { authorId -> input(authorId, authorId) }
+        val fiveAuthors = (1L..5L).map { authorId -> input(authorId, authorId) }
+
+        val brandCollecting = service(brandInputs = fourAuthors).getBrandReport(10L)
+        val brandPublished = service(brandInputs = fiveAuthors).getBrandReport(10L)
+        val locationCollecting = service(locationInputs = fourAuthors).getPickupLocationReport(20L)
+        val locationPublished = service(locationInputs = fiveAuthors).getPickupLocationReport(20L)
+
+        assertThat(brandCollecting.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(brandCollecting.contributorCount).isEqualTo(4)
+        assertThat(brandPublished.status).isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(brandPublished.contributorCount).isEqualTo(5)
+        assertThat(locationCollecting.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(locationCollecting.contributorCount).isEqualTo(4)
+        assertThat(locationPublished.status).isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(locationPublished.contributorCount).isEqualTo(5)
+    }
+
+    @Test
+    fun `same author across brands at one pickup location contributes only the latest review`() {
+        val locationRowsAcrossBrands = listOf(
+            input(
+                reviewId = 10L,
+                authorUserId = 1L,
+                createdAt = "2026-07-24T03:00:00Z",
+                pickupSpaceCleanliness = ReviewRating.MAJOR_IMPROVEMENT,
+            ),
+            input(
+                reviewId = 11L,
+                authorUserId = 1L,
+                createdAt = "2026-07-25T03:00:00Z",
+                pickupSpaceCleanliness = ReviewRating.VERY_GOOD,
+            ),
+            input(20L, 2L, pickupSpaceCleanliness = ReviewRating.GOOD),
+            input(30L, 3L, pickupSpaceCleanliness = ReviewRating.GOOD),
+            input(40L, 4L, pickupSpaceCleanliness = ReviewRating.GOOD),
+            input(50L, 5L, pickupSpaceCleanliness = ReviewRating.GOOD),
+        )
+
+        val result = service(locationInputs = locationRowsAcrossBrands).getPickupLocationReport(20L)
+
+        assertThat(result.status).isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(result.contributorCount).isEqualTo(5)
+        assertThat(result.metrics!!.pickupSpaceCleanliness.distribution).containsExactlyEntriesOf(
+            linkedMapOf(
+                ReviewRating.VERY_GOOD to BigDecimal("20.0"),
+                ReviewRating.GOOD to BigDecimal("80.0"),
+                ReviewRating.NEEDS_IMPROVEMENT to BigDecimal("0.0"),
+                ReviewRating.MAJOR_IMPROVEMENT to BigDecimal("0.0"),
+            ),
+        )
+    }
+
+    @Test
+    fun `deleted brand current and excluded location current drop reports below publication threshold`() {
+        val fiveCurrentActiveAuthors = (1L..5L).map { authorId -> input(authorId, authorId) }
+        val published = service(
+            brandInputs = fiveCurrentActiveAuthors,
+            locationInputs = fiveCurrentActiveAuthors,
+        )
+
+        assertThat(published.getBrandReport(10L).status).isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(published.getPickupLocationReport(20L).status).isEqualTo(AggregationStatus.PUBLISHED)
+
+        val afterCurrentRemoval = service(
+            brandInputs = fiveCurrentActiveAuthors.dropLast(1),
+            locationInputs = fiveCurrentActiveAuthors.dropLast(1),
+        )
+        val brand = afterCurrentRemoval.getBrandReport(10L)
+        val location = afterCurrentRemoval.getPickupLocationReport(20L)
+
+        assertThat(brand.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(brand.contributorCount).isEqualTo(4)
+        assertThat(brand.metrics).isNull()
+        assertThat(location.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(location.contributorCount).isEqualTo(4)
+        assertThat(location.metrics).isNull()
+    }
+
+    @Test
     fun `five distinct authors publish three brand metrics independently`() {
         val inputs = listOf(
             input(1L, 1L, packagingStability = ReviewRating.VERY_GOOD, orderReadiness = ReviewRating.GOOD, handoffAccuracy = ReviewRating.NOT_OBSERVED),
