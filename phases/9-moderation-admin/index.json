@@ -7,7 +7,8 @@
       "name": "moderation-domain",
       "status": "completed",
       "started_at": "2026-07-26T02:29:57+0900",
-      "summary": "Provider·HTTP 비종속 신고 상태·사유·결정 enum과 comment/report 전이, full exclusion pointer·cooldown 지시 및 merge·pickup relink audit 정책·도메인 테스트를 추가했다."
+      "summary": "Provider·HTTP 비종속 신고 상태·사유·결정 enum과 comment/report 전이, full exclusion pointer·cooldown 지시 및 merge·pickup relink audit 정책·도메인 테스트를 추가했다.",
+      "completed_at": "2026-07-26T02:34:54+0900"
     },
     {
       "step": 1,
