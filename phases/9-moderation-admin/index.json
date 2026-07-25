@@ -15,7 +15,8 @@
       "name": "moderation-persistence",
       "status": "completed",
       "started_at": "2026-07-26T02:34:54+0900",
-      "summary": "ReviewReport·RestaurantInfoReport·ModerationAudit Entity와 unique·FK·queue index, cursor·row lock·decision·audit repository adapter 및 contract·integration-tag 테스트를 추가했다."
+      "summary": "ReviewReport·RestaurantInfoReport·ModerationAudit Entity와 unique·FK·queue index, cursor·row lock·decision·audit repository adapter 및 contract·integration-tag 테스트를 추가했다.",
+      "completed_at": "2026-07-26T02:41:57+0900"
     },
     {
       "step": 2,
