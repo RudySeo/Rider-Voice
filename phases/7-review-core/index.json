@@ -31,7 +31,8 @@
       "name": "review-create-service",
       "status": "completed",
       "summary": "ReviewCreateService와 target validate/resolveValidated 경계를 추가해 외부 검증 분리, restaurant·review 원자 저장, 90일·24시간·sequence·state race 재시도를 구현하고 서비스 테스트로 검증했다.",
-      "started_at": "2026-07-26T01:26:25+0900"
+      "started_at": "2026-07-26T01:26:25+0900",
+      "completed_at": "2026-07-26T01:35:05+0900"
     },
     {
       "step": 4,
