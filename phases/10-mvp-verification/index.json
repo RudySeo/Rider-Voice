@@ -1,0 +1,9 @@
+{
+  "project": "Rider Voice",
+  "phase": "10-mvp-verification",
+  "steps": [
+    { "step": 0, "name": "api-security-contracts", "status": "pending" },
+    { "step": 1, "name": "mysql-schema-concurrency", "status": "pending" },
+    { "step": 2, "name": "full-regression-doc-status", "status": "pending" }
+  ]
+}

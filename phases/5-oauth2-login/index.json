@@ -1,0 +1,12 @@
+{
+  "project": "Rider Voice",
+  "phase": "5-oauth2-login",
+  "steps": [
+    { "step": 0, "name": "oauth2-dependencies-config", "status": "pending" },
+    { "step": 1, "name": "auth-application-boundary", "status": "pending" },
+    { "step": 2, "name": "oauth2-provider-adapter", "status": "pending" },
+    { "step": 3, "name": "oauth2-security-flow", "status": "pending" },
+    { "step": 4, "name": "oauth2-api-contract", "status": "pending" },
+    { "step": 5, "name": "oauth2-regression", "status": "pending" }
+  ]
+}

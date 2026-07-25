@@ -1,0 +1,13 @@
+{
+  "project": "Rider Voice",
+  "phase": "9-moderation-admin",
+  "steps": [
+    { "step": 0, "name": "moderation-domain", "status": "pending" },
+    { "step": 1, "name": "moderation-persistence", "status": "pending" },
+    { "step": 2, "name": "comment-moderation-service", "status": "pending" },
+    { "step": 3, "name": "reporting-service", "status": "pending" },
+    { "step": 4, "name": "admin-security-api", "status": "pending" },
+    { "step": 5, "name": "restaurant-canonical-merge", "status": "pending" },
+    { "step": 6, "name": "moderation-regression", "status": "pending" }
+  ]
+}

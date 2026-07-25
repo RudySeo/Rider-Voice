@@ -1,0 +1,13 @@
+{
+  "project": "Rider Voice",
+  "phase": "6-restaurant-core",
+  "steps": [
+    { "step": 0, "name": "restaurant-domain", "status": "pending" },
+    { "step": 1, "name": "restaurant-application-contracts", "status": "pending" },
+    { "step": 2, "name": "restaurant-persistence", "status": "pending" },
+    { "step": 3, "name": "kakao-local-adapter", "status": "pending" },
+    { "step": 4, "name": "restaurant-search-service", "status": "pending" },
+    { "step": 5, "name": "restaurant-search-api", "status": "pending" },
+    { "step": 6, "name": "restaurant-integration", "status": "pending" }
+  ]
+}

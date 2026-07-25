@@ -1,0 +1,10 @@
+{
+  "project": "Rider Voice",
+  "phase": "4-legacy-cleanup",
+  "steps": [
+    { "step": 0, "name": "legacy-contract-removal", "status": "pending" },
+    { "step": 1, "name": "legacy-auth-removal", "status": "pending" },
+    { "step": 2, "name": "legacy-restaurant-removal", "status": "pending" },
+    { "step": 3, "name": "cleanup-regression", "status": "pending" }
+  ]
+}

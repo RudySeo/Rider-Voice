@@ -21,15 +21,31 @@
       "completed_at": "2026-07-23T15:01:57+0900"
     },
     {
-      "dir": "4-private-review-crud",
+      "dir": "4-legacy-cleanup",
       "status": "pending"
     },
     {
-      "dir": "5-auth-hexagonal-refactor",
+      "dir": "5-oauth2-login",
       "status": "pending"
     },
     {
-      "dir": "6-mvp-verification",
+      "dir": "6-restaurant-core",
+      "status": "pending"
+    },
+    {
+      "dir": "7-review-core",
+      "status": "pending"
+    },
+    {
+      "dir": "8-public-reporting",
+      "status": "pending"
+    },
+    {
+      "dir": "9-moderation-admin",
+      "status": "pending"
+    },
+    {
+      "dir": "10-mvp-verification",
       "status": "pending"
     }
   ]

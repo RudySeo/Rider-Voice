@@ -1,0 +1,13 @@
+{
+  "project": "Rider Voice",
+  "phase": "7-review-core",
+  "steps": [
+    { "step": 0, "name": "review-domain", "status": "pending" },
+    { "step": 1, "name": "review-application-contracts", "status": "pending" },
+    { "step": 2, "name": "review-persistence", "status": "pending" },
+    { "step": 3, "name": "review-create-service", "status": "pending" },
+    { "step": 4, "name": "review-owner-service", "status": "pending" },
+    { "step": 5, "name": "review-api", "status": "pending" },
+    { "step": 6, "name": "review-integration", "status": "pending" }
+  ]
+}
