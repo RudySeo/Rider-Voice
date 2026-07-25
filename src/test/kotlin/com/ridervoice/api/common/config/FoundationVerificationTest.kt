@@ -42,7 +42,7 @@ class FoundationVerificationTest {
     fun `OpenAPI publishes API v1 endpoints and the opaque bearer scheme`() {
         mockMvc.get("/v3/api-docs").andExpect {
             status { isOk() }
-            jsonPath("$.paths['/api/v1/auth/kakao/authorize'].get") { exists() }
+            jsonPath("$.paths['/api/v1/auth/consents'].post") { exists() }
             jsonPath("$.paths['/api/v1/users/me'].get") { exists() }
             jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth") { isArray() }
             jsonPath("$.components.securitySchemes.bearerAuth.type") { value("http") }

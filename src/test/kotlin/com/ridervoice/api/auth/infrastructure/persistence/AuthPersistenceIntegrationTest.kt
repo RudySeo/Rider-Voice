@@ -1,7 +1,6 @@
 package com.ridervoice.api.auth.infrastructure.persistence
 
 import com.ridervoice.api.auth.domain.OAuthAccount
-import com.ridervoice.api.auth.domain.OAuthLoginState
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
@@ -29,16 +28,13 @@ class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
     private lateinit var userSessions: UserSessionRepository
 
     @Autowired
-    private lateinit var oauthLoginStates: OAuthLoginStateRepository
-
-    @Autowired
     private lateinit var onboardingTokens: OnboardingTokenRepository
 
     @Autowired
     private lateinit var entityManager: EntityManager
 
     @Test
-    fun `auth repositories persist and find provider session and login state data`() {
+    fun `auth repositories persist and find provider account and session data`() {
         val user = users.save(User())
         val account = oauthAccounts.save(OAuthAccount(user, OAuthProvider.KAKAO, "provider-subject"))
         val session = userSessions.save(
@@ -48,19 +44,10 @@ class AuthPersistenceIntegrationTest : MySqlIntegrationTest() {
                 expiresAt = Instant.parse("2026-07-23T12:00:00Z"),
             ),
         )
-        val loginState = oauthLoginStates.save(
-            OAuthLoginState(
-                stateHash = "sha256:oauth-state-hash",
-                expiresAt = Instant.parse("2026-07-22T12:10:00Z"),
-            ),
-        )
-
         assertThat(oauthAccounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "provider-subject"))
             .contains(account)
         assertThat(userSessions.findByRefreshTokenHash("sha256:refresh-token-hash"))
             .contains(session)
-        assertThat(oauthLoginStates.findByStateHash("sha256:oauth-state-hash"))
-            .contains(loginState)
     }
 
     @Test

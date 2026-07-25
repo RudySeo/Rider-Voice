@@ -31,11 +31,6 @@ class SecurityConfig(
                 "/swagger-ui/**",
                 "/swagger-ui.html",
             ).permitAll()
-            it.requestMatchers(
-                HttpMethod.GET,
-                "/api/v1/auth/kakao/authorize",
-                "/api/v1/auth/kakao/callback",
-            ).permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")

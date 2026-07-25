@@ -2,12 +2,10 @@ package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.AuthTokens
-import com.ridervoice.api.auth.application.CallbackResult
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OnboardingPrincipal
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -17,11 +15,6 @@ import jakarta.validation.constraints.NotBlank
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
-
-data class AuthorizationUrlResponse(
-    @field:Schema(description = "카카오 OAuth 인증 페이지 URL")
-    val authorizationUrl: String,
-)
 
 data class ConsentRequest(
     @field:NotBlank
@@ -37,22 +30,8 @@ data class TokenRequest(
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "카카오 로그인과 서비스 세션 API")
+@Tag(name = "Authentication", description = "서비스 온보딩과 세션 API")
 class AuthController(private val auth: AuthService) {
-    @Operation(summary = "카카오 로그인 URL 생성")
-    @GetMapping("/kakao/authorize")
-    fun authorize() = AuthorizationUrlResponse(auth.authorize())
-
-    @Operation(
-        summary = "카카오 로그인 callback 처리",
-        description = "ACTIVE 사용자는 정식 tokens를, PENDING_TERMS 사용자는 5분 유효 onboardingToken을 반환합니다.",
-    )
-    @GetMapping("/kakao/callback")
-    fun callback(
-        @Parameter(description = "카카오가 발급한 authorization code") @RequestParam code: String,
-        @Parameter(description = "로그인 요청 위조 방지 state") @RequestParam state: String,
-    ): CallbackResult = auth.callback(code, state)
-
     @Operation(
         summary = "필수 약관 동의",
         security = [SecurityRequirement(name = OpenApiConfiguration.ONBOARDING_BEARER_AUTH)],

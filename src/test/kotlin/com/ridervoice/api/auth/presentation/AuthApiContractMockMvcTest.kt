@@ -42,7 +42,7 @@ class AuthApiContractMockMvcTest {
     private lateinit var authService: AuthService
 
     @Test
-    fun `generated OpenAPI exposes callback and consent schemas with separate bearer schemes`() {
+    fun `generated OpenAPI exposes consent schemas with separate bearer schemes`() {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
@@ -50,13 +50,6 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.securitySchemes.bearerAuth.scheme") { value("bearer") }
                 jsonPath("$.components.securitySchemes.onboardingBearerAuth.type") { value("http") }
                 jsonPath("$.components.securitySchemes.onboardingBearerAuth.scheme") { value("bearer") }
-                jsonPath("$.paths['/api/v1/auth/kakao/callback'].get.responses['200'].content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/CallbackResult")
-                }
-                jsonPath("$.components.schemas.CallbackResult.properties.tokens['\$ref']") {
-                    value("#/components/schemas/AuthTokens")
-                }
-                jsonPath("$.components.schemas.CallbackResult.properties.onboardingToken.type") { value("string") }
                 jsonPath("$.paths['/api/v1/auth/consents'].post.requestBody.content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/ConsentRequest")
                 }
@@ -72,8 +65,6 @@ class AuthApiContractMockMvcTest {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
-                jsonPath("$.paths['/api/v1/auth/kakao/authorize'].get.security") { doesNotExist() }
-                jsonPath("$.paths['/api/v1/auth/kakao/callback'].get.security") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/refresh'].post.security") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/refresh'].post.requestBody.content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/TokenRequest")
@@ -93,32 +84,6 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.schemas.UserSummary.properties.id.type") { value("integer") }
                 jsonPath("$.components.schemas.UserSummary.properties.id.format") { value("int64") }
             }
-    }
-
-    @Test
-    fun `Kakao provider failure returns sanitized problem detail without leaking response or logs`(output: CapturedOutput) {
-        val providerToken = "kakao-provider-token-should-never-leak"
-        val providerStackMarker = "at.private.ProviderClient.exchange(ProviderClient.kt:99)"
-        val sensitiveProviderFailure = "$providerToken\n$providerStackMarker"
-        `when`(authService.callback("provider-code", "oauth-state"))
-            .thenThrow(RuntimeException(sensitiveProviderFailure))
-
-        mockMvc.get("/api/v1/auth/kakao/callback") {
-            param("code", "provider-code")
-            param("state", "oauth-state")
-        }.andExpect {
-            status { isInternalServerError() }
-            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
-            jsonPath("$.type") { value("urn:ridervoice:error:internal-error") }
-            jsonPath("$.status") { value(500) }
-            jsonPath("$.code") { value("INTERNAL_ERROR") }
-            jsonPath("$.detail") { value("An unexpected error occurred.") }
-            content { string(not(containsString(sensitiveProviderFailure))) }
-        }
-
-        assertThat(output.all)
-            .doesNotContain(providerToken)
-            .doesNotContain(providerStackMarker)
     }
 
     @Test

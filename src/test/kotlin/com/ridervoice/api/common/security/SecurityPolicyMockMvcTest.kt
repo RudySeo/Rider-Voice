@@ -47,13 +47,11 @@ class SecurityPolicyMockMvcTest {
     }
 
     @Test
-    fun `health Swagger OpenAPI Kakao login callback and refresh are public`() {
+    fun `health Swagger OpenAPI and refresh are public`() {
         listOf(
             "/actuator/health",
             "/swagger-ui.html",
             "/v3/api-docs",
-            "/api/v1/auth/kakao/authorize",
-            "/api/v1/auth/kakao/callback",
         ).forEach { path ->
             mockMvc.get(path).andExpect { status { isOk() } }
         }
@@ -189,8 +187,6 @@ private class SecurityPolicyFixtureController {
         "/actuator/health",
         "/swagger-ui.html",
         "/v3/api-docs",
-        "/api/v1/auth/kakao/authorize",
-        "/api/v1/auth/kakao/callback",
     )
     fun publicGet() = "ok"
 
