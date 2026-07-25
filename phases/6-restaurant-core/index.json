@@ -13,7 +13,9 @@
     {
       "step": 1,
       "name": "restaurant-application-contracts",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T00:31:00+0900",
+      "summary": "공개 음식점·USER 주소 검색과 4종 target 해석 input port, provider 비종속 result/failure model, restaurant repository 및 Kakao Local output port 계약을 추가했다."
     },
     {
       "step": 2,
