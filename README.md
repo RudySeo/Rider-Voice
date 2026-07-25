@@ -43,27 +43,28 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 초기에는 단일 API 서버와 MySQL을 사용합니다. Redis, Kafka, Elasticsearch, Docker, Testcontainers와 AWS는 현재 범위가 아닙니다.
 
-## 현재 구현과 다음 변경
+## 현재 구현 상태
 
-현재 코드에 구현된 내용:
+Phase 0~9의 MVP 구현은 완료되어 `master`에 반영되어 있습니다. 현재 구현된 내용은 다음과 같습니다.
 
-- Spring Boot/Kotlin과 MySQL/JPA 기반
-- 공통 보안, 오류 응답과 OpenAPI
-- 직접 구현한 카카오 OAuth 로그인
-- onboarding token, opaque access token과 rotating refresh session
-- 카카오 장소 검색과 단일 `Restaurant.kakaoPlaceId` 기반 지연 등록
+- Spring Security OAuth2 Client 기반 카카오 로그인과 약관 동의
+- onboarding token, opaque access token, rotating refresh token, logout
+- 픽업 장소·배달 브랜드·외부 참조를 분리한 음식점 모델
+- 카카오 장소·주소 검색, 후보 병합, 서버 재검증과 중복 방지 등록
+- 6개 구조화 평가, 방문 연월, 최대 200자 의견
+- 리뷰 생성·수정·삭제·내 리뷰 조회, 90일 재작성 제한과 공개 이력
+- 로그인 없이 사용할 수 있는 음식점 검색·상세·리뷰 조회
+- 서로 다른 작성자 5명 기준 브랜드·픽업 장소 집계와 `NOT_OBSERVED` 처리
+- 의견 검수, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
+- OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 
-새 목표 문서에 따라 다음 순서로 교체·확장합니다.
+라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-1. 직접 구현한 카카오 OAuth를 Spring Security OAuth2 Client로 전환
-2. 단일 음식점을 픽업 장소·배달 브랜드·외부 참조 구조로 교체
-3. 공개 리뷰 이력과 90일 작성 제한 구현
-4. 공개 검색·상세·리뷰와 작성자 5명 집계 구현
-5. 의견 검수, 신고, 관리자 처리와 음식점 병합 구현
+현재 Phase 10에서는 API 보안·계약 회귀 테스트가 완료되었습니다. 로컬 MySQL 스키마·동시성 검증과 전체 최종 회귀 검증은 아직 남아 있으며, Harness 실행 한도 때문에 일시 중단된 상태입니다.
 
 목표 기획과 기술 계약은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [API 계약](docs/API_SPEC.md)을 참고하세요.
 
-## 목표 API
+## 현재 API
 
 ```text
 # OAuth와 service token
@@ -96,8 +97,6 @@ POST      /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH     /api/v1/admin/restaurants/{restaurantId}/pickup-location
 ```
 
-현재 구현 API와 목표 API의 차이는 [API 계약](docs/API_SPEC.md#10-현재-구현과-교체-대상)에 정리되어 있습니다.
-
 ## Swagger / OpenAPI
 
 로컬 서버 실행 후 다음 경로를 사용합니다.
@@ -118,12 +117,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 
 API 서버와 MySQL은 로컬 프로세스로 실행합니다. Docker와 Testcontainers는 사용하지 않습니다.
 
-목표 모델 적용으로 기존 개발 schema를 초기화해야 할 때만 다음 명령을 한 번 사용합니다. 기존 데이터가 삭제되는 명령이므로 실행 전 필요한 데이터를 확인해야 합니다.
-
-```bash
-mysql.server start
-mysql -u root -p -e "DROP DATABASE IF EXISTS rider; CREATE DATABASE rider CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-```
+Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 데이터베이스를 자동으로 삭제하거나 초기화하지 않으므로, 기존 데이터가 필요한 환경에서는 DROP/truncate를 실행하지 않습니다.
 
 프로젝트 루트에 Git에서 제외되는 `.env`를 만들고 로컬 환경에 맞게 설정합니다.
 
@@ -141,13 +135,11 @@ DB_PASSWORD=1234
 
 `KAKAO_LOCAL_REST_API_KEY`를 생략하면 `KAKAO_CLIENT_ID`의 REST API 키를 재사용합니다. IntelliJ IDEA에서는 EnvFile 플러그인을 개인 Run/Debug Configuration에 설정할 수 있습니다. 플러그인 없이도 `local` profile이 프로젝트 루트 `.env`를 선택적으로 읽습니다.
 
-카카오 디벨로퍼스에는 다음 목표 Redirect URI를 등록합니다.
+카카오 디벨로퍼스에는 다음 Redirect URI를 등록합니다.
 
 ```text
 http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 ```
-
-현재 코드가 Spring Security OAuth2 Client로 전환되기 전까지는 기존 callback 경로를 사용합니다. 목표 인증 구현과 설정 변경은 같은 코드 변경에서 적용해야 합니다.
 
 ```bash
 ./gradlew bootRun
@@ -161,7 +153,7 @@ http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 ./gradlew build
 ```
 
-실행 중인 로컬 MySQL을 사용하는 schema·연관관계·unique·동시성 검증:
+실행 중인 로컬 MySQL을 사용하는 schema·연관관계·unique·동시성 검증입니다. Docker, Testcontainers를 시작하지 않고 로컬 MySQL이 실행 중인 경우에만 수행합니다.
 
 ```bash
 ./gradlew integrationTest
