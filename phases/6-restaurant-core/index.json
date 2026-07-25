@@ -7,7 +7,8 @@
       "name": "restaurant-domain",
       "status": "completed",
       "started_at": "2026-07-26T00:25:42+0900",
-      "summary": "PickupLocation·Restaurant·RestaurantExternalReference·RestaurantPlatform 엔티티와 상태·provider·platform enum, 결정적 Unicode/공백 정규화 및 도메인 불변식 테스트를 추가했다."
+      "summary": "PickupLocation·Restaurant·RestaurantExternalReference·RestaurantPlatform 엔티티와 상태·provider·platform enum, 결정적 Unicode/공백 정규화 및 도메인 불변식 테스트를 추가했다.",
+      "completed_at": "2026-07-26T00:31:00+0900"
     },
     {
       "step": 1,
