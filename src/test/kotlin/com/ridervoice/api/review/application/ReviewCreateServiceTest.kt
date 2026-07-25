@@ -282,6 +282,11 @@ class ReviewCreateServiceTest {
             return state
         }
 
+        override fun findByAuthorUserIdAndRestaurantIds(
+            authorUserId: Long,
+            restaurantIds: Set<Long>,
+        ): List<AuthorRestaurantReviewStateSnapshot> = emptyList()
+
         override fun save(
             state: AuthorRestaurantReviewStateSnapshot,
         ): AuthorRestaurantReviewStateSnapshot {

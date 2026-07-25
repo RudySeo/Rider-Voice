@@ -64,6 +64,11 @@ data class SavedReviewSnapshot(
 interface AuthorRestaurantReviewStateRepository {
     fun findForUpdate(authorUserId: Long, restaurantId: Long): AuthorRestaurantReviewStateSnapshot?
 
+    fun findByAuthorUserIdAndRestaurantIds(
+        authorUserId: Long,
+        restaurantIds: Set<Long>,
+    ): List<AuthorRestaurantReviewStateSnapshot>
+
     fun save(state: AuthorRestaurantReviewStateSnapshot): AuthorRestaurantReviewStateSnapshot
 }
 

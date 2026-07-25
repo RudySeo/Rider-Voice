@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "review-owner-service",
-      "status": "pending"
+      "status": "completed",
+      "summary": "ReviewOwnerService를 추가해 소유자 current 리뷰의 검증 기반 수정·hard delete, cooldown 상태 보존과 current/history·검수 상태 cursor 목록을 구현하고 테스트했다.",
+      "started_at": "2026-07-26T01:35:06+0900"
     },
     {
       "step": 5,

@@ -95,6 +95,14 @@ internal class AuthorRestaurantReviewStatePersistenceAdapter(
         .orElse(null)
         ?.toSnapshot()
 
+    override fun findByAuthorUserIdAndRestaurantIds(
+        authorUserId: Long,
+        restaurantIds: Set<Long>,
+    ): List<AuthorRestaurantReviewStateSnapshot> {
+        if (restaurantIds.isEmpty()) return emptyList()
+        return states.findAllByAuthorIdAndRestaurantIds(authorUserId, restaurantIds).map { it.toSnapshot() }
+    }
+
     override fun save(state: AuthorRestaurantReviewStateSnapshot): AuthorRestaurantReviewStateSnapshot {
         val currentReview = state.currentReviewId?.let { entityManager.getReference(Review::class.java, it) }
         val entity = if (state.stateId == null) {

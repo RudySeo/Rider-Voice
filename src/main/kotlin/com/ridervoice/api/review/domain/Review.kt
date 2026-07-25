@@ -79,9 +79,12 @@ class Review(
     }
 
     fun update(ratings: ReviewRatings, comment: String?) {
+        val normalizedComment = ReviewCommentPolicy.normalize(comment)
         this.ratings = ratings
-        this.comment = ReviewCommentPolicy.normalize(comment)
-        commentModerationStatus = initialCommentStatus(this.comment)
+        if (this.comment != normalizedComment) {
+            this.comment = normalizedComment
+            commentModerationStatus = initialCommentStatus(this.comment)
+        }
     }
 
     fun publishComment() {

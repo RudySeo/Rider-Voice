@@ -149,6 +149,7 @@ class ReviewPersistenceAdapterTest {
                 method, _ ->
             when (method.name) {
                 "findForUpdate" -> Optional.of(storedState)
+                "findAllByAuthorIdAndRestaurantIds" -> listOf(storedState)
                 "findById" -> Optional.of(storedState)
                 "saveAndFlush" -> storedState
                 else -> unexpected(method)
@@ -160,6 +161,10 @@ class ReviewPersistenceAdapterTest {
         assertThat(adapter.findForUpdate(7L, 10L)).isEqualTo(
             AuthorRestaurantReviewStateSnapshot(30L, 7L, 10L, storedState.lastSubmittedAt, 2L, 40L),
         )
+        assertThat(adapter.findByAuthorUserIdAndRestaurantIds(7L, setOf(10L))).containsExactly(
+            AuthorRestaurantReviewStateSnapshot(30L, 7L, 10L, storedState.lastSubmittedAt, 2L, 40L),
+        )
+        assertThat(adapter.findByAuthorUserIdAndRestaurantIds(7L, emptySet())).isEmpty()
         val cleared = adapter.save(
             AuthorRestaurantReviewStateSnapshot(
                 stateId = 30L,

@@ -80,4 +80,17 @@ internal interface SpringDataAuthorRestaurantReviewStateRepository :
         @Param("authorUserId") authorUserId: Long,
         @Param("restaurantId") restaurantId: Long,
     ): Optional<AuthorRestaurantReviewState>
+
+    @Query(
+        """
+        select state
+        from AuthorRestaurantReviewState state
+        where state.author.id = :authorUserId
+          and state.restaurant.id in :restaurantIds
+        """,
+    )
+    fun findAllByAuthorIdAndRestaurantIds(
+        @Param("authorUserId") authorUserId: Long,
+        @Param("restaurantIds") restaurantIds: Set<Long>,
+    ): List<AuthorRestaurantReviewState>
 }

@@ -134,7 +134,7 @@ class ReviewApplicationContractsTest {
             "findByAuthorUserId",
         )
         assertThat(AuthorRestaurantReviewStateRepository::class.java.declaredMethods.map { it.name })
-            .containsExactlyInAnyOrder("findForUpdate", "save")
+            .containsExactlyInAnyOrder("findForUpdate", "findByAuthorUserIdAndRestaurantIds", "save")
     }
 
     private fun reviewResult(now: Instant) = ReviewResult(
