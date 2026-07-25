@@ -7,6 +7,11 @@ import com.ridervoice.api.common.error.ResourceNotFoundException
 import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.moderation.application.model.RestaurantInfoReportResult
 import com.ridervoice.api.moderation.application.model.ReviewReportResult
+import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportPageResult
+import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportResult
+import com.ridervoice.api.moderation.application.model.PendingReviewReportPageResult
+import com.ridervoice.api.moderation.application.model.PendingReviewReportResult
+import com.ridervoice.api.moderation.application.model.ReportModerationCursor
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
@@ -15,9 +20,14 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
+import com.ridervoice.api.moderation.application.port.out.ModerationCursor
 import com.ridervoice.api.moderation.application.port.out.ModerationReporterRepository
 import com.ridervoice.api.moderation.application.port.out.NewRestaurantInfoReportPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.NewReviewReportPersistenceCommand
@@ -53,6 +63,8 @@ internal class ReportingService(
     private val clock: Clock,
 ) : CreateReviewReportUseCase,
     CreateRestaurantInfoReportUseCase,
+    ListPendingReviewReportsUseCase,
+    ListPendingRestaurantInfoReportsUseCase,
     DecideReviewReportUseCase,
     DecideRestaurantInfoReportUseCase {
 
@@ -122,6 +134,50 @@ internal class ReportingService(
                 details = command.details,
             ),
         ).toResult()
+    }
+
+    @Transactional(readOnly = true)
+    override fun list(query: ListPendingReviewReportsQuery): PendingReviewReportPageResult {
+        requireActiveAdmin(query.adminUserId)
+        val page = reviewReports.findPending(query.cursor?.toPersistenceCursor(), query.size + 1)
+        val visibleItems = page.take(query.size)
+        return PendingReviewReportPageResult(
+            items = visibleItems.map {
+                PendingReviewReportResult(
+                    reportId = it.reportId,
+                    reporterUserId = it.reporterUserId,
+                    reviewId = it.reviewId,
+                    reason = it.reason,
+                    details = it.details,
+                    createdAt = it.createdAt,
+                )
+            },
+            nextCursor = visibleItems.lastOrNull()
+                ?.takeIf { page.size > query.size }
+                ?.let { ReportModerationCursor(it.createdAt, it.reportId) },
+        )
+    }
+
+    @Transactional(readOnly = true)
+    override fun list(query: ListPendingRestaurantInfoReportsQuery): PendingRestaurantInfoReportPageResult {
+        requireActiveAdmin(query.adminUserId)
+        val page = restaurantReports.findPending(query.cursor?.toPersistenceCursor(), query.size + 1)
+        val visibleItems = page.take(query.size)
+        return PendingRestaurantInfoReportPageResult(
+            items = visibleItems.map {
+                PendingRestaurantInfoReportResult(
+                    reportId = it.reportId,
+                    reporterUserId = it.reporterUserId,
+                    restaurantId = it.restaurantId,
+                    reason = it.reason,
+                    details = it.details,
+                    createdAt = it.createdAt,
+                )
+            },
+            nextCursor = visibleItems.lastOrNull()
+                ?.takeIf { page.size > query.size }
+                ?.let { ReportModerationCursor(it.createdAt, it.reportId) },
+        )
     }
 
     @Transactional
@@ -270,6 +326,8 @@ internal class ReportingService(
         createdAt = createdAt,
         decidedAt = decidedAt,
     )
+
+    private fun ReportModerationCursor.toPersistenceCursor() = ModerationCursor(createdAt, reportId)
 
     private fun reviewReportState(status: ReportStatus, target: StoredReviewReportTarget): String =
         "{\"reportStatus\":\"${status.name}\"," +

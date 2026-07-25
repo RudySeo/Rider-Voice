@@ -7,6 +7,8 @@ import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
@@ -129,6 +131,24 @@ class ReportingServiceTest {
         assertThat(result.status).isEqualTo(ReportStatus.PENDING)
         assertThat(fixture.restaurantReports.created.single().reason)
             .isEqualTo(RestaurantInfoReportReason.DUPLICATE)
+    }
+
+    @Test
+    fun `active admin can list pending review and restaurant report queues`() {
+        val fixture = fixture(reviewTarget()).also {
+            it.reviewReports.seedPending()
+            it.restaurantReports.seedPending()
+        }
+
+        val reviewPage = fixture.service.list(ListPendingReviewReportsQuery(ADMIN_ID, null, 20))
+        val restaurantPage = fixture.service.list(ListPendingRestaurantInfoReportsQuery(ADMIN_ID, null, 20))
+
+        assertThat(reviewPage.items.single().reportId).isEqualTo(REVIEW_REPORT_ID)
+        assertThat(reviewPage.items.single().reporterUserId).isEqualTo(REPORTER_ID)
+        assertThat(reviewPage.nextCursor).isNull()
+        assertThat(restaurantPage.items.single().reportId).isEqualTo(RESTAURANT_REPORT_ID)
+        assertThat(restaurantPage.items.single().restaurantId).isEqualTo(RESTAURANT_ID)
+        assertThat(restaurantPage.nextCursor).isNull()
     }
 
     @Test
@@ -267,6 +287,16 @@ class ReportingServiceTest {
                 .getAnnotation(Transactional::class.java)
             assertThat(annotation).isNotNull
             assertThat(annotation.readOnly).isFalse()
+        }
+
+        listOf(
+            "list" to ListPendingReviewReportsQuery::class.java,
+            "list" to ListPendingRestaurantInfoReportsQuery::class.java,
+        ).forEach { (methodName, parameterType) ->
+            val annotation = ReportingService::class.java.getMethod(methodName, parameterType)
+                .getAnnotation(Transactional::class.java)
+            assertThat(annotation).isNotNull
+            assertThat(annotation.readOnly).isTrue()
         }
     }
 

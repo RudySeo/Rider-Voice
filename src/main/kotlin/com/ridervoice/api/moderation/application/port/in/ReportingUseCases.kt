@@ -2,6 +2,9 @@ package com.ridervoice.api.moderation.application.port.`in`
 
 import com.ridervoice.api.moderation.application.model.RestaurantInfoReportResult
 import com.ridervoice.api.moderation.application.model.ReviewReportResult
+import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportPageResult
+import com.ridervoice.api.moderation.application.model.PendingReviewReportPageResult
+import com.ridervoice.api.moderation.application.model.ReportModerationCursor
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
@@ -36,6 +39,36 @@ data class CreateRestaurantInfoReportCommand(
     init {
         require(reporterUserId > 0) { "Reporter user ID must be positive" }
         require(restaurantId > 0) { "Restaurant ID must be positive" }
+    }
+}
+
+fun interface ListPendingReviewReportsUseCase {
+    fun list(query: ListPendingReviewReportsQuery): PendingReviewReportPageResult
+}
+
+data class ListPendingReviewReportsQuery(
+    val adminUserId: Long,
+    val cursor: ReportModerationCursor?,
+    val size: Int,
+) {
+    init {
+        require(adminUserId > 0) { "Administrator user ID must be positive" }
+        require(size in 1..50) { "Review report page size must be between 1 and 50" }
+    }
+}
+
+fun interface ListPendingRestaurantInfoReportsUseCase {
+    fun list(query: ListPendingRestaurantInfoReportsQuery): PendingRestaurantInfoReportPageResult
+}
+
+data class ListPendingRestaurantInfoReportsQuery(
+    val adminUserId: Long,
+    val cursor: ReportModerationCursor?,
+    val size: Int,
+) {
+    init {
+        require(adminUserId > 0) { "Administrator user ID must be positive" }
+        require(size in 1..50) { "Restaurant report page size must be between 1 and 50" }
     }
 }
 

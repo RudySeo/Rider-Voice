@@ -26,3 +26,40 @@ data class RestaurantInfoReportResult(
     val createdAt: Instant,
     val decidedAt: Instant?,
 )
+
+data class ReportModerationCursor(
+    val createdAt: Instant,
+    val reportId: Long,
+) {
+    init {
+        require(reportId > 0) { "Report ID must be positive" }
+    }
+}
+
+data class PendingReviewReportResult(
+    val reportId: Long,
+    val reporterUserId: Long,
+    val reviewId: Long,
+    val reason: ReviewReportReason,
+    val details: String?,
+    val createdAt: Instant,
+)
+
+data class PendingReviewReportPageResult(
+    val items: List<PendingReviewReportResult>,
+    val nextCursor: ReportModerationCursor?,
+)
+
+data class PendingRestaurantInfoReportResult(
+    val reportId: Long,
+    val reporterUserId: Long,
+    val restaurantId: Long,
+    val reason: RestaurantInfoReportReason,
+    val details: String?,
+    val createdAt: Instant,
+)
+
+data class PendingRestaurantInfoReportPageResult(
+    val items: List<PendingRestaurantInfoReportResult>,
+    val nextCursor: ReportModerationCursor?,
+)

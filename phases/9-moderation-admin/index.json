@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "admin-security-api",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T02:55:58+0900",
+      "summary": "USER 리뷰·음식점 신고와 ADMIN 의견·리뷰 신고·음식점 신고 queue/decision API, 분리 DTO·mapper, opaque cursor·ProblemDetail OpenAPI 및 정확한 ROLE matcher 테스트를 추가했다."
     },
     {
       "step": 5,
