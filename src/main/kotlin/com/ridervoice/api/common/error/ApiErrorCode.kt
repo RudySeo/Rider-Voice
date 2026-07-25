@@ -43,6 +43,11 @@ enum class ApiErrorCode(
         "External provider unavailable",
         "The external provider is temporarily unavailable.",
     ),
+    PUBLIC_SEARCH_RATE_LIMIT_EXCEEDED(
+        HttpStatus.TOO_MANY_REQUESTS,
+        "Public search rate limit exceeded",
+        "Public search is limited to 30 requests per minute.",
+    ),
     INTERNAL_ERROR(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "Internal server error",

@@ -18,6 +18,7 @@ import com.ridervoice.api.restaurant.application.port.`in`.SearchRestaurantsComm
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
+import com.ridervoice.api.restaurant.application.port.out.PublicKakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
@@ -49,7 +50,7 @@ class RestaurantSearchServiceTest {
                 reference(20L, linkedRestaurant, "kakao-2"),
             ),
         )
-        val keywordSearch = KakaoKeywordSearchPort { query, limit ->
+        val keywordSearch = PublicKakaoKeywordSearchPort { query, limit ->
             assertThat(query).isEqualTo("강남 분식")
             assertThat(limit).isEqualTo(20)
             ProviderSearchResult.Available(
@@ -92,7 +93,7 @@ class RestaurantSearchServiceTest {
             repositories,
             PickupRepository(repositories),
             repositories,
-            KakaoKeywordSearchPort { _, _ ->
+            PublicKakaoKeywordSearchPort { _, _ ->
                 ProviderSearchResult.Unavailable(ProviderFailureReason.TIMEOUT)
             },
             addressSearch(),
@@ -114,7 +115,7 @@ class RestaurantSearchServiceTest {
             repositories,
             PickupRepository(repositories),
             repositories,
-            keywordSearch(),
+            publicKeywordSearch(),
             addressSearch(
                 ProviderSearchResult.Available(
                     listOf(externalAddress("서울 강남구 테헤란로 1")),
@@ -268,6 +269,10 @@ class RestaurantSearchServiceTest {
     private fun keywordSearch(
         result: ProviderSearchResult<ExternalRestaurantCandidate> = ProviderSearchResult.Available(emptyList()),
     ) = KakaoKeywordSearchPort { _, _ -> result }
+
+    private fun publicKeywordSearch(
+        result: ProviderSearchResult<ExternalRestaurantCandidate> = ProviderSearchResult.Available(emptyList()),
+    ) = PublicKakaoKeywordSearchPort { _, _ -> result }
 
     private fun addressSearch(
         result: ProviderSearchResult<ExternalAddressCandidate> = ProviderSearchResult.Available(emptyList()),

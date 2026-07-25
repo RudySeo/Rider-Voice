@@ -200,6 +200,9 @@ class RestaurantSearchApiContractMockMvcTest {
                 jsonPath("$.paths['/api/v1/restaurants/search'].get.responses['200'].content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/RestaurantSearchResponse")
                 }
+                jsonPath("$.paths['/api/v1/restaurants/search'].get.responses['429'].content['application/problem+json'].schema['\$ref']") {
+                    value("#/components/schemas/ProblemDetail")
+                }
                 jsonPath("$.paths['/api/v1/addresses/search'].get.security[0].bearerAuth") { isArray() }
                 jsonPath("$.paths['/api/v1/addresses/search'].get.responses['200'].content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/AddressSearchResponse")

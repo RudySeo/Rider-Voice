@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "search-cache-rate-limit",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T02:19:57+0900",
+      "summary": "공개 검색 전용 port에 normalized query 기준 5분 Caffeine 성공 캐시를 적용하고, remoteAddr/사용자 기준 단일 인스턴스 token bucket과 stable 429 ProblemDetail을 추가했다."
     },
     {
       "step": 5,

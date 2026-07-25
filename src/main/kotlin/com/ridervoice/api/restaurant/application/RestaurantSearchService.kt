@@ -18,6 +18,7 @@ import com.ridervoice.api.restaurant.application.port.`in`.SearchRestaurantsUseC
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
+import com.ridervoice.api.restaurant.application.port.out.PublicKakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.PickupLocation
@@ -31,7 +32,7 @@ class RestaurantSearchService(
     private val restaurants: RestaurantRepository,
     private val pickupLocations: PickupLocationRepository,
     private val externalReferences: RestaurantExternalReferenceRepository,
-    private val keywordSearch: KakaoKeywordSearchPort,
+    private val keywordSearch: PublicKakaoKeywordSearchPort,
     private val addressSearch: KakaoAddressSearchPort,
 ) : SearchRestaurantsUseCase, SearchAddressesUseCase {
 

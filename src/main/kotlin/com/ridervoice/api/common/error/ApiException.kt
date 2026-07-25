@@ -20,3 +20,6 @@ class StateConflictException(message: String? = null, cause: Throwable? = null) 
 
 class ExternalProviderUnavailableException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE, message, cause)
+
+class PublicSearchRateLimitExceededException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.PUBLIC_SEARCH_RATE_LIMIT_EXCEEDED, message, cause)
