@@ -41,7 +41,11 @@ class SecurityConfig(
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/reviews").hasRole("USER")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").hasRole("USER")
+            it.requestMatchers(HttpMethod.DELETE, "/api/v1/reviews/*").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me/reviews").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/addresses/search").hasRole("USER")
             it.anyRequest().denyAll()
         }
