@@ -25,8 +25,7 @@ class PersistenceFoundationIntegrationTest : MySqlIntegrationTest() {
             FROM information_schema.tables
             WHERE table_schema = DATABASE()
               AND table_name IN (
-                'users', 'oauth_accounts', 'oauth_login_states',
-                'user_sessions', 'onboarding_tokens'
+                'users', 'oauth_accounts', 'user_sessions', 'onboarding_tokens'
               )
             """.trimIndent(),
             Int::class.java,
@@ -38,8 +37,7 @@ class PersistenceFoundationIntegrationTest : MySqlIntegrationTest() {
             WHERE table_schema = DATABASE()
               AND column_name = 'id'
               AND table_name IN (
-                'users', 'oauth_accounts', 'oauth_login_states',
-                'user_sessions', 'onboarding_tokens'
+                'users', 'oauth_accounts', 'user_sessions', 'onboarding_tokens'
               )
               AND data_type = 'bigint'
               AND extra LIKE '%auto_increment%'
@@ -47,8 +45,8 @@ class PersistenceFoundationIntegrationTest : MySqlIntegrationTest() {
             Int::class.java,
         )
 
-        assertThat(domainTableCount).isEqualTo(5)
-        assertThat(identityColumnCount).isEqualTo(5)
+        assertThat(domainTableCount).isEqualTo(4)
+        assertThat(identityColumnCount).isEqualTo(4)
         assertThat(entityManagerFactory.isOpen).isTrue()
         assertThat(jdbcTemplate.queryForObject("select timestampdiff(second, utc_timestamp(), current_timestamp())", Int::class.java))
             .isZero()
