@@ -15,7 +15,8 @@
       "name": "legacy-auth-removal",
       "status": "completed",
       "started_at": "2026-07-25T23:34:04+0900",
-      "summary": "직접 Kakao OAuth adapter·state·legacy endpoint와 설정을 제거하고 OAuthAccount 및 onboarding·opaque token/session 수명주기를 보존했다."
+      "summary": "직접 Kakao OAuth adapter·state·legacy endpoint와 설정을 제거하고 OAuthAccount 및 onboarding·opaque token/session 수명주기를 보존했다.",
+      "completed_at": "2026-07-25T23:38:37+0900"
     },
     {
       "step": 2,
