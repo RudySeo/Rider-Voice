@@ -67,6 +67,13 @@ enum class ModerationAuditAction {
     RESTAURANT_PICKUP_RELINKED,
 }
 
+enum class ModerationTargetType {
+    REVIEW,
+    REVIEW_REPORT,
+    RESTAURANT,
+    RESTAURANT_INFO_REPORT,
+}
+
 data class CommentModerationTransition(
     val commentStatus: ReviewCommentStatus,
     val auditAction: ModerationAuditAction,
