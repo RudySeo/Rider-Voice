@@ -18,6 +18,14 @@ class LocalEnvironmentConfigurationTest {
         assertThat(prod).doesNotContain(".env")
     }
 
+    @Test
+    fun `Kakao Local REST key falls back to the Kakao OAuth client id`() {
+        val application = resourceText("application.yml")
+
+        assertThat(application)
+            .contains("api-key: ${'$'}{KAKAO_LOCAL_REST_API_KEY:${'$'}{KAKAO_CLIENT_ID:}}")
+    }
+
     private fun resourceText(fileName: String): String = Files.readString(
         Path.of("src/main/resources", fileName),
     )
