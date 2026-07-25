@@ -15,7 +15,8 @@
       "name": "auth-application-boundary",
       "status": "completed",
       "summary": "CompleteSocialLoginUseCase와 auth persistence port를 추가하고 USER/ADMIN role 기반 신규·기존 계정 토큰 발급 및 현재 DB role 인증을 구현했다.",
-      "started_at": "2026-07-25T23:50:18+0900"
+      "started_at": "2026-07-25T23:50:18+0900",
+      "completed_at": "2026-07-26T00:01:24+0900"
     },
     {
       "step": 2,
