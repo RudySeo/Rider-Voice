@@ -7,6 +7,9 @@ import com.ridervoice.api.moderation.domain.ModerationAudit
 import com.ridervoice.api.moderation.domain.ReportStatus
 import com.ridervoice.api.moderation.domain.RestaurantInfoReport
 import com.ridervoice.api.moderation.domain.ReviewReport
+import com.ridervoice.api.restaurant.domain.Restaurant
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
+import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -24,6 +27,8 @@ internal interface SpringDataReviewReportRepository : JpaRepository<ReviewReport
     fun existsByReporterIdAndReviewId(reporterUserId: Long, reviewId: Long): Boolean
 
     fun countByReporterIdAndCreatedAtGreaterThanEqual(reporterUserId: Long, since: Instant): Long
+
+    fun countByReviewIdAndStatusAndIdNot(reviewId: Long, status: ReportStatus, excludedReportId: Long): Long
 
     @Query(
         """
@@ -70,6 +75,10 @@ internal interface SpringDataReviewReportRepository : JpaRepository<ReviewReport
         @Param("reportId") reportId: Long,
         @Param("status") status: ReportStatus,
     ): Optional<ReviewReport>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select report from ReviewReport report where report.id = :reportId")
+    fun findByIdForUpdate(@Param("reportId") reportId: Long): Optional<ReviewReport>
 }
 
 internal interface SpringDataRestaurantInfoReportRepository : JpaRepository<RestaurantInfoReport, Long> {
@@ -122,12 +131,52 @@ internal interface SpringDataRestaurantInfoReportRepository : JpaRepository<Rest
         @Param("reportId") reportId: Long,
         @Param("status") status: ReportStatus,
     ): Optional<RestaurantInfoReport>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select report from RestaurantInfoReport report where report.id = :reportId")
+    fun findByIdForUpdate(@Param("reportId") reportId: Long): Optional<RestaurantInfoReport>
 }
 
 internal interface SpringDataModerationAuditRepository : JpaRepository<ModerationAudit, Long>
 
 internal interface SpringDataModerationAdminRepository : Repository<User, Long> {
     fun existsByIdAndRoleAndStatus(userId: Long, role: UserRole, status: UserStatus): Boolean
+}
+
+internal interface SpringDataModerationReporterRepository : Repository<User, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from User user where user.id = :userId and user.status = :status")
+    fun findActiveForUpdate(
+        @Param("userId") userId: Long,
+        @Param("status") status: UserStatus,
+    ): Optional<User>
+}
+
+internal interface SpringDataModerationReviewTargetRepository : JpaRepository<Review, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select review from Review review where review.id = :reviewId")
+    fun findByIdForUpdate(@Param("reviewId") reviewId: Long): Optional<Review>
+}
+
+internal interface SpringDataModerationReviewStateRepository :
+    JpaRepository<AuthorRestaurantReviewState, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        """
+        select state
+        from AuthorRestaurantReviewState state
+        where state.author.id = :authorUserId
+          and state.restaurant.id = :restaurantId
+        """,
+    )
+    fun findForUpdate(
+        @Param("authorUserId") authorUserId: Long,
+        @Param("restaurantId") restaurantId: Long,
+    ): Optional<AuthorRestaurantReviewState>
+}
+
+internal interface SpringDataModerationRestaurantTargetRepository : Repository<Restaurant, Long> {
+    fun existsByIdAndStatus(restaurantId: Long, status: RestaurantStatus): Boolean
 }
 
 internal interface SpringDataReviewCommentModerationRepository : JpaRepository<Review, Long> {

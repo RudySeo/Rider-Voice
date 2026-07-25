@@ -23,3 +23,6 @@ class ExternalProviderUnavailableException(message: String? = null, cause: Throw
 
 class PublicSearchRateLimitExceededException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.PUBLIC_SEARCH_RATE_LIMIT_EXCEEDED, message, cause)
+
+class ReportRateLimitExceededException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.REPORT_RATE_LIMIT_EXCEEDED, message, cause)

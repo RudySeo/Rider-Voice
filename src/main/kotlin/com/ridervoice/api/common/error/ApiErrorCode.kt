@@ -48,6 +48,11 @@ enum class ApiErrorCode(
         "Public search rate limit exceeded",
         "Public search is limited to 30 requests per minute.",
     ),
+    REPORT_RATE_LIMIT_EXCEEDED(
+        HttpStatus.TOO_MANY_REQUESTS,
+        "Report rate limit exceeded",
+        "Reports are limited to 20 submissions per rolling 24 hours.",
+    ),
     INTERNAL_ERROR(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "Internal server error",

@@ -78,4 +78,11 @@ class AuthorRestaurantReviewState(
         this.lastSequence = lastSequence
         this.currentReview = currentReview
     }
+
+    fun clearCurrentReviewIf(reviewId: Long): Boolean {
+        require(reviewId > 0) { "Review ID must be positive" }
+        if (currentReview?.id != reviewId) return false
+        currentReview = null
+        return true
+    }
 }

@@ -115,6 +115,13 @@ class Review(
         commentModerationStatus = ReviewCommentStatus.PUBLISHED
     }
 
+    fun permanentlyHideReportedComment() {
+        check(commentModerationStatus == ReviewCommentStatus.HIDDEN_REPORTED) {
+            "Only a reported comment can be permanently hidden"
+        }
+        commentModerationStatus = ReviewCommentStatus.REJECTED
+    }
+
     fun exclude() {
         check(visibilityStatus == ReviewVisibilityStatus.ACTIVE) {
             "Only an active review can be excluded"

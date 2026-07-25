@@ -16,6 +16,10 @@ fun interface ModerationAdminRepository {
     fun isActiveAdmin(userId: Long): Boolean
 }
 
+fun interface ModerationReporterRepository {
+    fun acquireActiveReporterLock(userId: Long): Boolean
+}
+
 interface ReviewCommentModerationRepository {
     fun findPending(cursor: CommentModerationCursor?, limit: Int): List<StoredReviewComment>
     fun findForUpdate(reviewId: Long): StoredReviewComment?
@@ -67,8 +71,10 @@ interface ReviewReportRepository {
     fun create(command: NewReviewReportPersistenceCommand): StoredReviewReport
     fun existsByReporterUserIdAndReviewId(reporterUserId: Long, reviewId: Long): Boolean
     fun countByReporterUserIdSince(reporterUserId: Long, since: Instant): Long
+    fun existsOtherPendingByReviewId(reviewId: Long, excludedReportId: Long): Boolean
     fun findPending(cursor: ModerationCursor?, limit: Int): List<StoredReviewReport>
     fun findPendingForUpdate(reportId: Long): StoredReviewReport?
+    fun findForUpdate(reportId: Long): StoredReviewReport?
     fun saveDecision(command: ReviewReportDecisionPersistenceCommand): StoredReviewReport
 }
 
@@ -115,6 +121,7 @@ interface RestaurantInfoReportRepository {
     fun countByReporterUserIdSince(reporterUserId: Long, since: Instant): Long
     fun findPending(cursor: ModerationCursor?, limit: Int): List<StoredRestaurantInfoReport>
     fun findPendingForUpdate(reportId: Long): StoredRestaurantInfoReport?
+    fun findForUpdate(reportId: Long): StoredRestaurantInfoReport?
     fun saveDecision(command: RestaurantInfoReportDecisionPersistenceCommand): StoredRestaurantInfoReport
 }
 
@@ -154,6 +161,44 @@ data class StoredRestaurantInfoReport(
     val decidedAt: Instant?,
     val createdAt: Instant,
 )
+
+interface ReviewReportTargetRepository {
+    fun findReviewForUpdate(reviewId: Long): StoredReviewReportTarget?
+    fun activeRestaurantExists(restaurantId: Long): Boolean
+    fun mutate(command: ReviewReportTargetMutationCommand): StoredReviewReportTarget
+}
+
+data class StoredReviewReportTarget(
+    val reviewId: Long,
+    val authorUserId: Long,
+    val restaurantId: Long,
+    val visibilityStatus: ReviewVisibilityStatus,
+    val commentStatus: ReviewCommentStatus,
+    val currentReviewId: Long?,
+    val lastSubmittedAt: Instant,
+    val lastSequence: Long,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(authorUserId > 0) { "Review author user ID must be positive" }
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+        require(currentReviewId == null || currentReviewId > 0) { "Current review ID must be positive" }
+        require(lastSequence > 0) { "Last review sequence must be positive" }
+    }
+}
+
+data class ReviewReportTargetMutationCommand(
+    val reviewId: Long,
+    val expectedVisibilityStatus: ReviewVisibilityStatus,
+    val nextVisibilityStatus: ReviewVisibilityStatus,
+    val expectedCommentStatus: ReviewCommentStatus,
+    val nextCommentStatus: ReviewCommentStatus,
+    val clearCurrentPointerIfTarget: Boolean,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+    }
+}
 
 fun interface ModerationAuditRepository {
     fun append(command: ModerationAuditPersistenceCommand): StoredModerationAudit

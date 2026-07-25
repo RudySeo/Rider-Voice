@@ -8,6 +8,7 @@ import com.ridervoice.api.moderation.application.port.out.NewRestaurantInfoRepor
 import com.ridervoice.api.moderation.application.port.out.NewReviewReportPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantInfoReportDecisionPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ReviewReportDecisionPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.ReviewReportTargetMutationCommand
 import com.ridervoice.api.moderation.domain.ModerationAudit
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
@@ -22,8 +23,11 @@ import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.domain.Review
+import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
+import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import com.ridervoice.api.review.domain.VisitMonth
 import jakarta.persistence.EntityManager
 import jakarta.persistence.FetchType
@@ -227,6 +231,74 @@ class ModerationPersistenceContractTest {
         assertThat(storedAudit.occurredAt).isEqualTo(fixture.decidedAt)
     }
 
+    @Test
+    fun `review report target adapter hides comment then excludes without cooldown or history fallback`() {
+        val fixture = fixture()
+        val reviewRepository = fakeRepository(SpringDataModerationReviewTargetRepository::class.java) {
+                method,
+                arguments,
+            ->
+            when (method.name) {
+                "findByIdForUpdate" -> Optional.of(fixture.review)
+                "saveAndFlush" -> arguments.single()
+                else -> unexpected(method)
+            }
+        }
+        val stateRepository = fakeRepository(SpringDataModerationReviewStateRepository::class.java) {
+                method,
+                arguments,
+            ->
+            when (method.name) {
+                "findForUpdate" -> Optional.of(fixture.state)
+                "saveAndFlush" -> arguments.single()
+                else -> unexpected(method)
+            }
+        }
+        val restaurantRepository = fakeRepository(
+            SpringDataModerationRestaurantTargetRepository::class.java,
+        ) { method, _ ->
+            when (method.name) {
+                "existsByIdAndStatus" -> true
+                else -> unexpected(method)
+            }
+        }
+        val adapter = ReviewReportTargetPersistenceAdapter(
+            reviewRepository,
+            stateRepository,
+            restaurantRepository,
+        )
+        val initial = adapter.findReviewForUpdate(fixture.review.id)!!
+
+        val hidden = adapter.mutate(
+            ReviewReportTargetMutationCommand(
+                reviewId = fixture.review.id,
+                expectedVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
+                nextVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
+                expectedCommentStatus = ReviewCommentStatus.PUBLISHED,
+                nextCommentStatus = ReviewCommentStatus.HIDDEN_REPORTED,
+                clearCurrentPointerIfTarget = false,
+            ),
+        )
+        val excluded = adapter.mutate(
+            ReviewReportTargetMutationCommand(
+                reviewId = fixture.review.id,
+                expectedVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
+                nextVisibilityStatus = ReviewVisibilityStatus.EXCLUDED,
+                expectedCommentStatus = ReviewCommentStatus.HIDDEN_REPORTED,
+                nextCommentStatus = ReviewCommentStatus.HIDDEN_REPORTED,
+                clearCurrentPointerIfTarget = true,
+            ),
+        )
+
+        assertThat(initial.currentReviewId).isEqualTo(fixture.review.id)
+        assertThat(hidden.commentStatus).isEqualTo(ReviewCommentStatus.HIDDEN_REPORTED)
+        assertThat(hidden.visibilityStatus).isEqualTo(ReviewVisibilityStatus.ACTIVE)
+        assertThat(excluded.visibilityStatus).isEqualTo(ReviewVisibilityStatus.EXCLUDED)
+        assertThat(excluded.currentReviewId).isNull()
+        assertThat(excluded.lastSubmittedAt).isEqualTo(fixture.state.lastSubmittedAt)
+        assertThat(excluded.lastSequence).isEqualTo(fixture.state.lastSequence)
+    }
+
     private fun assertReportMapping(
         type: Class<*>,
         uniqueName: String,
@@ -277,9 +349,19 @@ class ModerationPersistenceContractTest {
                 staffInteraction = ReviewRating.NOT_OBSERVED,
                 riderRespect = ReviewRating.GOOD,
             ),
-            comment = null,
+            comment = "공개된 의견",
             sequence = 1L,
-        ).also { it.id = 40L }
+        ).also {
+            it.id = 40L
+            it.publishComment()
+        }
+        val state = AuthorRestaurantReviewState(
+            author = reporter,
+            restaurant = restaurant,
+            lastSubmittedAt = Instant.parse("2026-07-25T03:00:00Z"),
+            lastSequence = 1L,
+            currentReview = review,
+        ).also { it.id = 50L }
         val entityManager = fakeRepository(EntityManager::class.java) { method, arguments ->
             when (method.name) {
                 "getReference" -> when (arguments[0]) {
@@ -296,6 +378,7 @@ class ModerationPersistenceContractTest {
             admin,
             restaurant,
             review,
+            state,
             entityManager,
             Instant.parse("2026-07-25T03:00:00Z"),
             Instant.parse("2026-07-26T04:00:00Z"),
@@ -334,6 +417,7 @@ class ModerationPersistenceContractTest {
         val admin: User,
         val restaurant: Restaurant,
         val review: Review,
+        val state: AuthorRestaurantReviewState,
         val entityManager: EntityManager,
         val createdAt: Instant,
         val decidedAt: Instant,
