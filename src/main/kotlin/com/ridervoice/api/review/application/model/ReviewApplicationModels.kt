@@ -56,6 +56,67 @@ data class MyReviewListResult(
     val nextCursor: ReviewCursor?,
 )
 
+data class PublicReviewListItemInput(
+    val reviewId: Long,
+    val authorUserId: Long,
+    val visitMonth: VisitMonth,
+    val ratings: ReviewRatings,
+    val comment: String?,
+    val commentModerationStatus: ReviewCommentStatus,
+    val currentReviewId: Long?,
+    val createdAt: Instant,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(authorUserId > 0) { "Author user ID must be positive" }
+        require(currentReviewId == null || currentReviewId > 0) { "Current review ID must be positive" }
+    }
+}
+
+data class PublicAuthorActivityInput(
+    val authorUserId: Long,
+    val firstPublicReviewAt: Instant,
+    val publicReviewCount: Long,
+) {
+    init {
+        require(authorUserId > 0) { "Author user ID must be positive" }
+        require(publicReviewCount > 0) { "Public review count must be positive" }
+    }
+}
+
+data class PublicReviewAuthorActivityResult(
+    val activityMonths: Int,
+    val publicReviewCount: Long,
+) {
+    init {
+        require(activityMonths > 0) { "Activity months must be positive" }
+        require(publicReviewCount > 0) { "Public review count must be positive" }
+    }
+}
+
+data class PublicReviewListItemResult(
+    val reviewId: Long,
+    val visitMonth: VisitMonth,
+    val current: Boolean,
+    val ratings: ReviewRatings,
+    val comment: String?,
+    val authorActivity: PublicReviewAuthorActivityResult,
+    val createdAt: Instant,
+    val verificationStatus: String,
+    val verificationNotice: String,
+) {
+    init {
+        require(reviewId > 0) { "Review ID must be positive" }
+        require(verificationStatus == "UNVERIFIED") { "Public reviews must be unverified" }
+        require(verificationNotice.isNotBlank()) { "Verification notice must not be blank" }
+    }
+}
+
+data class PublicReviewListResult(
+    val items: List<PublicReviewListItemResult>,
+    val nextCursor: ReviewCursor?,
+)
+
 data class AggregateReviewInput(
     val reviewId: Long,
     val authorUserId: Long,

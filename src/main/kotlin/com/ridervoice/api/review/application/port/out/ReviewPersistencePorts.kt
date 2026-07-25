@@ -1,6 +1,8 @@
 package com.ridervoice.api.review.application.port.out
 
 import com.ridervoice.api.review.application.model.AggregateReviewInput
+import com.ridervoice.api.review.application.model.PublicAuthorActivityInput
+import com.ridervoice.api.review.application.model.PublicReviewListItemInput
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
 import com.ridervoice.api.review.domain.Review
@@ -14,6 +16,16 @@ interface AggregateReviewQuery {
     fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput>
 
     fun findLatestCurrentActiveByPickupLocationId(pickupLocationId: Long): List<AggregateReviewInput>
+}
+
+interface PublicReviewQuery {
+    fun findActiveByRestaurantId(
+        restaurantId: Long,
+        cursor: ReviewCursor?,
+        limit: Int,
+    ): List<PublicReviewListItemInput>
+
+    fun findAuthorActivities(authorUserIds: Set<Long>): List<PublicAuthorActivityInput>
 }
 
 interface ReviewRepository {

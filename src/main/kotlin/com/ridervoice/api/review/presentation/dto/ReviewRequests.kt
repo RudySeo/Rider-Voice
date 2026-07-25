@@ -79,6 +79,15 @@ data class MyReviewsRequest(
     val size: Int = 20,
 )
 
+data class PublicReviewsRequest(
+    @field:Schema(description = "createdAt과 reviewId 기반 opaque cursor", nullable = true)
+    val cursor: String? = null,
+    @field:Min(1)
+    @field:Max(50)
+    @field:Schema(defaultValue = "20", minimum = "1", maximum = "50")
+    val size: Int = 20,
+)
+
 enum class RestaurantTargetRequestType {
     EXISTING,
     KAKAO,

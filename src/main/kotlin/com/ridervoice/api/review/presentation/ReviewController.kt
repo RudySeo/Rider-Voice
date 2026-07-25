@@ -6,15 +6,19 @@ import com.ridervoice.api.review.application.port.`in`.CreateReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewCommand
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
+import com.ridervoice.api.review.application.port.`in`.ListPublicRestaurantReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.presentation.dto.CreateReviewRequest
 import com.ridervoice.api.review.presentation.dto.DeleteReviewResponse
 import com.ridervoice.api.review.presentation.dto.MyReviewListResponse
 import com.ridervoice.api.review.presentation.dto.MyReviewsRequest
+import com.ridervoice.api.review.presentation.dto.PublicReviewListResponse
+import com.ridervoice.api.review.presentation.dto.PublicReviewsRequest
 import com.ridervoice.api.review.presentation.dto.ReviewResponse
 import com.ridervoice.api.review.presentation.dto.UpdateReviewRequest
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -106,5 +110,28 @@ class MyReviewController(
         @Valid @ParameterObject request: MyReviewsRequest,
     ): MyReviewListResponse = mapper.toMyReviewListResponse(
         listMyReviews.list(mapper.toListCommand(principal.userId, request)),
+    )
+}
+
+@Validated
+@RestController
+@RequestMapping("/api/v1/restaurants/{restaurantId}/reviews")
+@Tag(name = "Restaurants", description = "공개 음식점 조회 API")
+class PublicReviewController(
+    private val listPublicReviews: ListPublicRestaurantReviewsUseCase,
+    private val mapper: ReviewHttpMapper,
+) {
+    @Operation(
+        summary = "음식점 공개 리뷰 목록 조회",
+        description = "ACTIVE 리뷰 이력을 최신순으로 반환하며 승인된 의견과 익명 활동 정보만 공개합니다.",
+    )
+    @ApiResponse(responseCode = "200", description = "공개 리뷰 목록 조회 성공")
+    @GetMapping
+    fun list(
+        @Parameter(schema = Schema(type = "integer", format = "int64"))
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @ParameterObject request: PublicReviewsRequest,
+    ): PublicReviewListResponse = mapper.toPublicReviewListResponse(
+        listPublicReviews.list(mapper.toPublicListCommand(restaurantId, request)),
     )
 }

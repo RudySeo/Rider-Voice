@@ -4,6 +4,7 @@ import com.ridervoice.api.restaurant.application.port.`in`.RestaurantTargetComma
 import com.ridervoice.api.review.application.model.BrandAggregateResult
 import com.ridervoice.api.review.application.model.MyReviewListResult
 import com.ridervoice.api.review.application.model.PickupLocationAggregateResult
+import com.ridervoice.api.review.application.model.PublicReviewListResult
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewResult
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -80,6 +81,25 @@ data class ListMyReviewsCommand(
 ) {
     init {
         require(authorUserId > 0) { "Author user ID must be positive" }
+        require(size in 1..MAX_PAGE_SIZE) { "Review list size must be between 1 and 50" }
+    }
+
+    private companion object {
+        const val MAX_PAGE_SIZE = 50
+    }
+}
+
+fun interface ListPublicRestaurantReviewsUseCase {
+    fun list(command: ListPublicRestaurantReviewsCommand): PublicReviewListResult
+}
+
+data class ListPublicRestaurantReviewsCommand(
+    val restaurantId: Long,
+    val cursor: ReviewCursor?,
+    val size: Int,
+) {
+    init {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
         require(size in 1..MAX_PAGE_SIZE) { "Review list size must be between 1 and 50" }
     }
 

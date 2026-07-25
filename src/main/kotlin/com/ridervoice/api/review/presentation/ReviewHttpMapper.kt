@@ -6,11 +6,13 @@ import com.ridervoice.api.restaurant.application.port.`in`.ManualAddressRestaura
 import com.ridervoice.api.restaurant.application.port.`in`.ManualExistingLocationRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.`in`.RestaurantTargetCommand
 import com.ridervoice.api.review.application.model.MyReviewListResult
+import com.ridervoice.api.review.application.model.PublicReviewListResult
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewResult
 import com.ridervoice.api.review.application.port.`in`.CreateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewResult
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
+import com.ridervoice.api.review.application.port.`in`.ListPublicRestaurantReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.VisitMonth
@@ -22,6 +24,10 @@ import com.ridervoice.api.review.presentation.dto.ManualAddressRestaurantTargetR
 import com.ridervoice.api.review.presentation.dto.ManualExistingLocationRestaurantTargetRequest
 import com.ridervoice.api.review.presentation.dto.MyReviewListResponse
 import com.ridervoice.api.review.presentation.dto.MyReviewsRequest
+import com.ridervoice.api.review.presentation.dto.PublicReviewAuthorActivityResponse
+import com.ridervoice.api.review.presentation.dto.PublicReviewListItemResponse
+import com.ridervoice.api.review.presentation.dto.PublicReviewListResponse
+import com.ridervoice.api.review.presentation.dto.PublicReviewsRequest
 import com.ridervoice.api.review.presentation.dto.RestaurantTargetRequest
 import com.ridervoice.api.review.presentation.dto.ReviewRatingsResponse
 import com.ridervoice.api.review.presentation.dto.ReviewResponse
@@ -55,6 +61,15 @@ class ReviewHttpMapper {
         size = request.size,
     )
 
+    fun toPublicListCommand(
+        restaurantId: Long,
+        request: PublicReviewsRequest,
+    ) = ListPublicRestaurantReviewsCommand(
+        restaurantId = restaurantId,
+        cursor = request.cursor?.let(::decodeCursor),
+        size = request.size,
+    )
+
     fun toReviewResponse(result: ReviewResult) = ReviewResponse(
         reviewId = result.reviewId,
         restaurant = ReviewRestaurantResponse(
@@ -75,6 +90,26 @@ class ReviewHttpMapper {
 
     fun toMyReviewListResponse(result: MyReviewListResult) = MyReviewListResponse(
         items = result.items.map(::toReviewResponse),
+        nextCursor = result.nextCursor?.let(::encodeCursor),
+    )
+
+    fun toPublicReviewListResponse(result: PublicReviewListResult) = PublicReviewListResponse(
+        items = result.items.map { item ->
+            PublicReviewListItemResponse(
+                reviewId = item.reviewId,
+                visitMonth = item.visitMonth.toString(),
+                current = item.current,
+                ratings = item.ratings.toResponse(),
+                comment = item.comment,
+                authorActivity = PublicReviewAuthorActivityResponse(
+                    activityMonths = item.authorActivity.activityMonths,
+                    publicReviewCount = item.authorActivity.publicReviewCount,
+                ),
+                createdAt = item.createdAt,
+                verificationStatus = item.verificationStatus,
+                verificationNotice = item.verificationNotice,
+            )
+        },
         nextCursor = result.nextCursor?.let(::encodeCursor),
     )
 

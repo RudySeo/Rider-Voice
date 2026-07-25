@@ -47,6 +47,35 @@ data class MyReviewListResponse(
     val nextCursor: String?,
 )
 
+data class PublicReviewListResponse(
+    val items: List<PublicReviewListItemResponse>,
+    @field:Schema(description = "createdAt과 reviewId 기반 opaque cursor", nullable = true)
+    val nextCursor: String?,
+)
+
+data class PublicReviewListItemResponse(
+    @field:Schema(format = "int64")
+    val reviewId: Long,
+    @field:Schema(pattern = VISIT_MONTH_PATTERN, example = "2026-07")
+    val visitMonth: String,
+    val current: Boolean,
+    val ratings: ReviewRatingsResponse,
+    @field:Schema(nullable = true, description = "관리자 승인된 의견만 노출됩니다.")
+    val comment: String?,
+    val authorActivity: PublicReviewAuthorActivityResponse,
+    val createdAt: Instant,
+    @field:Schema(allowableValues = ["UNVERIFIED"])
+    val verificationStatus: String,
+    @field:Schema(example = "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.")
+    val verificationNotice: String,
+)
+
+data class PublicReviewAuthorActivityResponse(
+    val activityMonths: Int,
+    @field:Schema(format = "int64")
+    val publicReviewCount: Long,
+)
+
 data class DeleteReviewResponse(
     @field:Schema(format = "int64")
     val reviewId: Long,

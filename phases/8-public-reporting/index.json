@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "public-review-list",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T02:12:43+0900",
+      "summary": "ACTIVE 공개 리뷰 이력을 createdAt+ID cursor로 조회하고 current pointer, PUBLISHED 의견, 익명 작성자 활동 정보와 UNVERIFIED 안내를 제공하는 공개 목록 API·OpenAPI·보안 테스트를 추가했다."
     },
     {
       "step": 4,

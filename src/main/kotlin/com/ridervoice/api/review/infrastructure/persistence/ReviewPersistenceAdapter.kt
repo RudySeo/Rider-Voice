@@ -3,12 +3,15 @@ package com.ridervoice.api.review.infrastructure.persistence
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.model.AggregateReviewInput
+import com.ridervoice.api.review.application.model.PublicAuthorActivityInput
+import com.ridervoice.api.review.application.model.PublicReviewListItemInput
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
 import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
+import com.ridervoice.api.review.application.port.out.PublicReviewQuery
 import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
@@ -66,6 +69,64 @@ internal class AggregateReviewQueryPersistenceAdapter(
             staffInteraction = staffInteraction,
             riderRespect = riderRespect,
         ),
+        createdAt = createdAt,
+    )
+}
+
+@Component
+internal class PublicReviewQueryPersistenceAdapter(
+    private val reviews: SpringDataReviewRepository,
+) : PublicReviewQuery {
+
+    override fun findActiveByRestaurantId(
+        restaurantId: Long,
+        cursor: ReviewCursor?,
+        limit: Int,
+    ): List<PublicReviewListItemInput> {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+        require(limit > 0) { "Review query limit must be positive" }
+        val pageable = PageRequest.of(0, limit)
+        val rows = if (cursor == null) {
+            reviews.findAllActiveByRestaurantId(restaurantId, ReviewVisibilityStatus.ACTIVE, pageable)
+        } else {
+            reviews.findAllActiveByRestaurantIdBeforeCursor(
+                restaurantId,
+                ReviewVisibilityStatus.ACTIVE,
+                cursor.createdAt,
+                cursor.reviewId,
+                pageable,
+            )
+        }
+        return rows.map { it.toInput() }
+    }
+
+    override fun findAuthorActivities(authorUserIds: Set<Long>): List<PublicAuthorActivityInput> {
+        if (authorUserIds.isEmpty()) return emptyList()
+        return reviews.findPublicAuthorActivities(authorUserIds, ReviewVisibilityStatus.ACTIVE)
+            .map { row ->
+                PublicAuthorActivityInput(
+                    authorUserId = row.authorUserId,
+                    firstPublicReviewAt = row.firstPublicReviewAt,
+                    publicReviewCount = row.publicReviewCount,
+                )
+            }
+    }
+
+    private fun PublicReviewProjection.toInput() = PublicReviewListItemInput(
+        reviewId = reviewId,
+        authorUserId = authorUserId,
+        visitMonth = visitMonth,
+        ratings = ReviewRatings(
+            pickupSpaceCleanliness = pickupSpaceCleanliness,
+            packagingStability = packagingStability,
+            orderReadiness = orderReadiness,
+            handoffAccuracy = handoffAccuracy,
+            staffInteraction = staffInteraction,
+            riderRespect = riderRespect,
+        ),
+        comment = comment,
+        commentModerationStatus = commentModerationStatus,
+        currentReviewId = currentReviewId,
         createdAt = createdAt,
     )
 }
