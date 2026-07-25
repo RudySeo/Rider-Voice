@@ -7,7 +7,8 @@
       "name": "aggregate-query-contracts",
       "status": "completed",
       "started_at": "2026-07-26T01:54:13+0900",
-      "summary": "Entity 비노출 AggregateReviewInput·query port와 current ACTIVE projection adapter를 추가해 브랜드 및 장소 author별 최신(createdAt, reviewId) 리뷰 조회 계약을 정의했다."
+      "summary": "Entity 비노출 AggregateReviewInput·query port와 current ACTIVE projection adapter를 추가해 브랜드 및 장소 author별 최신(createdAt, reviewId) 리뷰 조회 계약을 정의했다.",
+      "completed_at": "2026-07-26T01:59:42+0900"
     },
     {
       "step": 1,
