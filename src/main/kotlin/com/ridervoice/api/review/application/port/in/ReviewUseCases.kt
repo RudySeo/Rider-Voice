@@ -1,11 +1,19 @@
 package com.ridervoice.api.review.application.port.`in`
 
 import com.ridervoice.api.restaurant.application.port.`in`.RestaurantTargetCommand
+import com.ridervoice.api.review.application.model.BrandAggregateResult
 import com.ridervoice.api.review.application.model.MyReviewListResult
+import com.ridervoice.api.review.application.model.PickupLocationAggregateResult
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewResult
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.VisitMonth
+
+interface ReviewAggregateUseCase {
+    fun getBrandReport(restaurantId: Long): BrandAggregateResult
+
+    fun getPickupLocationReport(pickupLocationId: Long): PickupLocationAggregateResult
+}
 
 fun interface CreateReviewUseCase {
     fun create(command: CreateReviewCommand): ReviewResult
