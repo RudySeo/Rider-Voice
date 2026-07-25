@@ -31,7 +31,8 @@
       "name": "oauth2-security-flow",
       "status": "completed",
       "summary": "OAuth2SecurityConfig와 OAuth2LoginHandlers를 추가해 state 기반 임시 세션 OAuth 흐름과 세션을 무시하는 stateless opaque bearer API 체인을 분리했다.",
-      "started_at": "2026-07-26T00:06:57+0900"
+      "started_at": "2026-07-26T00:06:57+0900",
+      "completed_at": "2026-07-26T00:13:41+0900"
     },
     {
       "step": 4,
