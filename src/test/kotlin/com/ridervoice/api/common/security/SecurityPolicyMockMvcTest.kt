@@ -126,11 +126,26 @@ class SecurityPolicyMockMvcTest {
     }
 
     @Test
-    fun `a user token can access user scoped endpoints including future review drafts`() {
-        listOf("/api/v1/auth/logout", "/api/v1/review-drafts/fixture").forEach { path ->
-            mockMvc.post(path) {
-                header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-            }.andExpect { status { isOk() } }
+    fun `a user token can access retained user scoped endpoints`() {
+        mockMvc.post("/api/v1/auth/logout") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+        }.andExpect { status { isOk() } }
+    }
+
+    @Test
+    fun `legacy review draft paths are denied by default even for a user token`() {
+        mockMvc.post("/api/v1/review-drafts/fixture") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+        }.andExpect {
+            status { isForbidden() }
+            jsonPath("$.code") { value("ACCESS_DENIED") }
+        }
+
+        mockMvc.get("/api/v1/users/me/review-drafts") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+        }.andExpect {
+            status { isForbidden() }
+            jsonPath("$.code") { value("ACCESS_DENIED") }
         }
     }
 
@@ -199,6 +214,9 @@ private class SecurityPolicyFixtureController {
 
     @PostMapping("/api/v1/review-drafts/fixture")
     fun reviewDraft() = "ok"
+
+    @GetMapping("/api/v1/users/me/review-drafts")
+    fun myReviewDrafts() = "ok"
 
     @GetMapping("/api/v1/denied")
     fun denied() = "denied"

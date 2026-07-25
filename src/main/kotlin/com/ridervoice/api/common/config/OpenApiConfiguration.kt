@@ -15,7 +15,10 @@ class OpenApiConfiguration {
         .info(
             Info()
                 .title("Rider Voice API")
-                .description("카카오 로그인 사용자의 비공개 픽업 경험 기록을 제공하는 Rider Voice 서버 API")
+                .description(
+                    "카카오 로그인 사용자가 작성한 픽업 경험의 공개 리뷰와 리포트를 제공하는 Rider Voice 서버 API. " +
+                        "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.",
+                )
                 .version("v1"),
         )
         .components(

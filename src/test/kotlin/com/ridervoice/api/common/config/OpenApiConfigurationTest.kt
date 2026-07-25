@@ -12,7 +12,11 @@ class OpenApiConfigurationTest {
     fun `OpenAPI exposes Rider Voice API metadata`() {
         assertThat(openApi.info.title).isEqualTo("Rider Voice API")
         assertThat(openApi.info.version).isEqualTo("v1")
-        assertThat(openApi.info.description).contains("비공개 픽업 경험 기록")
+        assertThat(openApi.info.description)
+            .contains("공개 리뷰")
+            .contains("라이더 신분과 실제 방문 여부가 인증되지 않은")
+            .doesNotContain("비공개")
+            .doesNotContain("방문 인증 리뷰")
     }
 
     @Test
