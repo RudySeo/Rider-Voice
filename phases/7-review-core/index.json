@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "review-persistence",
-      "status": "pending"
+      "status": "completed",
+      "summary": "AuthorRestaurantReviewState Entity와 review/state Spring Data adapter를 추가해 state 유일성·비관적 잠금·현재 리뷰 소유권·createdAt+ID cursor 조회를 구현하고 contract 및 MySQL schema test를 작성했다.",
+      "started_at": "2026-07-26T01:21:59+0900"
     },
     {
       "step": 3,
