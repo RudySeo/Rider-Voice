@@ -2,12 +2,43 @@
   "project": "Rider Voice",
   "phase": "6-restaurant-core",
   "steps": [
-    { "step": 0, "name": "restaurant-domain", "status": "pending" },
-    { "step": 1, "name": "restaurant-application-contracts", "status": "pending" },
-    { "step": 2, "name": "restaurant-persistence", "status": "pending" },
-    { "step": 3, "name": "kakao-local-adapter", "status": "pending" },
-    { "step": 4, "name": "restaurant-search-service", "status": "pending" },
-    { "step": 5, "name": "restaurant-search-api", "status": "pending" },
-    { "step": 6, "name": "restaurant-integration", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "restaurant-domain",
+      "status": "completed",
+      "started_at": "2026-07-26T00:25:42+0900",
+      "summary": "PickupLocation·Restaurant·RestaurantExternalReference·RestaurantPlatform 엔티티와 상태·provider·platform enum, 결정적 Unicode/공백 정규화 및 도메인 불변식 테스트를 추가했다."
+    },
+    {
+      "step": 1,
+      "name": "restaurant-application-contracts",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "restaurant-persistence",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "kakao-local-adapter",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "restaurant-search-service",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "restaurant-search-api",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "restaurant-integration",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-26T00:25:42+0900"
 }
