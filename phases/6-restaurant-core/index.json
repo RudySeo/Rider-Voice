@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "restaurant-search-service",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T00:49:26+0900",
+      "summary": "내부·Kakao 후보 병합과 장애 fallback, 원 검색 재검증 및 canonical·race-safe create-or-read target resolution service와 테스트를 추가했다."
     },
     {
       "step": 5,

@@ -44,6 +44,9 @@ internal class RestaurantPersistenceAdapter(
             pageable = PageRequest.of(0, limit),
         )
 
+    override fun findSearchCandidateById(restaurantId: Long): StoredRestaurantSearchCandidate? =
+        restaurants.findSearchCandidateById(restaurantId, RestaurantStatus.ACTIVE).orElse(null)
+
     override fun findById(restaurantId: Long): Restaurant? =
         restaurants.findById(restaurantId).orElse(null)
 

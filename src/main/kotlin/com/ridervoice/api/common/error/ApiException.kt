@@ -17,3 +17,6 @@ class ResourceNotFoundException(message: String? = null, cause: Throwable? = nul
 
 class StateConflictException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.STATE_CONFLICT, message, cause)
+
+class ExternalProviderUnavailableException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.EXTERNAL_PROVIDER_UNAVAILABLE, message, cause)

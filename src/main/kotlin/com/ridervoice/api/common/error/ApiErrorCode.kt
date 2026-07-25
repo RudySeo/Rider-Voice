@@ -38,6 +38,11 @@ enum class ApiErrorCode(
         "State conflict",
         "The request conflicts with the current resource state.",
     ),
+    EXTERNAL_PROVIDER_UNAVAILABLE(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "External provider unavailable",
+        "The external provider is temporarily unavailable.",
+    ),
     INTERNAL_ERROR(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "Internal server error",

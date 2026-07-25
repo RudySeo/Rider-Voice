@@ -49,6 +49,25 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
 
     @Query(
         """
+        select new com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate(
+            restaurant.id,
+            null,
+            restaurant.brandName,
+            pickupLocation.standardAddress
+        )
+        from Restaurant restaurant
+        join restaurant.pickupLocation pickupLocation
+        where restaurant.id = :restaurantId
+          and restaurant.status = :activeStatus
+        """,
+    )
+    fun findSearchCandidateById(
+        @Param("restaurantId") restaurantId: Long,
+        @Param("activeStatus") activeStatus: RestaurantStatus = RestaurantStatus.ACTIVE,
+    ): Optional<StoredRestaurantSearchCandidate>
+
+    @Query(
+        """
         select case
             when restaurant.status = :activeStatus then restaurant.id
             else canonicalRestaurant.id

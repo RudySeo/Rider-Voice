@@ -16,6 +16,7 @@ interface PickupLocationRepository {
 
 interface RestaurantRepository {
     fun searchActive(query: String, limit: Int): List<StoredRestaurantSearchCandidate>
+    fun findSearchCandidateById(restaurantId: Long): StoredRestaurantSearchCandidate?
     fun findById(restaurantId: Long): Restaurant?
     fun findCanonicalById(restaurantId: Long): Restaurant?
     fun findByPickupLocationIdAndNormalizedName(
