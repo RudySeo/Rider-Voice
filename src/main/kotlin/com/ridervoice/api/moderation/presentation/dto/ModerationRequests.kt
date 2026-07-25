@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Positive
 
 data class CreateReviewReportRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val reason: ReviewReportReason?,
     @field:Schema(nullable = true)
     val details: String? = null,
@@ -20,6 +21,7 @@ data class CreateReviewReportRequest(
 
 data class CreateRestaurantInfoReportRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val reason: RestaurantInfoReportReason?,
     @field:Schema(nullable = true)
     val details: String? = null,
@@ -27,11 +29,13 @@ data class CreateRestaurantInfoReportRequest(
 
 data class CommentDecisionRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val decision: CommentModerationDecision?,
 )
 
 data class ReviewReportDecisionRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val decision: ReviewReportDecision?,
     @field:Schema(nullable = true, description = "관리자 결정 사유")
     val reason: String? = null,
@@ -39,6 +43,7 @@ data class ReviewReportDecisionRequest(
 
 data class RestaurantInfoReportDecisionRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val decision: RestaurantInfoReportDecision?,
     @field:Schema(nullable = true, description = "관리자 결정 사유")
     val reason: String? = null,
@@ -56,7 +61,7 @@ data class ModerationPageRequest(
 data class MergeRestaurantRequest(
     @field:NotNull
     @field:Positive
-    @field:Schema(format = "int64")
+    @field:Schema(format = "int64", nullable = false)
     val canonicalRestaurantId: Long?,
     @field:Schema(nullable = true, description = "관리자 병합 사유")
     val reason: String? = null,
@@ -65,7 +70,7 @@ data class MergeRestaurantRequest(
 data class RelinkRestaurantPickupLocationRequest(
     @field:NotNull
     @field:Positive
-    @field:Schema(format = "int64")
+    @field:Schema(format = "int64", nullable = false)
     val pickupLocationId: Long?,
     @field:Schema(nullable = true, description = "관리자 픽업 장소 정정 사유")
     val reason: String? = null,

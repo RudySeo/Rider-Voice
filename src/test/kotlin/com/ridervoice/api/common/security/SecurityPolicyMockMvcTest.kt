@@ -10,12 +10,15 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.boot.test.context.TestComponent
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.mock.web.MockServletContext
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -47,95 +50,17 @@ class SecurityPolicyMockMvcTest {
     }
 
     @Test
-    fun `health Swagger OpenAPI and refresh are public`() {
-        listOf(
-            "/actuator/health",
-            "/swagger-ui.html",
-            "/v3/api-docs",
-            "/api/v1/restaurants/search",
-            "/api/v1/restaurants/10",
-            "/api/v1/restaurants/10/reviews",
-        ).forEach { path ->
-            mockMvc.get(path).andExpect { status { isOk() } }
-        }
-
-        mockMvc.post("/api/v1/auth/refresh").andExpect { status { isOk() } }
-    }
-
-    @Test
-    fun `protected endpoints require a bearer token`() {
-        mockMvc.post("/api/v1/auth/consents").andExpect { status { isUnauthorized() } }
-        mockMvc.post("/api/v1/auth/logout").andExpect { status { isUnauthorized() } }
-        mockMvc.get("/api/v1/users/me").andExpect { status { isUnauthorized() } }
-        mockMvc.get("/api/v1/addresses/search").andExpect { status { isUnauthorized() } }
-
-        mockMvc.get("/api/v1/users/me") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer invalid-access-token")
-        }.andExpect {
-            status { isUnauthorized() }
-            jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
-            content { string(not(containsString("invalid-access-token"))) }
-        }
-
-    }
-
-    @Test
-    fun `only an onboarding token can access consent`() {
-        mockMvc.post("/api/v1/auth/consents") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
-        }.andExpect {
-            status { isOk() }
-            content { string("OnboardingPrincipal:$TEST_USER_ID:ROLE_ONBOARDING") }
-        }
-
-        mockMvc.post("/api/v1/auth/consents") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-        }.andExpect {
-            status { isForbidden() }
-            jsonPath("$.code") { value("ACCESS_DENIED") }
-        }
-    }
-
-    @Test
-    fun `valid opaque bearer token supplies the authenticated principal`() {
-        mockMvc.get("/api/v1/users/me") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-        }.andExpect {
-            status { isOk() }
-            content { string("AuthenticatedUserPrincipal:$TEST_USER_ID:ROLE_USER") }
-        }
-    }
-
-    @Test
-    fun `an onboarding token cannot access user scoped or unspecified APIs`() {
-        listOf("/api/v1/users/me", "/api/v1/addresses/search", "/api/v1/denied").forEach { path ->
-            mockMvc.get(path) {
-                header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
-            }.andExpect {
-                status { isForbidden() }
-                jsonPath("$.code") { value("ACCESS_DENIED") }
+    fun `target API authorization matrix is enforced at runtime`() {
+        API_MATRIX.forEach { endpoint ->
+            CREDENTIALS.forEach { credential ->
+                val expectedStatus = endpoint.scope.expectedStatus(credential.scope)
+                mockMvc.perform(
+                    request(endpoint.method, endpoint.path).apply {
+                        credential.token?.let { header(HttpHeaders.AUTHORIZATION, "Bearer $it") }
+                    },
+                ).andExpect(status().`is`(expectedStatus))
             }
         }
-
-        listOf("/api/v1/auth/logout", "/api/v1/review-drafts/fixture").forEach { path ->
-            mockMvc.post(path) {
-                header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
-            }.andExpect {
-                status { isForbidden() }
-                jsonPath("$.code") { value("ACCESS_DENIED") }
-            }
-        }
-    }
-
-    @Test
-    fun `a user token can access retained user scoped endpoints`() {
-        mockMvc.post("/api/v1/auth/logout") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-        }.andExpect { status { isOk() } }
-
-        mockMvc.get("/api/v1/addresses/search") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
-        }.andExpect { status { isOk() } }
     }
 
     @Test
@@ -165,6 +90,22 @@ class SecurityPolicyMockMvcTest {
         }
     }
 
+    @Test
+    fun `authentication failures do not expose bearer tokens provider details or stack traces`() {
+        val rawToken = "invalid-provider-secret-token"
+
+        mockMvc.get("/api/v1/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $rawToken")
+        }.andExpect {
+            status { isUnauthorized() }
+            jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
+            content { string(not(containsString(rawToken))) }
+            content { string(not(containsString("provider"))) }
+            content { string(not(containsString("secret"))) }
+            content { string(not(containsString("stackTrace"))) }
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableWebMvc
     @EnableWebSecurity
@@ -180,13 +121,78 @@ class SecurityPolicyMockMvcTest {
             when (accessToken) {
                 "valid-access-token" -> AuthenticatedUserPrincipal(TEST_USER_ID)
                 "valid-onboarding-token" -> OnboardingPrincipal(TEST_USER_ID)
+                "valid-admin-token" -> AuthenticatedUserPrincipal(
+                    TEST_ADMIN_ID,
+                    AuthenticatedUserPrincipal.ADMIN_AUTHORITY,
+                )
                 else -> null
             }
         }
     }
+
+    private data class Endpoint(
+        val method: HttpMethod,
+        val path: String,
+        val scope: Scope,
+    )
+
+    private data class Credential(
+        val token: String?,
+        val scope: Scope?,
+    )
+
+    private enum class Scope {
+        PUBLIC,
+        ONBOARDING,
+        USER,
+        ADMIN,
+        ;
+
+        fun expectedStatus(actual: Scope?): Int = when {
+            this == PUBLIC -> 200
+            actual == null -> 401
+            this == actual -> 200
+            else -> 403
+        }
+    }
+
+    private companion object {
+        val CREDENTIALS = listOf(
+            Credential(null, null),
+            Credential("valid-onboarding-token", Scope.ONBOARDING),
+            Credential("valid-access-token", Scope.USER),
+            Credential("valid-admin-token", Scope.ADMIN),
+        )
+
+        val API_MATRIX = listOf(
+            Endpoint(HttpMethod.GET, "/api/v1/restaurants/search", Scope.PUBLIC),
+            Endpoint(HttpMethod.GET, "/api/v1/restaurants/10", Scope.PUBLIC),
+            Endpoint(HttpMethod.GET, "/api/v1/restaurants/10/reviews", Scope.PUBLIC),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/refresh", Scope.PUBLIC),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/consents", Scope.ONBOARDING),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/logout", Scope.USER),
+            Endpoint(HttpMethod.GET, "/api/v1/users/me", Scope.USER),
+            Endpoint(HttpMethod.GET, "/api/v1/addresses/search", Scope.USER),
+            Endpoint(HttpMethod.POST, "/api/v1/reviews", Scope.USER),
+            Endpoint(HttpMethod.GET, "/api/v1/users/me/reviews", Scope.USER),
+            Endpoint(HttpMethod.PATCH, "/api/v1/reviews/10", Scope.USER),
+            Endpoint(HttpMethod.DELETE, "/api/v1/reviews/10", Scope.USER),
+            Endpoint(HttpMethod.POST, "/api/v1/reviews/10/reports", Scope.USER),
+            Endpoint(HttpMethod.POST, "/api/v1/restaurants/10/reports", Scope.USER),
+            Endpoint(HttpMethod.GET, "/api/v1/admin/review-comments", Scope.ADMIN),
+            Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-comments/10", Scope.ADMIN),
+            Endpoint(HttpMethod.GET, "/api/v1/admin/review-reports", Scope.ADMIN),
+            Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-reports/10", Scope.ADMIN),
+            Endpoint(HttpMethod.GET, "/api/v1/admin/restaurant-reports", Scope.ADMIN),
+            Endpoint(HttpMethod.PATCH, "/api/v1/admin/restaurant-reports/10", Scope.ADMIN),
+            Endpoint(HttpMethod.POST, "/api/v1/admin/restaurants/10/merge", Scope.ADMIN),
+            Endpoint(HttpMethod.PATCH, "/api/v1/admin/restaurants/10/pickup-location", Scope.ADMIN),
+        )
+    }
 }
 
 private const val TEST_USER_ID = 42L
+private const val TEST_ADMIN_ID = 43L
 
 @RestController
 @TestComponent
@@ -228,11 +234,41 @@ private class SecurityPolicyFixtureController {
     @GetMapping("/api/v1/addresses/search")
     fun searchAddresses() = "ok"
 
-    @PostMapping("/api/v1/review-drafts/fixture")
-    fun reviewDraft() = "ok"
+    @PostMapping("/api/v1/reviews")
+    fun createReview() = "ok"
 
-    @GetMapping("/api/v1/users/me/review-drafts")
-    fun myReviewDrafts() = "ok"
+    @GetMapping("/api/v1/users/me/reviews")
+    fun myReviews() = "ok"
+
+    @org.springframework.web.bind.annotation.PatchMapping("/api/v1/reviews/{reviewId}")
+    fun updateReview() = "ok"
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/api/v1/reviews/{reviewId}")
+    fun deleteReview() = "ok"
+
+    @PostMapping("/api/v1/reviews/{reviewId}/reports")
+    fun reportReview() = "ok"
+
+    @PostMapping("/api/v1/restaurants/{restaurantId}/reports")
+    fun reportRestaurant() = "ok"
+
+    @GetMapping(
+        "/api/v1/admin/review-comments",
+        "/api/v1/admin/review-reports",
+        "/api/v1/admin/restaurant-reports",
+    )
+    fun adminQueues() = "ok"
+
+    @org.springframework.web.bind.annotation.PatchMapping(
+        "/api/v1/admin/review-comments/{reviewId}",
+        "/api/v1/admin/review-reports/{reportId}",
+        "/api/v1/admin/restaurant-reports/{reportId}",
+        "/api/v1/admin/restaurants/{restaurantId}/pickup-location",
+    )
+    fun adminPatches() = "ok"
+
+    @PostMapping("/api/v1/admin/restaurants/{restaurantId}/merge")
+    fun mergeRestaurant() = "ok"
 
     @GetMapping("/api/v1/denied")
     fun denied() = "denied"

@@ -22,22 +22,29 @@ const val VISIT_MONTH_PATTERN = "^\\d{4}-(0[1-9]|1[0-2])$"
 data class CreateReviewRequest(
     @field:Valid
     @field:NotNull
+    @field:Schema(nullable = false)
     val restaurantTarget: RestaurantTargetRequest?,
     @field:NotBlank
     @field:Pattern(regexp = VISIT_MONTH_PATTERN)
-    @field:Schema(pattern = VISIT_MONTH_PATTERN, example = "2026-07")
+    @field:Schema(pattern = VISIT_MONTH_PATTERN, example = "2026-07", nullable = false)
     val visitMonth: String?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val pickupSpaceCleanliness: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val packagingStability: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val orderReadiness: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val handoffAccuracy: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val staffInteraction: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val riderRespect: ReviewRating?,
     @field:Schema(maxLength = 200, nullable = true)
     val comment: String? = null,
@@ -50,16 +57,22 @@ data class CreateReviewRequest(
 
 data class UpdateReviewRequest(
     @field:NotNull
+    @field:Schema(nullable = false)
     val pickupSpaceCleanliness: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val packagingStability: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val orderReadiness: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val handoffAccuracy: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val staffInteraction: ReviewRating?,
     @field:NotNull
+    @field:Schema(nullable = false)
     val riderRespect: ReviewRating?,
     @field:Schema(maxLength = 200, nullable = true)
     val comment: String? = null,
@@ -129,12 +142,14 @@ enum class RestaurantTargetRequestType {
     ],
 )
 sealed interface RestaurantTargetRequest {
+    @get:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     val type: RestaurantTargetRequestType
 }
 
 data class ExistingRestaurantTargetRequest(
     override val type: RestaurantTargetRequestType,
     @field:Positive
+    @field:Schema(format = "int64", requiredMode = Schema.RequiredMode.REQUIRED)
     val restaurantId: Long,
 ) : RestaurantTargetRequest
 
@@ -156,11 +171,13 @@ data class KakaoRestaurantTargetRequest(
 data class ManualExistingLocationRestaurantTargetRequest(
     override val type: RestaurantTargetRequestType,
     @field:Positive
+    @field:Schema(format = "int64", requiredMode = Schema.RequiredMode.REQUIRED)
     val pickupLocationId: Long,
     @field:NotBlank
     @field:Size(max = 255)
     val name: String,
     @field:NotNull
+    @field:Schema(nullable = false)
     val platforms: Set<DeliveryPlatform>?,
 ) : RestaurantTargetRequest
 
@@ -173,11 +190,13 @@ data class ManualAddressRestaurantTargetRequest(
     @field:Size(max = 255)
     val selectedStandardAddress: String,
     @field:Size(max = 255)
+    @field:Schema(maxLength = 255, nullable = true)
     val detailAddress: String? = null,
     @field:NotBlank
     @field:Size(max = 255)
     val name: String,
     @field:NotNull
+    @field:Schema(nullable = false)
     val platforms: Set<DeliveryPlatform>?,
 ) : RestaurantTargetRequest {
     @get:AssertTrue(message = "정규화한 주소 검색어는 2~100자여야 합니다.")

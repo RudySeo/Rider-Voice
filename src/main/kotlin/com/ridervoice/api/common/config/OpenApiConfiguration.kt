@@ -3,7 +3,10 @@ package com.ridervoice.api.common.config
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
+import io.swagger.v3.oas.models.media.ComposedSchema
+import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.security.SecurityScheme
+import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -38,6 +41,59 @@ class OpenApiConfiguration {
                     .description("약관 동의 API에서만 사용하는 5분 유효 일회용 onboarding token"),
             ),
         )
+
+    @Bean
+    fun apiContractOpenApiCustomizer(): OpenApiCustomizer = OpenApiCustomizer { openApi ->
+        replaceWithNullableReference(
+            openApi,
+            ownerSchema = "RestaurantBrandReportResponse",
+            property = "metrics",
+            referencedSchema = "RestaurantBrandReportMetricsResponse",
+        )
+        replaceWithNullableReference(
+            openApi,
+            ownerSchema = "RestaurantPickupLocationReportResponse",
+            property = "metrics",
+            referencedSchema = "RestaurantPickupLocationReportMetricsResponse",
+        )
+        openApi.components?.schemas?.forEach { (name, schema) ->
+            if (name != "OAuth2LoginResponse") {
+                removeNullFromRequiredProperties(schema)
+            }
+        }
+    }
+
+    private fun replaceWithNullableReference(
+        openApi: OpenAPI,
+        ownerSchema: String,
+        property: String,
+        referencedSchema: String,
+    ) {
+        val owner = openApi.components?.schemas?.get(ownerSchema) ?: return
+        owner.properties[property] = ComposedSchema().oneOf(
+            listOf(
+                Schema<Any>().apply { `$ref` = "#/components/schemas/$referencedSchema" },
+                Schema<Any>().apply { types = setOf("null") },
+            ),
+        )
+    }
+
+    private fun removeNullFromRequiredProperties(schema: Schema<*>) {
+        schema.required.orEmpty().forEach { property ->
+            schema.properties?.get(property)?.let(::removeNullOption)
+        }
+        schema.allOf.orEmpty().forEach(::removeNullFromRequiredProperties)
+    }
+
+    private fun removeNullOption(schema: Schema<*>) {
+        schema.types = schema.types?.filterNot { it == "null" }?.toSet()
+        schema.oneOf = schema.oneOf?.filterNot(::isNullSchema)
+        schema.anyOf = schema.anyOf?.filterNot(::isNullSchema)
+        schema.nullable = false
+    }
+
+    private fun isNullSchema(schema: Schema<*>): Boolean =
+        schema.`$ref` == null && schema.types?.singleOrNull() == "null"
 
     companion object {
         const val BEARER_AUTH = "bearerAuth"
