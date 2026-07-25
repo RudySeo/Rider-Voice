@@ -47,7 +47,8 @@
       "name": "restaurant-search-api",
       "status": "completed",
       "started_at": "2026-07-26T00:57:44+0900",
-      "summary": "공개 음식점 검색과 USER 주소 검색 controller·DTO·HTTP mapper, 정규화 query 검증, 최대 20개 OpenAPI 계약 및 security·MockMvc 테스트를 추가했다."
+      "summary": "공개 음식점 검색과 USER 주소 검색 controller·DTO·HTTP mapper, 정규화 query 검증, 최대 20개 OpenAPI 계약 및 security·MockMvc 테스트를 추가했다.",
+      "completed_at": "2026-07-26T01:06:14+0900"
     },
     {
       "step": 6,
