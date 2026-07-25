@@ -27,7 +27,8 @@
     },
     {
       "dir": "5-oauth2-login",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-26T00:25:25+0900"
     },
     {
       "dir": "6-restaurant-core",
