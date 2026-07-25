@@ -116,6 +116,31 @@ class CommentModerationServiceTest {
     }
 
     @Test
+    fun `approved comment edit returns to queue and requires a second approval with a second audit`() {
+        val fixture = fixture(pendingComment(comment = "최초 의견"))
+
+        fixture.service.decide(
+            DecideReviewCommentCommand(ADMIN_ID, REVIEW_ID, CommentModerationDecision.APPROVE),
+        )
+        fixture.comments.replace(
+            pendingComment(comment = "수정 의견").copy(updatedAt = CREATED_AT.plusSeconds(60)),
+        )
+
+        val queue = fixture.service.list(ListPendingReviewCommentsQuery(ADMIN_ID, null, 20))
+        val reviewedAgain = fixture.service.decide(
+            DecideReviewCommentCommand(ADMIN_ID, REVIEW_ID, CommentModerationDecision.APPROVE),
+        )
+
+        assertThat(queue.items.single().comment).isEqualTo("수정 의견")
+        assertThat(reviewedAgain.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
+        assertThat(fixture.audits.commands.map { it.action })
+            .containsExactly(
+                ModerationAuditAction.COMMENT_APPROVED,
+                ModerationAuditAction.COMMENT_APPROVED,
+            )
+    }
+
+    @Test
     fun `processed target is a stable conflict and missing target is stable not found`() {
         val processed = pendingComment().copy(commentModerationStatus = ReviewCommentStatus.PUBLISHED)
         val fixture = fixture(processed)
@@ -326,6 +351,12 @@ class CommentModerationServiceTest {
         }
 
         fun current(reviewId: Long): StoredReviewComment? = synchronized(rows) { rows[reviewId] }
+
+        fun replace(comment: StoredReviewComment) {
+            synchronized(rows) {
+                rows[comment.reviewId] = comment
+            }
+        }
     }
 
     private class FakeModerationAuditRepository : ModerationAuditRepository {

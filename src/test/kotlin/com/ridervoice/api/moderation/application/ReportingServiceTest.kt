@@ -32,7 +32,13 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportReason
+import com.ridervoice.api.restaurant.application.model.AggregationStatus
+import com.ridervoice.api.review.application.ReviewAggregateService
+import com.ridervoice.api.review.application.model.AggregateReviewInput
+import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
 import com.ridervoice.api.review.domain.ReviewCommentStatus
+import com.ridervoice.api.review.domain.ReviewRating
+import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -218,6 +224,50 @@ class ReportingServiceTest {
         assertThat(fixture.targets.currentAggregateReviewIds()).isEmpty()
         assertThat(fixture.targets.historyReviewIds).containsExactly(REVIEW_ID - 1)
         assertAudit(fixture.audits.commands.single(), ModerationAuditAction.REVIEW_EXCLUDED)
+    }
+
+    @Test
+    fun `full exclusion drops five distinct aggregate authors back to collecting`() {
+        val fixture = fixture(
+            reviewTarget(
+                currentReviewId = REVIEW_ID,
+                lastSubmittedAt = LAST_SUBMITTED_AT,
+                lastSequence = 3,
+            ),
+        ).also { it.reviewReports.seedPending() }
+        val unaffected = (1L..4L).map { authorId -> aggregateInput(authorId, authorId) }
+        val aggregateService = ReviewAggregateService(
+            object : AggregateReviewQuery {
+                override fun findCurrentActiveByRestaurantId(restaurantId: Long) =
+                    unaffected + fixture.targets.currentAggregateInputs()
+
+                override fun findLatestCurrentActiveByPickupLocationId(pickupLocationId: Long) =
+                    unaffected + fixture.targets.currentAggregateInputs()
+            },
+        )
+
+        assertThat(aggregateService.getBrandReport(RESTAURANT_ID).status)
+            .isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(aggregateService.getPickupLocationReport(60L).status)
+            .isEqualTo(AggregationStatus.PUBLISHED)
+
+        fixture.service.decideReviewReport(
+            DecideReviewReportCommand(
+                ADMIN_ID,
+                REVIEW_REPORT_ID,
+                ReviewReportDecision.EXCLUDE_REVIEW,
+                "허위·도배 확인",
+            ),
+        )
+
+        val brand = aggregateService.getBrandReport(RESTAURANT_ID)
+        val location = aggregateService.getPickupLocationReport(60L)
+        assertThat(brand.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(brand.contributorCount).isEqualTo(4)
+        assertThat(brand.metrics).isNull()
+        assertThat(location.status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(location.contributorCount).isEqualTo(4)
+        assertThat(location.metrics).isNull()
     }
 
     @Test
@@ -478,6 +528,10 @@ class ReportingServiceTest {
             } else {
                 emptyList()
             }
+
+        fun currentAggregateInputs(): List<AggregateReviewInput> = currentAggregateReviewIds().map {
+            aggregateInput(it, current.authorUserId)
+        }
     }
 
     private class FakeAuditRepository : ModerationAuditRepository {
@@ -510,6 +564,20 @@ class ReportingServiceTest {
         const val RESTAURANT_REPORT_ID = 202L
         val NOW: Instant = Instant.parse("2026-07-26T03:00:00Z")
         val LAST_SUBMITTED_AT: Instant = NOW.minusSeconds(30L * 86_400)
+
+        fun aggregateInput(reviewId: Long, authorUserId: Long) = AggregateReviewInput(
+            reviewId = reviewId,
+            authorUserId = authorUserId,
+            ratings = ReviewRatings(
+                pickupSpaceCleanliness = ReviewRating.GOOD,
+                packagingStability = ReviewRating.GOOD,
+                orderReadiness = ReviewRating.GOOD,
+                handoffAccuracy = ReviewRating.GOOD,
+                staffInteraction = ReviewRating.GOOD,
+                riderRespect = ReviewRating.GOOD,
+            ),
+            createdAt = NOW.minusSeconds(reviewId),
+        )
 
         fun reviewReport() = StoredReviewReport(
             reportId = REVIEW_REPORT_ID,
