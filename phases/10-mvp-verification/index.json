@@ -7,7 +7,8 @@
       "name": "api-security-contracts",
       "status": "completed",
       "started_at": "2026-07-26T03:22:46+0900",
-      "summary": "전체 MVP endpoint 권한 matrix와 통합 OpenAPI·미인증·비노출 회귀 suite를 추가하고 nullable union 및 restaurant target 계약을 교정했다."
+      "summary": "전체 MVP endpoint 권한 matrix와 통합 OpenAPI·미인증·비노출 회귀 suite를 추가하고 nullable union 및 restaurant target 계약을 교정했다.",
+      "completed_at": "2026-07-26T03:44:39+0900"
     },
     {
       "step": 1,
