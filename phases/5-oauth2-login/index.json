@@ -7,7 +7,8 @@
       "name": "oauth2-dependencies-config",
       "status": "completed",
       "summary": "OAuth2 Client starter와 KakaoOAuth2Properties·KakaoClientRegistrationFactory를 추가해 secret 유무에 따라 none/client_secret_post 등록을 생성한다.",
-      "started_at": "2026-07-25T23:45:41+0900"
+      "started_at": "2026-07-25T23:45:41+0900",
+      "completed_at": "2026-07-25T23:50:18+0900"
     },
     {
       "step": 1,
