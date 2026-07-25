@@ -47,7 +47,8 @@
       "name": "public-reporting-regression",
       "status": "completed",
       "started_at": "2026-07-26T02:25:57+0900",
-      "summary": "브랜드·장소 distinct author 4명/5명 경계, 장소 다중 브랜드 de-dup, NOT_OBSERVED 및 current 삭제·제외 하향 전환과 공개 API·OpenAPI·보안 회귀를 검증했다."
+      "summary": "브랜드·장소 distinct author 4명/5명 경계, 장소 다중 브랜드 de-dup, NOT_OBSERVED 및 current 삭제·제외 하향 전환과 공개 API·OpenAPI·보안 회귀를 검증했다.",
+      "completed_at": "2026-07-26T02:29:41+0900"
     }
   ],
   "created_at": "2026-07-26T01:54:13+0900"
