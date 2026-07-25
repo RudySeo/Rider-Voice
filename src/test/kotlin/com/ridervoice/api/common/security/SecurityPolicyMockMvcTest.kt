@@ -52,6 +52,7 @@ class SecurityPolicyMockMvcTest {
             "/actuator/health",
             "/swagger-ui.html",
             "/v3/api-docs",
+            "/api/v1/restaurants/search",
         ).forEach { path ->
             mockMvc.get(path).andExpect { status { isOk() } }
         }
@@ -64,6 +65,7 @@ class SecurityPolicyMockMvcTest {
         mockMvc.post("/api/v1/auth/consents").andExpect { status { isUnauthorized() } }
         mockMvc.post("/api/v1/auth/logout").andExpect { status { isUnauthorized() } }
         mockMvc.get("/api/v1/users/me").andExpect { status { isUnauthorized() } }
+        mockMvc.get("/api/v1/addresses/search").andExpect { status { isUnauthorized() } }
 
         mockMvc.get("/api/v1/users/me") {
             header(HttpHeaders.AUTHORIZATION, "Bearer invalid-access-token")
@@ -104,7 +106,7 @@ class SecurityPolicyMockMvcTest {
 
     @Test
     fun `an onboarding token cannot access user scoped or unspecified APIs`() {
-        listOf("/api/v1/users/me", "/api/v1/denied").forEach { path ->
+        listOf("/api/v1/users/me", "/api/v1/addresses/search", "/api/v1/denied").forEach { path ->
             mockMvc.get(path) {
                 header(HttpHeaders.AUTHORIZATION, "Bearer valid-onboarding-token")
             }.andExpect {
@@ -126,6 +128,10 @@ class SecurityPolicyMockMvcTest {
     @Test
     fun `a user token can access retained user scoped endpoints`() {
         mockMvc.post("/api/v1/auth/logout") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
+        }.andExpect { status { isOk() } }
+
+        mockMvc.get("/api/v1/addresses/search") {
             header(HttpHeaders.AUTHORIZATION, "Bearer valid-access-token")
         }.andExpect { status { isOk() } }
     }
@@ -207,6 +213,12 @@ private class SecurityPolicyFixtureController {
         @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
         authentication: Authentication,
     ) = "${principal::class.simpleName}:${principal.userId}:${authentication.authorities.single().authority}"
+
+    @GetMapping("/api/v1/restaurants/search")
+    fun searchRestaurants() = "ok"
+
+    @GetMapping("/api/v1/addresses/search")
+    fun searchAddresses() = "ok"
 
     @PostMapping("/api/v1/review-drafts/fixture")
     fun reviewDraft() = "ok"

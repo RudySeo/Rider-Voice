@@ -37,10 +37,12 @@ class SecurityConfig(
                 "/swagger-ui/**",
                 "/swagger-ui.html",
             ).permitAll()
+            it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/search").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/addresses/search").hasRole("USER")
             it.anyRequest().denyAll()
         }
         .addFilterBefore(accessTokenFilter, AnonymousAuthenticationFilter::class.java)
