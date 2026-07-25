@@ -4,6 +4,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.oauth2.client.registration.ClientRegistration
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
 import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod
 
@@ -14,6 +16,11 @@ class KakaoOAuth2ClientConfiguration {
     @Bean
     fun kakaoClientRegistrationFactory(properties: KakaoOAuth2Properties) =
         KakaoClientRegistrationFactory(properties)
+
+    @Bean
+    fun clientRegistrationRepository(
+        factory: KakaoClientRegistrationFactory,
+    ): ClientRegistrationRepository = InMemoryClientRegistrationRepository(factory.create())
 
     @Bean
     fun kakaoOAuth2UserService() = KakaoOAuth2UserService()

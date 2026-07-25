@@ -2,11 +2,14 @@ package com.ridervoice.api.common.security
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.context.NullSecurityContextRepository
+import org.springframework.security.web.savedrequest.NullRequestCache
 
 @Configuration
 class SecurityConfig(
@@ -14,8 +17,11 @@ class SecurityConfig(
     private val problemHandler: SecurityProblemHandler,
 ) {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
+    @Order(2)
+    fun apiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain = http
         .csrf { it.disable() }
+        .requestCache { it.requestCache(NullRequestCache()) }
+        .securityContext { it.securityContextRepository(NullSecurityContextRepository()) }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .exceptionHandling {
             it.authenticationEntryPoint(problemHandler)
