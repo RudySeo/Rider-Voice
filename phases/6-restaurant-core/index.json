@@ -23,7 +23,8 @@
       "name": "restaurant-persistence",
       "status": "completed",
       "started_at": "2026-07-26T00:36:02+0900",
-      "summary": "Infrastructure 전용 Spring Data repository와 4개 output port adapter, exact·canonical·검색 query, flush save, unique·FK·index mapping 및 단위·MySQL integration test를 추가했다."
+      "summary": "Infrastructure 전용 Spring Data repository와 4개 output port adapter, exact·canonical·검색 query, flush save, unique·FK·index mapping 및 단위·MySQL integration test를 추가했다.",
+      "completed_at": "2026-07-26T00:43:34+0900"
     },
     {
       "step": 3,
