@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "public-restaurant-detail",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-26T02:05:12+0900",
+      "summary": "canonical 음식점·중첩 픽업 장소와 브랜드/장소 집계 및 고정 UNVERIFIED 안내를 반환하는 공개 상세 API와 OpenAPI·보안·404 검증을 추가했다."
     },
     {
       "step": 3,

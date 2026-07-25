@@ -1,6 +1,7 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
+import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
@@ -53,6 +54,15 @@ class RestaurantPersistenceAdapterTest {
             name = restaurant.brandName,
             address = location.standardAddress,
         )
+        val detail = StoredRestaurantDetail(
+            restaurantId = restaurant.id,
+            name = restaurant.brandName,
+            pickupLocationId = location.id,
+            standardAddress = location.standardAddress,
+            detailAddress = location.detailAddress,
+            latitude = location.latitude,
+            longitude = location.longitude,
+        )
         val calls = mutableListOf<String>()
         val restaurants = fakeRepository(SpringDataRestaurantRepository::class.java) { method, arguments ->
             calls += method.name
@@ -76,6 +86,10 @@ class RestaurantPersistenceAdapterTest {
                     )
                 }
                 "findById" -> Optional.of(restaurant)
+                "findDetailById" -> {
+                    assertThat(arguments).containsExactly(restaurant.id, RestaurantStatus.ACTIVE)
+                    Optional.of(detail)
+                }
                 "findByPickupLocationIdAndNormalizedName" -> Optional.of(restaurant)
                 "saveAndFlush" -> restaurant
                 else -> unexpected(method)
@@ -85,6 +99,7 @@ class RestaurantPersistenceAdapterTest {
 
         assertThat(adapter.searchActive("  ＧＯＯＤ　Food  ", 7)).containsExactly(candidate)
         assertThat(adapter.findCanonicalById(1L)).isSameAs(restaurant)
+        assertThat(adapter.findCanonicalDetail(1L)).isEqualTo(detail)
         assertThat(adapter.findById(restaurant.id)).isSameAs(restaurant)
         assertThat(
             adapter.findByPickupLocationIdAndNormalizedName(location.id, restaurant.normalizedName),
@@ -96,6 +111,10 @@ class RestaurantPersistenceAdapterTest {
             "findCanonicalTargetIdById",
             "findCanonicalTargetIdById",
             "findById",
+            "findCanonicalTargetIdById",
+            "findCanonicalTargetIdById",
+            "findCanonicalTargetIdById",
+            "findDetailById",
             "findById",
             "findByPickupLocationIdAndNormalizedName",
             "saveAndFlush",

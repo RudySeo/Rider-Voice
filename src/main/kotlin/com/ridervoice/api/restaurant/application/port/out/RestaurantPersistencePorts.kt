@@ -1,5 +1,8 @@
 package com.ridervoice.api.restaurant.application.port.out
 
+import com.ridervoice.api.restaurant.application.model.RestaurantBrandReportResult
+import com.ridervoice.api.restaurant.application.model.RestaurantPickupLocationReportResult
+import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
@@ -25,6 +28,16 @@ interface RestaurantRepository {
     ): Restaurant?
 
     fun save(restaurant: Restaurant): Restaurant
+}
+
+fun interface RestaurantDetailQuery {
+    fun findCanonicalDetail(restaurantId: Long): StoredRestaurantDetail?
+}
+
+interface RestaurantReportProvider {
+    fun getBrandReport(restaurantId: Long): RestaurantBrandReportResult
+
+    fun getPickupLocationReport(pickupLocationId: Long): RestaurantPickupLocationReportResult
 }
 
 interface RestaurantExternalReferenceRepository {

@@ -1,6 +1,8 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
+import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
+import com.ridervoice.api.restaurant.application.port.out.RestaurantDetailQuery
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
@@ -34,7 +36,7 @@ internal class PickupLocationPersistenceAdapter(
 @Component
 internal class RestaurantPersistenceAdapter(
     private val restaurants: SpringDataRestaurantRepository,
-) : RestaurantRepository {
+) : RestaurantRepository, RestaurantDetailQuery {
 
     override fun searchActive(query: String, limit: Int): List<StoredRestaurantSearchCandidate> =
         restaurants.searchActive(
@@ -51,6 +53,16 @@ internal class RestaurantPersistenceAdapter(
         restaurants.findById(restaurantId).orElse(null)
 
     override fun findCanonicalById(restaurantId: Long): Restaurant? {
+        val canonicalId = findCanonicalId(restaurantId) ?: return null
+        return restaurants.findById(canonicalId).orElse(null)
+    }
+
+    override fun findCanonicalDetail(restaurantId: Long): StoredRestaurantDetail? {
+        val canonicalId = findCanonicalId(restaurantId) ?: return null
+        return restaurants.findDetailById(canonicalId, RestaurantStatus.ACTIVE).orElse(null)
+    }
+
+    private fun findCanonicalId(restaurantId: Long): Long? {
         val visitedIds = mutableSetOf<Long>()
         var currentId = restaurantId
 
@@ -59,7 +71,7 @@ internal class RestaurantPersistenceAdapter(
                 .orElse(null)
                 ?: return null
             if (targetId == currentId) {
-                return restaurants.findById(currentId).orElse(null)
+                return currentId
             }
             currentId = targetId
         }

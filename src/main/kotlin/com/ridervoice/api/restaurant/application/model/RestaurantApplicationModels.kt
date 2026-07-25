@@ -53,6 +53,64 @@ data class StoredRestaurantSearchCandidate(
     val address: String,
 )
 
+data class StoredRestaurantDetail(
+    val restaurantId: Long,
+    val name: String,
+    val pickupLocationId: Long,
+    val standardAddress: String,
+    val detailAddress: String?,
+    val latitude: BigDecimal,
+    val longitude: BigDecimal,
+)
+
+data class PublicRestaurantPickupLocationResult(
+    val pickupLocationId: Long,
+    val standardAddress: String,
+    val detailAddress: String?,
+    val latitude: BigDecimal,
+    val longitude: BigDecimal,
+)
+
+data class RestaurantAggregateMetricResult(
+    val observedCount: Int,
+    val notObservedCount: Int,
+    val distribution: Map<String, BigDecimal>,
+)
+
+data class RestaurantBrandReportMetrics(
+    val packagingStability: RestaurantAggregateMetricResult,
+    val orderReadiness: RestaurantAggregateMetricResult,
+    val handoffAccuracy: RestaurantAggregateMetricResult,
+)
+
+data class RestaurantPickupLocationReportMetrics(
+    val pickupSpaceCleanliness: RestaurantAggregateMetricResult,
+    val staffInteraction: RestaurantAggregateMetricResult,
+    val riderRespect: RestaurantAggregateMetricResult,
+)
+
+data class RestaurantBrandReportResult(
+    val status: AggregationStatus,
+    val contributorCount: Int,
+    val metrics: RestaurantBrandReportMetrics?,
+)
+
+data class RestaurantPickupLocationReportResult(
+    val status: AggregationStatus,
+    val contributorCount: Int,
+    val metrics: RestaurantPickupLocationReportMetrics?,
+)
+
+data class PublicRestaurantDetailResult(
+    val restaurantId: Long,
+    val name: String,
+    val pickupLocation: PublicRestaurantPickupLocationResult,
+    val brandReport: RestaurantBrandReportResult,
+    val pickupLocationReport: RestaurantPickupLocationReportResult,
+    val verificationStatus: String,
+    val verificationNotice: String,
+)
+
 data class ExternalRestaurantCandidate(
     val externalPlaceId: String,
     val name: String,

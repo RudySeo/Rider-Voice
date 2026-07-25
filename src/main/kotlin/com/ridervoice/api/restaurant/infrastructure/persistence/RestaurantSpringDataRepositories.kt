@@ -1,5 +1,6 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
+import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
@@ -65,6 +66,28 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
         @Param("restaurantId") restaurantId: Long,
         @Param("activeStatus") activeStatus: RestaurantStatus = RestaurantStatus.ACTIVE,
     ): Optional<StoredRestaurantSearchCandidate>
+
+    @Query(
+        """
+        select new com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail(
+            restaurant.id,
+            restaurant.brandName,
+            pickupLocation.id,
+            pickupLocation.standardAddress,
+            pickupLocation.detailAddress,
+            pickupLocation.latitude,
+            pickupLocation.longitude
+        )
+        from Restaurant restaurant
+        join restaurant.pickupLocation pickupLocation
+        where restaurant.id = :restaurantId
+          and restaurant.status = :activeStatus
+        """,
+    )
+    fun findDetailById(
+        @Param("restaurantId") restaurantId: Long,
+        @Param("activeStatus") activeStatus: RestaurantStatus,
+    ): Optional<StoredRestaurantDetail>
 
     @Query(
         """

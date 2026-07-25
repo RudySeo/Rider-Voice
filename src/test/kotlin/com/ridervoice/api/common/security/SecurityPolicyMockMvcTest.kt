@@ -53,6 +53,7 @@ class SecurityPolicyMockMvcTest {
             "/swagger-ui.html",
             "/v3/api-docs",
             "/api/v1/restaurants/search",
+            "/api/v1/restaurants/10",
         ).forEach { path ->
             mockMvc.get(path).andExpect { status { isOk() } }
         }
@@ -216,6 +217,9 @@ private class SecurityPolicyFixtureController {
 
     @GetMapping("/api/v1/restaurants/search")
     fun searchRestaurants() = "ok"
+
+    @GetMapping("/api/v1/restaurants/{restaurantId}")
+    fun restaurantDetail() = "ok"
 
     @GetMapping("/api/v1/addresses/search")
     fun searchAddresses() = "ok"
