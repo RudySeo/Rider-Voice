@@ -255,7 +255,6 @@ class RestaurantSearchServiceTest {
         keywordSearch: KakaoKeywordSearchPort = keywordSearch(),
         addressSearch: KakaoAddressSearchPort = addressSearch(),
     ): RestaurantTargetResolutionService = RestaurantTargetResolutionService(
-        restaurantRepository = repositories,
         keywordSearch = keywordSearch,
         addressSearch = addressSearch,
         targetWriter = TransactionalRestaurantTargetWriter(

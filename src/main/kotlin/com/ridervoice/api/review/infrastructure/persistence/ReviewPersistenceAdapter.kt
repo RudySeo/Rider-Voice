@@ -3,9 +3,12 @@ package com.ridervoice.api.review.infrastructure.persistence
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.model.ReviewCursor
+import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
+import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
 import com.ridervoice.api.review.application.port.out.ReviewRepository
+import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import jakarta.persistence.EntityManager
@@ -16,7 +19,37 @@ import java.time.Instant
 @Component
 internal class ReviewPersistenceAdapter(
     private val reviews: SpringDataReviewRepository,
+    private val entityManager: EntityManager,
 ) : ReviewRepository {
+
+    override fun create(command: NewReviewPersistenceCommand): SavedReviewSnapshot {
+        val saved = reviews.saveAndFlush(
+            Review(
+                author = entityManager.getReference(User::class.java, command.authorUserId),
+                restaurant = entityManager.getReference(Restaurant::class.java, command.restaurantId),
+                visitMonth = command.visitMonth,
+                ratings = command.ratings,
+                comment = command.comment,
+                sequence = command.sequence,
+            ),
+        )
+        return SavedReviewSnapshot(
+            reviewId = saved.id,
+            restaurant = ReviewRestaurantSummary(
+                restaurantId = saved.restaurant.id,
+                name = saved.restaurant.brandName,
+                address = saved.restaurant.pickupLocation.standardAddress,
+            ),
+            visitMonth = saved.visitMonth,
+            ratings = saved.ratings,
+            comment = saved.comment,
+            commentModerationStatus = saved.commentModerationStatus,
+            visibilityStatus = saved.visibilityStatus,
+            sequence = saved.sequence,
+            createdAt = saved.createdAt,
+            updatedAt = saved.updatedAt,
+        )
+    }
 
     override fun save(review: Review): Review = reviews.saveAndFlush(review)
 

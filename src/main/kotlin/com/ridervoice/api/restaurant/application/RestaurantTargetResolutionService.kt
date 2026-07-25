@@ -11,8 +11,15 @@ import com.ridervoice.api.restaurant.application.port.`in`.KakaoRestaurantTarget
 import com.ridervoice.api.restaurant.application.port.`in`.ManualAddressRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.`in`.ManualExistingLocationRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.`in`.ResolveRestaurantTargetUseCase
+import com.ridervoice.api.restaurant.application.port.`in`.ResolveValidatedRestaurantTargetUseCase
 import com.ridervoice.api.restaurant.application.port.`in`.ResolvedRestaurantTargetResult
 import com.ridervoice.api.restaurant.application.port.`in`.RestaurantTargetCommand
+import com.ridervoice.api.restaurant.application.port.`in`.ValidateRestaurantTargetUseCase
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedExistingRestaurantTarget
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedKakaoRestaurantTarget
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedManualAddressRestaurantTarget
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedManualExistingLocationRestaurantTarget
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedRestaurantTarget
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
@@ -33,45 +40,49 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 internal class RestaurantTargetResolutionService(
-    private val restaurantRepository: RestaurantRepository,
     private val keywordSearch: KakaoKeywordSearchPort,
     private val addressSearch: KakaoAddressSearchPort,
     private val targetWriter: RestaurantTargetWriter,
-) : ResolveRestaurantTargetUseCase {
+) : ResolveRestaurantTargetUseCase, ValidateRestaurantTargetUseCase {
 
-    override fun resolve(command: RestaurantTargetCommand): ResolvedRestaurantTargetResult = when (command) {
-        is ExistingRestaurantTargetCommand -> resolveExisting(command)
-        is KakaoRestaurantTargetCommand -> resolveKakao(command)
-        is ManualExistingLocationRestaurantTargetCommand -> retryUniqueCollision {
-            targetWriter.resolveManualExistingLocation(command)
-        }
-        is ManualAddressRestaurantTargetCommand -> resolveManualAddress(command)
+    override fun resolve(command: RestaurantTargetCommand): ResolvedRestaurantTargetResult =
+        retryUniqueCollision { targetWriter.resolve(validate(command)) }
+
+    override fun validate(command: RestaurantTargetCommand): ValidatedRestaurantTarget = when (command) {
+        is ExistingRestaurantTargetCommand -> ValidatedExistingRestaurantTarget(command.restaurantId)
+        is KakaoRestaurantTargetCommand -> validateKakao(command)
+        is ManualExistingLocationRestaurantTargetCommand ->
+            ValidatedManualExistingLocationRestaurantTarget(
+                pickupLocationId = command.pickupLocationId,
+                name = command.name,
+                platforms = command.platforms,
+            )
+        is ManualAddressRestaurantTargetCommand -> validateManualAddress(command)
     }
 
-    private fun resolveExisting(command: ExistingRestaurantTargetCommand): ResolvedRestaurantTargetResult {
-        val restaurant = restaurantRepository.findCanonicalById(command.restaurantId)
-            ?: throw ResourceNotFoundException("Restaurant target was not found")
-        return ResolvedRestaurantTargetResult(restaurant.id)
-    }
-
-    private fun resolveKakao(command: KakaoRestaurantTargetCommand): ResolvedRestaurantTargetResult {
+    private fun validateKakao(command: KakaoRestaurantTargetCommand): ValidatedRestaurantTarget {
         val query = RestaurantNormalization.displayText(command.query)
         val candidates = availableCandidates(keywordSearch.search(query, SEARCH_LIMIT), "Kakao place")
         val selected = candidates.firstOrNull { it.externalPlaceId == command.kakaoPlaceId.trim() }
             ?: throw BadRequestException("Selected Kakao place was not present in the repeated search")
-        return retryUniqueCollision { targetWriter.resolveKakao(selected) }
+        return ValidatedKakaoRestaurantTarget(selected)
     }
 
-    private fun resolveManualAddress(
+    private fun validateManualAddress(
         command: ManualAddressRestaurantTargetCommand,
-    ): ResolvedRestaurantTargetResult {
+    ): ValidatedRestaurantTarget {
         val query = RestaurantNormalization.displayText(command.addressQuery)
         val candidates = availableCandidates(addressSearch.search(query, SEARCH_LIMIT), "Address")
         val selectedAddress = RestaurantNormalization.normalizedText(command.selectedStandardAddress)
         val selected = candidates.firstOrNull {
             RestaurantNormalization.normalizedText(it.standardAddress) == selectedAddress
         } ?: throw BadRequestException("Selected address was not present in the repeated search")
-        return retryUniqueCollision { targetWriter.resolveManualAddress(command, selected) }
+        return ValidatedManualAddressRestaurantTarget(
+            detailAddress = command.detailAddress,
+            name = command.name,
+            platforms = command.platforms,
+            candidate = selected,
+        )
     }
 
     private fun <T> availableCandidates(result: ProviderSearchResult<T>, target: String): List<T> =
@@ -101,6 +112,8 @@ internal class RestaurantTargetResolutionService(
 }
 
 internal interface RestaurantTargetWriter {
+    fun resolve(target: ValidatedRestaurantTarget): ResolvedRestaurantTargetResult
+
     fun resolveKakao(candidate: ExternalRestaurantCandidate): ResolvedRestaurantTargetResult
 
     fun resolveManualExistingLocation(
@@ -119,7 +132,38 @@ internal class TransactionalRestaurantTargetWriter(
     private val restaurants: RestaurantRepository,
     private val externalReferences: RestaurantExternalReferenceRepository,
     private val platforms: RestaurantPlatformRepository,
-) : RestaurantTargetWriter {
+) : RestaurantTargetWriter, ResolveValidatedRestaurantTargetUseCase {
+
+    @Transactional
+    override fun resolve(target: ValidatedRestaurantTarget): ResolvedRestaurantTargetResult = when (target) {
+        is ValidatedExistingRestaurantTarget -> resolveExisting(target)
+        is ValidatedKakaoRestaurantTarget -> resolveKakao(target.candidate)
+        is ValidatedManualExistingLocationRestaurantTarget -> resolveManualExistingLocation(
+            ManualExistingLocationRestaurantTargetCommand(
+                pickupLocationId = target.pickupLocationId,
+                name = target.name,
+                platforms = target.platforms,
+            ),
+        )
+        is ValidatedManualAddressRestaurantTarget -> resolveManualAddress(
+            ManualAddressRestaurantTargetCommand(
+                addressQuery = target.candidate.standardAddress,
+                selectedStandardAddress = target.candidate.standardAddress,
+                detailAddress = target.detailAddress,
+                name = target.name,
+                platforms = target.platforms,
+            ),
+            target.candidate,
+        )
+    }
+
+    private fun resolveExisting(
+        target: ValidatedExistingRestaurantTarget,
+    ): ResolvedRestaurantTargetResult {
+        val restaurant = restaurants.findCanonicalById(target.restaurantId)
+            ?: throw ResourceNotFoundException("Restaurant target was not found")
+        return ResolvedRestaurantTargetResult(restaurant.id)
+    }
 
     @Transactional
     override fun resolveKakao(candidate: ExternalRestaurantCandidate): ResolvedRestaurantTargetResult {

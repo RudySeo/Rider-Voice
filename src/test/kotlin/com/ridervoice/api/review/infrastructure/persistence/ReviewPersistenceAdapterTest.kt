@@ -7,6 +7,7 @@ import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
+import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
@@ -65,7 +66,11 @@ class ReviewPersistenceAdapterTest {
 
     @Test
     fun `review adapter delegates current ownership count and both cursor list paths`() {
-        val review = review().also { it.id = 40L }
+        val auditTime = Instant.parse("2026-07-25T03:00:00Z")
+        val review = review().also {
+            it.id = 40L
+            setAuditTimes(it, auditTime)
+        }
         val calls = mutableListOf<String>()
         val reviews = fakeRepository(SpringDataReviewRepository::class.java) { method, arguments ->
             calls += method.name
@@ -87,8 +92,23 @@ class ReviewPersistenceAdapterTest {
                 else -> unexpected(method)
             }
         }
-        val adapter = ReviewPersistenceAdapter(reviews)
+        val adapter = ReviewPersistenceAdapter(
+            reviews,
+            fakeEntityManager(review.author, review.restaurant, review),
+        )
 
+        assertThat(
+            adapter.create(
+                NewReviewPersistenceCommand(
+                    authorUserId = 7L,
+                    restaurantId = 10L,
+                    visitMonth = review.visitMonth,
+                    ratings = review.ratings,
+                    comment = null,
+                    sequence = 1L,
+                ),
+            ).reviewId,
+        ).isEqualTo(40L)
         assertThat(adapter.save(review)).isSameAs(review)
         assertThat(adapter.findOwnedCurrentForUpdate(7L, 40L)).isSameAs(review)
         adapter.delete(review)
@@ -103,6 +123,7 @@ class ReviewPersistenceAdapterTest {
             ),
         ).containsExactly(review)
         assertThat(calls).containsExactly(
+            "saveAndFlush",
             "saveAndFlush",
             "findOwnedCurrentForUpdate",
             "delete",
@@ -167,6 +188,15 @@ class ReviewPersistenceAdapterTest {
     private fun assertPageable(value: Any?, expectedSize: Int) {
         assertThat(value).isInstanceOf(Pageable::class.java)
         assertThat((value as Pageable).pageSize).isEqualTo(expectedSize)
+    }
+
+    private fun setAuditTimes(entity: BaseEntity, instant: Instant) {
+        listOf("createdAt", "updatedAt").forEach { fieldName ->
+            BaseEntity::class.java.getDeclaredField(fieldName).also { field ->
+                field.isAccessible = true
+                field.set(entity, instant)
+            }
+        }
     }
 
     private fun fakeEntityManager(user: User, restaurant: Restaurant, review: Review): EntityManager =

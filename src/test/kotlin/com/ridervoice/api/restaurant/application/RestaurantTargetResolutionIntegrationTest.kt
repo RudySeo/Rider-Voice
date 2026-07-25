@@ -94,7 +94,6 @@ class RestaurantTargetResolutionIntegrationTest : MySqlIntegrationTest() {
         addresses: Map<String, ExternalAddressCandidate> = emptyMap(),
         places: Map<String, ExternalRestaurantCandidate> = emptyMap(),
     ) = RestaurantTargetResolutionService(
-        restaurantRepository = restaurants,
         keywordSearch = KakaoKeywordSearchPort { query, _ ->
             ProviderSearchResult.Available(places[query]?.let(::listOf).orEmpty())
         },

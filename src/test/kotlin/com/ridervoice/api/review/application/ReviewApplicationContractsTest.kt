@@ -126,6 +126,7 @@ class ReviewApplicationContractsTest {
         assertThat(ReviewRepository::class.java.isInterface).isTrue()
         assertThat(AuthorRestaurantReviewStateRepository::class.java.isInterface).isTrue()
         assertThat(ReviewRepository::class.java.declaredMethods.map { it.name }).containsExactlyInAnyOrder(
+            "create",
             "save",
             "findOwnedCurrentForUpdate",
             "delete",

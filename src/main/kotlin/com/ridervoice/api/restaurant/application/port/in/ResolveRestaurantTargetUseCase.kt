@@ -1,9 +1,19 @@
 package com.ridervoice.api.restaurant.application.port.`in`
 
+import com.ridervoice.api.restaurant.application.model.ExternalAddressCandidate
+import com.ridervoice.api.restaurant.application.model.ExternalRestaurantCandidate
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 
 fun interface ResolveRestaurantTargetUseCase {
     fun resolve(command: RestaurantTargetCommand): ResolvedRestaurantTargetResult
+}
+
+fun interface ValidateRestaurantTargetUseCase {
+    fun validate(command: RestaurantTargetCommand): ValidatedRestaurantTarget
+}
+
+fun interface ResolveValidatedRestaurantTargetUseCase {
+    fun resolve(target: ValidatedRestaurantTarget): ResolvedRestaurantTargetResult
 }
 
 sealed interface RestaurantTargetCommand {
@@ -64,6 +74,42 @@ data class ManualAddressRestaurantTargetCommand(
     init {
         require(addressQuery.isNotBlank()) { "Address query must not be blank" }
         require(selectedStandardAddress.isNotBlank()) { "Selected standard address must not be blank" }
+        require(name.isNotBlank()) { "Restaurant name must not be blank" }
+    }
+}
+
+sealed interface ValidatedRestaurantTarget
+
+data class ValidatedExistingRestaurantTarget(
+    val restaurantId: Long,
+) : ValidatedRestaurantTarget {
+    init {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+    }
+}
+
+data class ValidatedKakaoRestaurantTarget(
+    val candidate: ExternalRestaurantCandidate,
+) : ValidatedRestaurantTarget
+
+data class ValidatedManualExistingLocationRestaurantTarget(
+    val pickupLocationId: Long,
+    val name: String,
+    val platforms: Set<DeliveryPlatform>,
+) : ValidatedRestaurantTarget {
+    init {
+        require(pickupLocationId > 0) { "Pickup location ID must be positive" }
+        require(name.isNotBlank()) { "Restaurant name must not be blank" }
+    }
+}
+
+data class ValidatedManualAddressRestaurantTarget(
+    val detailAddress: String?,
+    val name: String,
+    val platforms: Set<DeliveryPlatform>,
+    val candidate: ExternalAddressCandidate,
+) : ValidatedRestaurantTarget {
+    init {
         require(name.isNotBlank()) { "Restaurant name must not be blank" }
     }
 }
