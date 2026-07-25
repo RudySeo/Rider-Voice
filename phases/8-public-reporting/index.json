@@ -15,7 +15,8 @@
       "name": "aggregate-policy-service",
       "status": "completed",
       "started_at": "2026-07-26T01:59:42+0900",
-      "summary": "distinct author 5명 공개 경계와 브랜드·장소별 metric, NOT_OBSERVED 제외 및 합계 100.0의 한 자리 distribution을 계산하는 ReviewAggregateService를 추가했다."
+      "summary": "distinct author 5명 공개 경계와 브랜드·장소별 metric, NOT_OBSERVED 제외 및 합계 100.0의 한 자리 distribution을 계산하는 ReviewAggregateService를 추가했다.",
+      "completed_at": "2026-07-26T02:05:12+0900"
     },
     {
       "step": 2,
