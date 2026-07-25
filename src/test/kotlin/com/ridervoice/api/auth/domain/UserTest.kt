@@ -13,8 +13,15 @@ class UserTest {
         val user = User()
 
         assertThat(user.status).isEqualTo(UserStatus.PENDING_TERMS)
+        assertThat(user.role).isEqualTo(UserRole.USER)
         assertThat(user.termsVersion).isNull()
         assertThat(user.termsAgreedAt).isNull()
+    }
+
+    @Test
+    fun `user supports user and administrator roles`() {
+        assertThat(User().role).isEqualTo(UserRole.USER)
+        assertThat(User(UserRole.ADMIN).role).isEqualTo(UserRole.ADMIN)
     }
 
     @Test
