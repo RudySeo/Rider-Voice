@@ -47,7 +47,8 @@
       "name": "review-api",
       "status": "completed",
       "summary": "USER 리뷰 create/update/delete/my-list Controller와 discriminator 기반 4종 target DTO, validation·presentation mapper·cursor·OpenAPI 및 권한/404/409 MockMvc 계약 테스트를 추가했다.",
-      "started_at": "2026-07-26T01:40:12+0900"
+      "started_at": "2026-07-26T01:40:12+0900",
+      "completed_at": "2026-07-26T01:48:37+0900"
     },
     {
       "step": 6,
