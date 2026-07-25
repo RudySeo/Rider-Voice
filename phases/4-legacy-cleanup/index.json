@@ -21,7 +21,9 @@
     {
       "step": 2,
       "name": "legacy-restaurant-removal",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-25T23:38:38+0900",
+      "summary": "단일 Restaurant 모듈·전용 테스트·보안 matcher·kakao.local 설정을 제거하고 persistence foundation의 legacy restaurant schema 기대값을 정리했다."
     },
     {
       "step": 3,

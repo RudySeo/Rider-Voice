@@ -28,9 +28,3 @@ springdoc:
   paths-to-match: /api/v1/**
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
-
-kakao:
-  local:
-    rest-api-key: ${KAKAO_LOCAL_REST_API_KEY:${KAKAO_CLIENT_ID:}}
-    base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}
-    timeout: ${KAKAO_LOCAL_TIMEOUT:2s}
