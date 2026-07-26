@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.TestComponent
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.mock.web.MockServletContext
@@ -43,6 +42,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.json.JsonCompareMode
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext
@@ -236,7 +236,7 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 }
 
-@Configuration(proxyBeanMethods = false)
+@TestConfiguration(proxyBeanMethods = false)
 @EnableWebMvc
 @EnableWebSecurity
 @Import(

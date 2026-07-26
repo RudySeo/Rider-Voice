@@ -15,7 +15,9 @@ import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
 import com.ridervoice.api.review.domain.ReviewHistoryPolicy
 import com.ridervoice.api.review.domain.ReviewSubmissionPolicy
 import com.ridervoice.api.review.domain.VisitMonthPolicy
+import org.springframework.dao.DataAccessException
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.TransientDataAccessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -36,18 +38,21 @@ internal class ReviewCreateService(
 
     override fun create(command: CreateReviewCommand): ReviewResult {
         val validatedTarget = targetValidator.validate(command.restaurantTarget)
-        var lastUniqueFailure: DataIntegrityViolationException? = null
+        var lastConcurrentFailure: DataAccessException? = null
 
         repeat(MAX_TRANSACTION_ATTEMPTS) {
             try {
                 return transaction.execute {
                     createInTransaction(command, validatedTarget)
                 }
-            } catch (failure: DataIntegrityViolationException) {
-                lastUniqueFailure = failure
+            } catch (failure: DataAccessException) {
+                if (failure !is DataIntegrityViolationException && failure !is TransientDataAccessException) {
+                    throw failure
+                }
+                lastConcurrentFailure = failure
             }
         }
-        throw lastUniqueFailure ?: IllegalStateException("Review create transaction did not run")
+        throw lastConcurrentFailure ?: IllegalStateException("Review create transaction did not run")
     }
 
     private fun createInTransaction(

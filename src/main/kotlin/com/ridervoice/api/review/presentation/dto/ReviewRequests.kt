@@ -178,7 +178,7 @@ data class ManualExistingLocationRestaurantTargetRequest(
     val name: String,
     @field:NotNull
     @field:Schema(nullable = false)
-    val platforms: Set<DeliveryPlatform>?,
+    val platforms: Set<DeliveryPlatform>,
 ) : RestaurantTargetRequest
 
 data class ManualAddressRestaurantTargetRequest(
@@ -197,7 +197,7 @@ data class ManualAddressRestaurantTargetRequest(
     val name: String,
     @field:NotNull
     @field:Schema(nullable = false)
-    val platforms: Set<DeliveryPlatform>?,
+    val platforms: Set<DeliveryPlatform>,
 ) : RestaurantTargetRequest {
     @get:AssertTrue(message = "정규화한 주소 검색어는 2~100자여야 합니다.")
     @get:Schema(hidden = true)

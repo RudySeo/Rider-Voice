@@ -12,3 +12,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+
+ridervoice:
+  auth:
+    oauth2:
+      kakao:
+        client-id: integration-test-client
+  restaurant:
+    kakao-local:
+      api-key: integration-test-key
