@@ -164,7 +164,8 @@ GET /api/v1/restaurants/{restaurantId}/reviews?cursor={cursor}&size=20
         "publicReviewCount": 8
       },
       "createdAt": "2026-07-25T03:00:00Z",
-      "verificationStatus": "UNVERIFIED"
+      "verificationStatus": "UNVERIFIED",
+      "verificationNotice": "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다."
     }
   ],
   "nextCursor": null
@@ -296,18 +297,13 @@ PATCH /api/v1/admin/restaurants/{restaurantId}/pickup-location
 
 음식점 병합 시 duplicate는 `MERGED` 상태와 canonical ID를 유지한다. 기존 ID 요청은 canonical 음식점으로 해석한다.
 
-## 10. 현재 구현과 교체 대상
+## 10. 현재 구현 상태
 
-현재 코드에는 다음 기능이 구현돼 있다.
+현재 코드는 이 목표 계약의 서버 API를 구현한다.
 
-- 직접 구현한 카카오 OAuth와 opaque service token
-- 카카오 장소 검색과 단일 `Restaurant.kakaoPlaceId` 기반 등록
-
-새 목표 계약 구현에서는 다음을 교체한다.
-
-- 직접 OAuth 흐름 → Spring Security OAuth2 Client
-- 단일 음식점 → 픽업 장소·배달 브랜드·외부 참조
-- 독립 `POST /restaurants` → 첫 리뷰 작성 시 지연 등록
-- 인증 필요 음식점 검색 → 공개 검색
-
-리뷰 공개·집계·검수·신고와 관리자 API는 신규 구현 대상이다.
+- Spring Security OAuth2 Client 기반 카카오 로그인과 opaque service token
+- 픽업 장소·배달 브랜드·외부 참조 모델과 첫 리뷰 작성 시 지연 등록
+- 로그인 없는 음식점 검색·상세·리뷰 조회
+- 리뷰 이력, 90일 작성 제한, 공개 리뷰와 작성자 5명 집계
+- 의견 검수, 신고, 관리자 정정·병합 API
+- 전체 endpoint 권한과 OpenAPI DTO 계약 회귀 검증

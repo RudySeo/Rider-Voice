@@ -45,7 +45,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 ## 현재 구현 상태
 
-Phase 0~9의 MVP 구현은 완료되어 `master`에 반영되어 있습니다. 현재 구현된 내용은 다음과 같습니다.
+서버 API MVP 구현과 Phase 10 최종 검증이 현재 기능 브랜치에 완료되어 있습니다. 현재 구현된 내용은 다음과 같습니다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 약관 동의
 - onboarding token, opaque access token, rotating refresh token, logout
@@ -57,10 +57,11 @@ Phase 0~9의 MVP 구현은 완료되어 `master`에 반영되어 있습니다. �
 - 서로 다른 작성자 5명 기준 브랜드·픽업 장소 집계와 `NOT_OBSERVED` 처리
 - 의견 검수, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
+- 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-현재 Phase 10에서는 API 보안·계약 회귀 테스트가 완료되었습니다. 로컬 MySQL 스키마·동시성 검증과 전체 최종 회귀 검증은 아직 남아 있으며, Harness 실행 한도 때문에 일시 중단된 상태입니다.
+Phase 10에서는 전체 endpoint 보안·OpenAPI 계약, 로컬 MySQL schema·동시성, 기본·통합·build 회귀 검증을 완료했습니다.
 
 목표 기획과 기술 계약은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [API 계약](docs/API_SPEC.md)을 참고하세요.
 
@@ -90,11 +91,14 @@ POST   /api/v1/reviews/{reviewId}/reports
 POST   /api/v1/restaurants/{restaurantId}/reports
 
 # 관리자
-GET/PATCH /api/v1/admin/review-comments/**
-GET/PATCH /api/v1/admin/review-reports/**
-GET/PATCH /api/v1/admin/restaurant-reports/**
-POST      /api/v1/admin/restaurants/{restaurantId}/merge
-PATCH     /api/v1/admin/restaurants/{restaurantId}/pickup-location
+GET    /api/v1/admin/review-comments
+PATCH  /api/v1/admin/review-comments/{reviewId}
+GET    /api/v1/admin/review-reports
+PATCH  /api/v1/admin/review-reports/{reportId}
+GET    /api/v1/admin/restaurant-reports
+PATCH  /api/v1/admin/restaurant-reports/{reportId}
+POST   /api/v1/admin/restaurants/{restaurantId}/merge
+PATCH  /api/v1/admin/restaurants/{restaurantId}/pickup-location
 ```
 
 ## Swagger / OpenAPI
