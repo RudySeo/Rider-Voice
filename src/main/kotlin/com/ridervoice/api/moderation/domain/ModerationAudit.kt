@@ -43,13 +43,13 @@ class ModerationAudit(
     @field:Column(name = "target_id", nullable = false, updatable = false)
     val targetId: Long,
     @field:Lob
-    @field:Column(updatable = false)
+    @field:Column(updatable = false, columnDefinition = "TEXT")
     val reason: String?,
     @field:Lob
-    @field:Column(name = "before_state", nullable = false, updatable = false)
+    @field:Column(name = "before_state", nullable = false, updatable = false, columnDefinition = "MEDIUMTEXT")
     val beforeState: String,
     @field:Lob
-    @field:Column(name = "after_state", nullable = false, updatable = false)
+    @field:Column(name = "after_state", nullable = false, updatable = false, columnDefinition = "MEDIUMTEXT")
     val afterState: String,
     @field:Column(name = "occurred_at", nullable = false, updatable = false)
     val occurredAt: Instant,

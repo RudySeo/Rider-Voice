@@ -6,10 +6,18 @@ import com.ridervoice.api.common.error.ResourceNotFoundException
 import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.moderation.application.model.RestaurantMergeResult
 import com.ridervoice.api.moderation.application.model.RestaurantPickupRelinkResult
+import com.ridervoice.api.moderation.application.model.RestaurantRenameResult
+import com.ridervoice.api.moderation.application.model.RestaurantStatusChangeResult
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusCommand
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCommand
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationCommand
+import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
 import com.ridervoice.api.moderation.application.port.out.MergedAuthorReviewState
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
@@ -18,10 +26,15 @@ import com.ridervoice.api.moderation.application.port.out.ModerationAuditReposit
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
 import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantRenamePersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantStatusPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.VerifiedPickupLocationPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
 import com.ridervoice.api.moderation.domain.ModerationAuditPolicy
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.moderation.domain.RestaurantAdminAction
+import com.ridervoice.api.moderation.application.port.`in`.RestaurantStatusAction
+import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import org.springframework.stereotype.Service
@@ -34,7 +47,8 @@ internal class RestaurantAdministrationService(
     private val restaurants: RestaurantAdministrationRepository,
     private val audits: ModerationAuditRepository,
     private val clock: Clock,
-) : MergeRestaurantUseCase, RelinkRestaurantPickupLocationUseCase {
+) : MergeRestaurantUseCase, RelinkRestaurantPickupLocationUseCase, RenameRestaurantUseCase,
+    ChangeRestaurantStatusUseCase, RelinkValidatedRestaurantPickupLocationUseCase {
 
     @Transactional
     override fun merge(command: MergeRestaurantCommand): RestaurantMergeResult {
@@ -123,6 +137,144 @@ internal class RestaurantAdministrationService(
         return RestaurantPickupRelinkResult(saved.restaurantId, saved.pickupLocationId, completedAt)
     }
 
+    @Transactional
+    override fun rename(command: RenameRestaurantCommand): RestaurantRenameResult {
+        requireActiveAdmin(command.adminUserId)
+        val restaurant = restaurants.findRestaurantsForUpdate(setOf(command.restaurantId)).singleOrNull()
+            ?: throw ResourceNotFoundException("Restaurant was not found")
+        requireActive(restaurant, "Restaurant")
+        val displayName = RestaurantNormalization.displayText(command.name)
+        val normalizedName = RestaurantNormalization.normalizedText(displayName)
+        if (normalizedName == restaurant.normalizedName) {
+            throw StateConflictException("Restaurant already has the requested name")
+        }
+        if (
+            restaurants.restaurantNameExistsAtPickupLocation(
+                restaurant.pickupLocationId,
+                normalizedName,
+                restaurant.restaurantId,
+            )
+        ) {
+            throw StateConflictException("The pickup location already has the same restaurant brand")
+        }
+        val completedAt = clock.instant()
+        val saved = restaurants.rename(RestaurantRenamePersistenceCommand(command.restaurantId, displayName))
+        appendRestaurantAudit(
+            command.adminUserId,
+            RestaurantAdminAction.RENAME,
+            restaurant,
+            saved,
+            command.reason,
+            completedAt,
+        )
+        return RestaurantRenameResult(saved.restaurantId, saved.brandName, completedAt)
+    }
+
+    @Transactional
+    override fun relinkValidatedPickupLocation(
+        command: RelinkValidatedRestaurantPickupLocationCommand,
+    ): RestaurantPickupRelinkResult {
+        requireActiveAdmin(command.adminUserId)
+        val pickupLocationId = restaurants.findOrCreateVerifiedPickupLocation(
+            VerifiedPickupLocationPersistenceCommand(
+                command.standardAddress,
+                command.detailAddress,
+                command.latitude,
+                command.longitude,
+            ),
+        )
+        return relinkLocked(
+            command.adminUserId,
+            command.restaurantId,
+            pickupLocationId,
+            command.reason,
+        )
+    }
+
+    private fun relinkLocked(
+        adminUserId: Long,
+        restaurantId: Long,
+        pickupLocationId: Long,
+        reason: String?,
+    ): RestaurantPickupRelinkResult {
+        val restaurant = restaurants.findRestaurantsForUpdate(setOf(restaurantId)).singleOrNull()
+            ?: throw ResourceNotFoundException("Restaurant was not found")
+        requireActive(restaurant, "Restaurant")
+        if (restaurant.pickupLocationId == pickupLocationId) {
+            throw StateConflictException("Restaurant is already linked to the pickup location")
+        }
+        if (
+            restaurants.restaurantNameExistsAtPickupLocation(
+                pickupLocationId,
+                restaurant.normalizedName,
+                restaurant.restaurantId,
+            )
+        ) {
+            throw StateConflictException("The pickup location already has the same restaurant brand")
+        }
+        val completedAt = clock.instant()
+        val saved = restaurants.relinkPickupLocation(
+            RestaurantPickupRelinkPersistenceCommand(restaurantId, pickupLocationId),
+        )
+        appendRestaurantAudit(
+            adminUserId,
+            RestaurantAdminAction.RELINK_PICKUP_LOCATION,
+            restaurant,
+            saved,
+            reason,
+            completedAt,
+        )
+        return RestaurantPickupRelinkResult(saved.restaurantId, saved.pickupLocationId, completedAt)
+    }
+
+    @Transactional
+    override fun changeStatus(command: ChangeRestaurantStatusCommand): RestaurantStatusChangeResult {
+        requireActiveAdmin(command.adminUserId)
+        val restaurant = restaurants.findRestaurantsForUpdate(setOf(command.restaurantId)).singleOrNull()
+            ?: throw ResourceNotFoundException("Restaurant was not found")
+        val (expected, next, action) = when (command.action) {
+            RestaurantStatusAction.CLOSE -> Triple(
+                RestaurantStatus.ACTIVE,
+                RestaurantStatus.CLOSED,
+                RestaurantAdminAction.CLOSE,
+            )
+            RestaurantStatusAction.REOPEN -> Triple(
+                RestaurantStatus.CLOSED,
+                RestaurantStatus.ACTIVE,
+                RestaurantAdminAction.REOPEN,
+            )
+        }
+        if (restaurant.status != expected) {
+            throw StateConflictException("Restaurant cannot receive the requested status transition")
+        }
+        val completedAt = clock.instant()
+        val saved = restaurants.changeStatus(RestaurantStatusPersistenceCommand(command.restaurantId, next))
+        appendRestaurantAudit(command.adminUserId, action, restaurant, saved, command.reason, completedAt)
+        return RestaurantStatusChangeResult(saved.restaurantId, saved.status, completedAt)
+    }
+
+    private fun appendRestaurantAudit(
+        actorUserId: Long,
+        action: RestaurantAdminAction,
+        before: StoredAdminRestaurant,
+        after: StoredAdminRestaurant,
+        reason: String?,
+        occurredAt: java.time.Instant,
+    ) {
+        audits.append(
+            ModerationAuditPersistenceCommand(
+                actorUserId = actorUserId,
+                action = ModerationAuditPolicy.actionFor(action),
+                targetType = ModerationTargetType.RESTAURANT,
+                targetId = before.restaurantId,
+                reason = reason,
+                beforeState = restaurantState(before),
+                afterState = restaurantState(after),
+                occurredAt = occurredAt,
+            ),
+        )
+    }
+
     private fun mergeAuthorStates(states: List<AdminRestaurantReviewState>): List<MergedAuthorReviewState> =
         states.groupBy { it.authorUserId }
             .map { (authorUserId, authorStates) ->
@@ -157,7 +309,7 @@ internal class RestaurantAdministrationService(
     }
 
     private fun restaurantState(restaurant: StoredAdminRestaurant): String =
-        "restaurantId=${restaurant.restaurantId},status=${restaurant.status}," +
+        "restaurantId=${restaurant.restaurantId},name=${restaurant.brandName},status=${restaurant.status}," +
             "pickupLocationId=${restaurant.pickupLocationId}," +
             "canonicalRestaurantId=${restaurant.canonicalRestaurantId}"
 

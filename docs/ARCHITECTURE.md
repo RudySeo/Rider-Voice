@@ -121,7 +121,7 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 
 - 배달 브랜드명과 정규화 브랜드명
 - `pickup_location_id` 단방향 `LAZY` FK
-- 상태: `ACTIVE`, `MERGED`
+- 상태: `ACTIVE`, `CLOSED`, `MERGED`
 - nullable `canonical_restaurant_id`
 - `(pickup_location_id, normalized_name)` unique
 
@@ -216,6 +216,12 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 
 중복 음식점 병합은 duplicate를 `MERGED`로 표시하고 canonical ID를 남긴다. 검색은 canonical 음식점만 반환하고 기존 ID 조회와 작성 요청은 canonical 음식점으로 해석한다.
 
+관리자는 리뷰와 음식점의 내부 상태를 조회할 수 있지만 OAuth subject와 token은 조회하지 않는다. 음식점 정보 신고 승인은 correction command를 포함하며 이름 변경, 기존 또는 검증된 신규 픽업 장소 재연결, 병합, 폐업 중 하나를 신고 종결 및 감사 기록과 같은 트랜잭션에서 처리한다. 신고 없는 선제 정정도 같은 정책을 사용한다.
+
+`CLOSED` 음식점은 내부 검색과 외부 후보 병합에서 제외하고 신규 리뷰 target으로 해석하지 않는다. 직접 상세와 기존 리뷰는 폐업 상태로 유지하며 `REOPEN` 후 다시 검색·작성할 수 있다.
+
+리뷰 전체 제외 시 같은 리뷰의 다른 대기 신고는 `TARGET_EXCLUDED`, 음식점 병합 시 대상이 사라진 다른 대기 신고는 `TARGET_MERGED` 원인으로 자동 종결한다. 의견이 이미 비공개인 경우 후속 의견 비공개 결정은 멱등적으로 종결한다.
+
 ## 9. API 계약
 
 ```text
@@ -247,6 +253,13 @@ GET/PATCH /api/v1/admin/review-reports/**
 GET/PATCH /api/v1/admin/restaurant-reports/**
 POST      /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH     /api/v1/admin/restaurants/{restaurantId}/pickup-location
+PATCH     /api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address
+PATCH     /api/v1/admin/restaurants/{restaurantId}/name
+PATCH     /api/v1/admin/restaurants/{restaurantId}/status
+GET       /api/v1/admin/reviews/{reviewId}
+GET       /api/v1/admin/restaurants/search
+GET       /api/v1/admin/restaurants/{restaurantId}
+GET       /api/v1/admin/moderation-audits
 ```
 
 목록은 생성 시각과 ID 기반 cursor pagination을 사용한다. 성공 응답은 기능별 DTO, 오류는 안정적인 `code`를 포함한 `ProblemDetail`을 사용한다.
@@ -276,6 +289,10 @@ PATCH     /api/v1/admin/restaurants/{restaurantId}/pickup-location
 - 브랜드·장소 각각 작성자 4명/5명 경계
 - 장소 집계의 작성자 중복 제거와 `NOT_OBSERVED` 처리
 - 의견 승인·수정·신고·기각·전체 제외
+- 동일 대상 다중 신고의 자동 종결과 멱등 처리
+- 관리자 리뷰·음식점 조사 상세와 감사 cursor 조회
+- 이름 변경, 기존·신규 검증 장소 재연결, 폐업·재개장 및 신고 처리 원자성
+- 폐업 음식점 검색 제외, 직접 상세·기존 리뷰 유지와 신규 작성 차단
 - 삭제·제외로 5명 미만이 될 때 집계 비공개 전환
 - canonical 음식점 처리
 - 공개·USER·ADMIN endpoint와 OpenAPI DTO 계약

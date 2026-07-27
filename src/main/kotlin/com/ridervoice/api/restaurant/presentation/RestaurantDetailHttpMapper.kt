@@ -16,6 +16,7 @@ class RestaurantDetailHttpMapper {
     fun toResponse(result: PublicRestaurantDetailResult) = RestaurantDetailResponse(
         restaurantId = result.restaurantId,
         name = result.name,
+        status = result.status,
         pickupLocation = RestaurantPickupLocationResponse(
             pickupLocationId = result.pickupLocation.pickupLocationId,
             standardAddress = result.pickupLocation.standardAddress,

@@ -108,6 +108,28 @@ class RestaurantSearchServiceTest {
     }
 
     @Test
+    fun `search suppresses a Kakao candidate already linked to a closed restaurant`() {
+        val closed = restaurant(2L, "폐업 브랜드", "서울 강남구 2").also { it.close() }
+        val repositories = InMemoryRepositories(
+            restaurants = mutableListOf(closed),
+            references = mutableListOf(reference(20L, closed, "closed-place")),
+        )
+        val service = RestaurantSearchService(
+            repositories,
+            PickupRepository(repositories),
+            repositories,
+            PublicKakaoKeywordSearchPort { _, _ ->
+                ProviderSearchResult.Available(
+                    listOf(externalRestaurant("closed-place", "폐업 브랜드", "서울 강남구 2")),
+                )
+            },
+            addressSearch(),
+        )
+
+        assertThat(service.search(SearchRestaurantsCommand("폐업 브랜드")).candidates).isEmpty()
+    }
+
+    @Test
     fun `address search uses provider results and marks an exact existing pickup location`() {
         val existing = pickup(10L, "서울 강남구 테헤란로 1", null)
         val repositories = InMemoryRepositories(pickupLocations = mutableListOf(existing))
@@ -140,6 +162,15 @@ class RestaurantSearchServiceTest {
 
         assertThat(service.resolve(ExistingRestaurantTargetCommand(1L)).restaurantId).isEqualTo(2L)
         assertThatThrownBy { service.resolve(ExistingRestaurantTargetCommand(99L)) }
+            .isInstanceOf(ResourceNotFoundException::class.java)
+    }
+
+    @Test
+    fun `existing target rejects a closed restaurant for a new review`() {
+        val closed = restaurant(3L, "폐업 브랜드", "서울 3").also { it.close() }
+        val service = targetService(InMemoryRepositories(restaurants = mutableListOf(closed)))
+
+        assertThatThrownBy { service.resolve(ExistingRestaurantTargetCommand(3L)) }
             .isInstanceOf(ResourceNotFoundException::class.java)
     }
 
@@ -349,7 +380,8 @@ class RestaurantSearchServiceTest {
             var current = findById(restaurantId) ?: return null
             val visited = mutableSetOf<Long>()
             while (visited.add(current.id)) {
-                current = current.canonicalRestaurant ?: return current
+                current = current.canonicalRestaurant
+                    ?: return current.takeIf { it.status == com.ridervoice.api.restaurant.domain.RestaurantStatus.ACTIVE }
             }
             return null
         }

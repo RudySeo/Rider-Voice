@@ -85,9 +85,20 @@ class RestaurantPersistenceAdapterTest {
                         },
                     )
                 }
+                "findReadableCanonicalTargetIdById" -> {
+                    assertThat(arguments[1]).isEqualTo(RestaurantStatus.MERGED)
+                    Optional.of(
+                        when (arguments[0]) {
+                            1L -> 2L
+                            2L -> 3L
+                            else -> 3L
+                        },
+                    )
+                }
                 "findById" -> Optional.of(restaurant)
                 "findDetailById" -> {
-                    assertThat(arguments).containsExactly(restaurant.id, RestaurantStatus.ACTIVE)
+                    assertThat(arguments[0]).isEqualTo(restaurant.id)
+                    assertThat(arguments[1]).isEqualTo(setOf(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED))
                     Optional.of(detail)
                 }
                 "findByPickupLocationIdAndNormalizedName" -> Optional.of(restaurant)
@@ -111,9 +122,9 @@ class RestaurantPersistenceAdapterTest {
             "findCanonicalTargetIdById",
             "findCanonicalTargetIdById",
             "findById",
-            "findCanonicalTargetIdById",
-            "findCanonicalTargetIdById",
-            "findCanonicalTargetIdById",
+            "findReadableCanonicalTargetIdById",
+            "findReadableCanonicalTargetIdById",
+            "findReadableCanonicalTargetIdById",
             "findDetailById",
             "findById",
             "findByPickupLocationIdAndNormalizedName",

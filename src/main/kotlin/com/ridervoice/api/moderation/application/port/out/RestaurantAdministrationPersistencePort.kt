@@ -20,6 +20,9 @@ interface RestaurantAdministrationRepository {
     fun merge(command: RestaurantMergePersistenceCommand): StoredAdminRestaurant
 
     fun relinkPickupLocation(command: RestaurantPickupRelinkPersistenceCommand): StoredAdminRestaurant
+    fun rename(command: RestaurantRenamePersistenceCommand): StoredAdminRestaurant
+    fun changeStatus(command: RestaurantStatusPersistenceCommand): StoredAdminRestaurant
+    fun findOrCreateVerifiedPickupLocation(command: VerifiedPickupLocationPersistenceCommand): Long
 }
 
 data class StoredAdminRestaurant(
@@ -60,4 +63,21 @@ data class RestaurantMergePersistenceCommand(
 data class RestaurantPickupRelinkPersistenceCommand(
     val restaurantId: Long,
     val pickupLocationId: Long,
+)
+
+data class RestaurantRenamePersistenceCommand(
+    val restaurantId: Long,
+    val name: String,
+)
+
+data class RestaurantStatusPersistenceCommand(
+    val restaurantId: Long,
+    val status: RestaurantStatus,
+)
+
+data class VerifiedPickupLocationPersistenceCommand(
+    val standardAddress: String,
+    val detailAddress: String?,
+    val latitude: java.math.BigDecimal,
+    val longitude: java.math.BigDecimal,
 )

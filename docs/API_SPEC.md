@@ -114,6 +114,8 @@ GET /api/v1/restaurants/{restaurantId}
 
 응답은 브랜드, 중첩된 픽업 장소, 브랜드 리포트와 장소 리포트를 포함한다. 같은 픽업 장소의 다른 브랜드는 포함하지 않는다.
 
+`status`는 `ACTIVE` 또는 `CLOSED`다. `CLOSED` 음식점은 검색 결과에 포함되지 않지만 기존 ID의 상세와 리뷰 이력은 계속 조회할 수 있다.
+
 각 리포트는 다음 형식이다.
 
 ```json
@@ -287,6 +289,13 @@ GET   /api/v1/admin/restaurant-reports
 PATCH /api/v1/admin/restaurant-reports/{reportId}
 POST  /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH /api/v1/admin/restaurants/{restaurantId}/pickup-location
+PATCH /api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address
+PATCH /api/v1/admin/restaurants/{restaurantId}/name
+PATCH /api/v1/admin/restaurants/{restaurantId}/status
+GET   /api/v1/admin/reviews/{reviewId}
+GET   /api/v1/admin/restaurants/search
+GET   /api/v1/admin/restaurants/{restaurantId}
+GET   /api/v1/admin/moderation-audits
 ```
 
 리뷰 신고 결정:
@@ -296,6 +305,33 @@ PATCH /api/v1/admin/restaurants/{restaurantId}/pickup-location
 - `EXCLUDE_REVIEW`: 리뷰 전체 공개·집계 제외
 
 음식점 병합 시 duplicate는 `MERGED` 상태와 canonical ID를 유지한다. 기존 ID 요청은 canonical 음식점으로 해석한다.
+
+기존 픽업 장소 ID로 정정할 때는 `/pickup-location`, 카카오 주소 검색으로 다시 검증한 새 주소로 정정할 때는 `/pickup-location/verified-address`를 사용한다. 검증된 주소 정정은 원 검색어와 선택 표준 주소를 받고 서버가 같은 검색을 반복해 좌표와 주소를 확정한다.
+
+관리자 리뷰 상세는 구조화 평가, 원문 의견, 의견·공개 상태, 현재 리뷰 여부, 음식점과 작성자 활동을 포함한다. 음식점 상세·검색은 `ACTIVE`, `CLOSED`, `MERGED`, canonical ID, 픽업 장소와 외부 참조를 포함한다. OAuth subject와 service token은 반환하지 않는다.
+
+음식점 신고 결정은 다음 규칙을 사용한다.
+
+```json
+{
+  "decision": "RESOLVE",
+  "reason": "확인 완료",
+  "correction": {
+    "type": "RELINK_VERIFIED_ADDRESS",
+    "addressQuery": "서울 강남구 테헤란로 1",
+    "selectedStandardAddress": "서울 강남구 테헤란로 1",
+    "detailAddress": "지하 1층 픽업대"
+  }
+}
+```
+
+- `DISMISS`에는 correction을 보낼 수 없다.
+- `RESOLVE`에는 `RENAME`, `RELINK_EXISTING_PICKUP`, `RELINK_VERIFIED_ADDRESS`, `MERGE`, `CLOSE` 중 정확히 하나가 필요하다.
+- provider 검증 후 음식점 변경, 신고 종결과 감사 기록을 하나의 DB 트랜잭션으로 처리한다.
+- 직접 장소 정정도 기존 장소와 검증된 신규 주소를 모두 지원한다.
+- 직접 상태 정정은 `CLOSE`, `REOPEN`을 지원한다.
+- 신고 상세는 최대 1,000자, 관리자 결정 사유는 최대 500자다.
+- 감사 목록은 대상 유형·대상 ID·행위자·행동 필터와 생성 시각·ID cursor를 사용한다.
 
 ## 10. 현재 구현 상태
 

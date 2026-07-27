@@ -5,11 +5,15 @@ import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewS
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
 import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantRenamePersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantStatusPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.VerifiedPickupLocationPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
+import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import jakarta.persistence.EntityManager
@@ -122,6 +126,45 @@ internal class RestaurantAdministrationPersistenceAdapter(
         restaurant.relinkPickupLocation(pickupLocation)
         entityManager.flush()
         return restaurant.toSnapshot()
+    }
+
+    override fun rename(command: RestaurantRenamePersistenceCommand): StoredAdminRestaurant {
+        val restaurant = lockedRestaurants(setOf(command.restaurantId)).singleOrNull()
+            ?: error("Locked restaurant disappeared")
+        restaurant.rename(command.name)
+        entityManager.flush()
+        return restaurant.toSnapshot()
+    }
+
+    override fun changeStatus(command: RestaurantStatusPersistenceCommand): StoredAdminRestaurant {
+        val restaurant = lockedRestaurants(setOf(command.restaurantId)).singleOrNull()
+            ?: error("Locked restaurant disappeared")
+        when (command.status) {
+            com.ridervoice.api.restaurant.domain.RestaurantStatus.ACTIVE -> restaurant.reopen()
+            com.ridervoice.api.restaurant.domain.RestaurantStatus.CLOSED -> restaurant.close()
+            com.ridervoice.api.restaurant.domain.RestaurantStatus.MERGED ->
+                error("Merged status must be set through merge")
+        }
+        entityManager.flush()
+        return restaurant.toSnapshot()
+    }
+
+    override fun findOrCreateVerifiedPickupLocation(command: VerifiedPickupLocationPersistenceCommand): Long {
+        val candidate = PickupLocation(
+            command.standardAddress,
+            command.detailAddress,
+            command.latitude,
+            command.longitude,
+            PickupLocationSource.ADMIN_CORRECTION,
+        )
+        val existing = entityManager.createQuery(
+            "select location from PickupLocation location where location.locationKey = :locationKey",
+            PickupLocation::class.java,
+        ).setParameter("locationKey", candidate.locationKey).resultList.singleOrNull()
+        if (existing != null) return existing.id
+        entityManager.persist(candidate)
+        entityManager.flush()
+        return candidate.id
     }
 
     private fun lockedRestaurants(restaurantIds: Set<Long>): List<Restaurant> =

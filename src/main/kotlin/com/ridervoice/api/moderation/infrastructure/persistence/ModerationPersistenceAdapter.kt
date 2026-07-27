@@ -164,6 +164,9 @@ internal class ReviewReportPersistenceAdapter(
     override fun findForUpdate(reportId: Long): StoredReviewReport? =
         reports.findByIdForUpdate(reportId).orElse(null)?.toSnapshot()
 
+    override fun findOtherPendingForUpdate(reviewId: Long, excludedReportId: Long): List<StoredReviewReport> =
+        reports.findOtherPendingForUpdate(reviewId, excludedReportId, ReportStatus.PENDING).map { it.toSnapshot() }
+
     override fun saveDecision(command: ReviewReportDecisionPersistenceCommand): StoredReviewReport {
         val report = reports.findPendingForUpdate(command.reportId, ReportStatus.PENDING).orElseThrow {
             IllegalStateException("Review report ${command.reportId} is not pending")
@@ -236,6 +239,12 @@ internal class RestaurantInfoReportPersistenceAdapter(
 
     override fun findForUpdate(reportId: Long): StoredRestaurantInfoReport? =
         reports.findByIdForUpdate(reportId).orElse(null)?.toSnapshot()
+
+    override fun findOtherPendingForUpdate(
+        restaurantId: Long,
+        excludedReportId: Long,
+    ): List<StoredRestaurantInfoReport> =
+        reports.findOtherPendingForUpdate(restaurantId, excludedReportId, ReportStatus.PENDING).map { it.toSnapshot() }
 
     override fun saveDecision(
         command: RestaurantInfoReportDecisionPersistenceCommand,

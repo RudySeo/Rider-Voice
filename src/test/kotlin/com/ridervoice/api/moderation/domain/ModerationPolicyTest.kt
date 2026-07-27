@@ -172,7 +172,7 @@ class ModerationPolicyTest {
     @Test
     fun `comment hide requires the report-hidden comment state`() {
         ReviewCommentStatus.entries
-            .filterNot { it == ReviewCommentStatus.HIDDEN_REPORTED }
+            .filterNot { it in setOf(ReviewCommentStatus.HIDDEN_REPORTED, ReviewCommentStatus.REJECTED) }
             .forEach { status ->
                 assertThatIllegalStateException().isThrownBy {
                     ModerationTransitionPolicy.decideReviewReport(
@@ -183,6 +183,19 @@ class ModerationPolicyTest {
                     )
                 }
             }
+    }
+
+    @Test
+    fun `comment hide is idempotent after another report already rejected the comment`() {
+        val transition = ModerationTransitionPolicy.decideReviewReport(
+            reportStatus = ReportStatus.PENDING,
+            reviewVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
+            commentStatus = ReviewCommentStatus.REJECTED,
+            decision = ReviewReportDecision.HIDE_COMMENT,
+        )
+
+        assertThat(transition.commentStatus).isEqualTo(ReviewCommentStatus.REJECTED)
+        assertThat(transition.reviewVisibilityStatus).isEqualTo(ReviewVisibilityStatus.ACTIVE)
     }
 
     @Test

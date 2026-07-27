@@ -11,6 +11,9 @@ import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurant
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.presentation.dto.CommentDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
@@ -23,6 +26,11 @@ import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportPageRes
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportResponse
 import com.ridervoice.api.moderation.presentation.dto.RelinkRestaurantPickupLocationRequest
+import com.ridervoice.api.moderation.presentation.dto.RenameRestaurantRequest
+import com.ridervoice.api.moderation.presentation.dto.ChangeRestaurantStatusRequest
+import com.ridervoice.api.moderation.presentation.dto.RestaurantRenameResponse
+import com.ridervoice.api.moderation.presentation.dto.RestaurantStatusChangeResponse
+import com.ridervoice.api.moderation.presentation.dto.RelinkRestaurantVerifiedAddressRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantMergeResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantPickupRelinkResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewCommentDecisionResponse
@@ -252,6 +260,9 @@ class AdminModerationController(
 class AdminRestaurantController(
     private val mergeRestaurant: MergeRestaurantUseCase,
     private val relinkRestaurant: RelinkRestaurantPickupLocationUseCase,
+    private val renameRestaurant: RenameRestaurantUseCase,
+    private val changeRestaurantStatus: ChangeRestaurantStatusUseCase,
+    private val relinkVerifiedAddress: RelinkRestaurantVerifiedAddressUseCase,
     private val mapper: RestaurantAdministrationHttpMapper,
 ) {
     @Operation(summary = "중복 음식점을 canonical 음식점으로 병합")
@@ -275,6 +286,57 @@ class AdminRestaurantController(
     ): RestaurantPickupRelinkResponse = mapper.toResponse(
         relinkRestaurant.relinkPickupLocation(
             mapper.toRelinkCommand(principal.userId, restaurantId, request),
+        ),
+    )
+
+    @Operation(summary = "음식점 이름 정정")
+    @ApiResponse(
+        responseCode = "200",
+        description = "음식점 이름 정정 완료",
+        content = [Content(mediaType = "application/json", schema = Schema(implementation = RestaurantRenameResponse::class))],
+    )
+    @PatchMapping("/{restaurantId}/name")
+    fun rename(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @RequestBody request: RenameRestaurantRequest,
+    ): RestaurantRenameResponse = mapper.toResponse(
+        renameRestaurant.rename(mapper.toRenameCommand(principal.userId, restaurantId, request)),
+    )
+
+    @Operation(summary = "음식점 폐업 또는 재개장 처리")
+    @ApiResponse(
+        responseCode = "200",
+        description = "음식점 상태 변경 완료",
+        content = [
+            Content(mediaType = "application/json", schema = Schema(implementation = RestaurantStatusChangeResponse::class)),
+        ],
+    )
+    @PatchMapping("/{restaurantId}/status")
+    fun changeStatus(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @RequestBody request: ChangeRestaurantStatusRequest,
+    ): RestaurantStatusChangeResponse = mapper.toResponse(
+        changeRestaurantStatus.changeStatus(mapper.toStatusCommand(principal.userId, restaurantId, request)),
+    )
+
+    @Operation(summary = "검증된 신규 주소로 픽업 장소 재연결")
+    @ApiResponse(
+        responseCode = "200",
+        description = "검증된 신규 주소로 픽업 장소 재연결 완료",
+        content = [
+            Content(mediaType = "application/json", schema = Schema(implementation = RestaurantPickupRelinkResponse::class)),
+        ],
+    )
+    @PatchMapping("/{restaurantId}/pickup-location/verified-address")
+    fun relinkVerifiedAddress(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive restaurantId: Long,
+        @Valid @RequestBody request: RelinkRestaurantVerifiedAddressRequest,
+    ): RestaurantPickupRelinkResponse = mapper.toResponse(
+        relinkVerifiedAddress.relinkVerifiedAddress(
+            mapper.toVerifiedRelinkCommand(principal.userId, restaurantId, request),
         ),
     )
 }

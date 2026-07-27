@@ -6,9 +6,12 @@ import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportCommand
+import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
+import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
@@ -227,6 +230,30 @@ class ReportingServiceTest {
     }
 
     @Test
+    fun `exclude automatically resolves every other pending report for the excluded review`() {
+        val fixture = fixture(reviewTarget(commentStatus = ReviewCommentStatus.HIDDEN_REPORTED)).also {
+            it.reviewReports.seedPending()
+            it.reviewReports.siblingReports += reviewReport().copy(reportId = REVIEW_REPORT_ID + 1)
+            it.reviewReports.siblingReports += reviewReport().copy(reportId = REVIEW_REPORT_ID + 2)
+        }
+
+        fixture.service.decideReviewReport(
+            DecideReviewReportCommand(ADMIN_ID, REVIEW_REPORT_ID, ReviewReportDecision.EXCLUDE_REVIEW, "도배"),
+        )
+
+        assertThat(fixture.reviewReports.savedDecisionCommands.map { it.reportId }).containsExactly(
+            REVIEW_REPORT_ID,
+            REVIEW_REPORT_ID + 1,
+            REVIEW_REPORT_ID + 2,
+        )
+        assertThat(fixture.reviewReports.savedDecisionCommands.map { it.decision })
+            .containsOnly(ReviewReportDecision.EXCLUDE_REVIEW)
+        assertThat(fixture.audits.commands).hasSize(3)
+        assertThat(fixture.audits.commands.drop(1).map { it.reason })
+            .containsOnly("AUTO_RESOLVED_TARGET_EXCLUDED")
+    }
+
+    @Test
     fun `full exclusion drops five distinct aggregate authors back to collecting`() {
         val fixture = fixture(
             reviewTarget(
@@ -288,8 +315,18 @@ class ReportingServiceTest {
         RestaurantInfoReportDecision.entries.forEach { decision ->
             val fixture = fixture(reviewTarget()).also { it.restaurantReports.seedPending() }
 
-            val result = fixture.service.decideRestaurantInfoReport(
-                DecideRestaurantInfoReportCommand(ADMIN_ID, RESTAURANT_REPORT_ID, decision, "확인 완료"),
+            val result = fixture.restaurantDecision.decideRestaurantInfoReport(
+                DecideRestaurantInfoReportCommand(
+                    ADMIN_ID,
+                    RESTAURANT_REPORT_ID,
+                    decision,
+                    "확인 완료",
+                    if (decision == RestaurantInfoReportDecision.RESOLVE) {
+                        RenameRestaurantCorrection("정정 브랜드")
+                    } else {
+                        null
+                    },
+                ),
             )
 
             val expectedAction = when (decision) {
@@ -300,6 +337,30 @@ class ReportingServiceTest {
             assertThat(result.decision).isEqualTo(decision)
             assertAudit(fixture.audits.commands.single(), expectedAction)
         }
+    }
+
+    @Test
+    fun `merge correction automatically resolves sibling restaurant reports`() {
+        val fixture = fixture(reviewTarget()).also {
+            it.restaurantReports.seedPending()
+            it.restaurantReports.siblingReports += restaurantReport().copy(reportId = RESTAURANT_REPORT_ID + 1)
+        }
+
+        fixture.restaurantDecision.decideRestaurantInfoReport(
+            DecideRestaurantInfoReportCommand(
+                ADMIN_ID,
+                RESTAURANT_REPORT_ID,
+                RestaurantInfoReportDecision.RESOLVE,
+                "중복 병합",
+                MergeRestaurantCorrection(99L),
+            ),
+        )
+
+        assertThat(fixture.restaurantReports.savedDecisionCommands.map { it.reportId }).containsExactly(
+            RESTAURANT_REPORT_ID,
+            RESTAURANT_REPORT_ID + 1,
+        )
+        assertThat(fixture.audits.commands.last().reason).isEqualTo("AUTO_RESOLVED_TARGET_MERGED")
     }
 
     @Test
@@ -326,18 +387,67 @@ class ReportingServiceTest {
     }
 
     @Test
+    fun `restaurant correction is prepared before entering the transactional coordinator`() {
+        val events = mutableListOf<String>()
+        val corrections = object : RestaurantInfoCorrectionExecutor {
+            override fun prepare(correction: com.ridervoice.api.moderation.application.port.`in`.RestaurantInfoCorrectionCommand): PreparedRestaurantCorrection {
+                events += "provider-validation"
+                return PreparedRestaurantCorrection.Rename("정정 브랜드")
+            }
+
+            override fun execute(
+                adminUserId: Long,
+                restaurantId: Long,
+                correction: PreparedRestaurantCorrection,
+                reason: String?,
+            ) = error("The facade must not execute the correction")
+        }
+        val service = RestaurantInfoReportDecisionService(
+            corrections,
+            PreparedRestaurantInfoReportDecisionCoordinator { _, _ ->
+                events += "transactional-coordinator"
+                error("coordinator reached")
+            },
+        )
+
+        assertThatThrownBy {
+            service.decideRestaurantInfoReport(
+                DecideRestaurantInfoReportCommand(
+                    ADMIN_ID,
+                    RESTAURANT_REPORT_ID,
+                    RestaurantInfoReportDecision.RESOLVE,
+                    null,
+                    RenameRestaurantCorrection("정정 브랜드"),
+                ),
+            )
+        }.isInstanceOf(IllegalStateException::class.java)
+        assertThat(events).containsExactly("provider-validation", "transactional-coordinator")
+        assertThat(
+            RestaurantInfoReportDecisionService::class.java
+                .getMethod("decideRestaurantInfoReport", DecideRestaurantInfoReportCommand::class.java)
+                .getAnnotation(Transactional::class.java),
+        ).isNull()
+    }
+
+    @Test
     fun `all report writes and decisions declare transaction boundaries`() {
         listOf(
             "createReviewReport" to CreateReviewReportCommand::class.java,
             "createRestaurantInfoReport" to CreateRestaurantInfoReportCommand::class.java,
             "decideReviewReport" to DecideReviewReportCommand::class.java,
-            "decideRestaurantInfoReport" to DecideRestaurantInfoReportCommand::class.java,
         ).forEach { (methodName, parameterType) ->
             val annotation = ReportingService::class.java.getMethod(methodName, parameterType)
                 .getAnnotation(Transactional::class.java)
             assertThat(annotation).isNotNull
             assertThat(annotation.readOnly).isFalse()
         }
+        val restaurantDecision = ReportingService::class.java.getMethod(
+            "decidePrepared",
+            DecideRestaurantInfoReportCommand::class.java,
+            PreparedRestaurantCorrection::class.java,
+        ).getAnnotation(Transactional::class.java)
+        assertThat(restaurantDecision).isNotNull
+        assertThat(restaurantDecision.readOnly).isFalse()
 
         listOf(
             "list" to ListPendingReviewReportsQuery::class.java,
@@ -359,6 +469,21 @@ class ReportingServiceTest {
         val restaurantReports = FakeRestaurantInfoReportRepository()
         val targets = FakeReviewReportTargetRepository(target)
         val audits = FakeAuditRepository()
+        val corrections = object : RestaurantInfoCorrectionExecutor {
+            override fun prepare(correction: com.ridervoice.api.moderation.application.port.`in`.RestaurantInfoCorrectionCommand) =
+                if (correction is MergeRestaurantCorrection) {
+                    PreparedRestaurantCorrection.Merge(correction.canonicalRestaurantId)
+                } else {
+                    PreparedRestaurantCorrection.Rename("정정 브랜드")
+                }
+
+            override fun execute(
+                adminUserId: Long,
+                restaurantId: Long,
+                correction: PreparedRestaurantCorrection,
+                reason: String?,
+            ) = Unit
+        }
         val service = ReportingService(
             reporters = ModerationReporterRepository { activeReporter },
             admins = ModerationAdminRepository { activeAdmin },
@@ -367,8 +492,16 @@ class ReportingServiceTest {
             targets = targets,
             audits = audits,
             clock = Clock.fixed(NOW, ZoneOffset.UTC),
+            corrections = corrections,
         )
-        return Fixture(service, reviewReports, restaurantReports, targets, audits)
+        return Fixture(
+            service,
+            RestaurantInfoReportDecisionService(corrections, service),
+            reviewReports,
+            restaurantReports,
+            targets,
+            audits,
+        )
     }
 
     private fun reviewTarget(
@@ -398,6 +531,7 @@ class ReportingServiceTest {
 
     private data class Fixture(
         val service: ReportingService,
+        val restaurantDecision: DecideRestaurantInfoReportUseCase,
         val reviewReports: FakeReviewReportRepository,
         val restaurantReports: FakeRestaurantInfoReportRepository,
         val targets: FakeReviewReportTargetRepository,
@@ -410,6 +544,8 @@ class ReportingServiceTest {
         var recentCount = 0L
         var lastCountSince: Instant? = null
         var otherPendingForReview = false
+        val siblingReports = mutableListOf<StoredReviewReport>()
+        val savedDecisionCommands = mutableListOf<ReviewReportDecisionPersistenceCommand>()
         private var stored: StoredReviewReport? = null
 
         fun seedPending() {
@@ -439,14 +575,26 @@ class ReportingServiceTest {
 
         override fun findForUpdate(reportId: Long) = stored?.takeIf { it.reportId == reportId }
 
+        override fun findOtherPendingForUpdate(reviewId: Long, excludedReportId: Long) =
+            siblingReports.filter { it.reviewId == reviewId && it.reportId != excludedReportId }
+
         override fun saveDecision(command: ReviewReportDecisionPersistenceCommand): StoredReviewReport {
-            val current = requireNotNull(stored)
+            savedDecisionCommands += command
+            val current = if (stored?.reportId == command.reportId) {
+                requireNotNull(stored)
+            } else {
+                siblingReports.first { it.reportId == command.reportId }
+            }
             return current.copy(
                 status = ReportStatus.RESOLVED,
                 decision = command.decision,
                 decidedByUserId = command.decidedByUserId,
                 decidedAt = command.decidedAt,
-            ).also { stored = it }
+            ).also { resolved ->
+                if (stored?.reportId == resolved.reportId) stored = resolved
+                val siblingIndex = siblingReports.indexOfFirst { it.reportId == resolved.reportId }
+                if (siblingIndex >= 0) siblingReports[siblingIndex] = resolved
+            }
         }
     }
 
@@ -456,6 +604,8 @@ class ReportingServiceTest {
         var recentCount = 0L
         var lastCountSince: Instant? = null
         private var stored: StoredRestaurantInfoReport? = null
+        val siblingReports = mutableListOf<StoredRestaurantInfoReport>()
+        val savedDecisionCommands = mutableListOf<RestaurantInfoReportDecisionPersistenceCommand>()
 
         fun seedPending() {
             stored = restaurantReport()
@@ -481,16 +631,24 @@ class ReportingServiceTest {
 
         override fun findForUpdate(reportId: Long) = stored?.takeIf { it.reportId == reportId }
 
+        override fun findOtherPendingForUpdate(restaurantId: Long, excludedReportId: Long) = siblingReports
+
         override fun saveDecision(
             command: RestaurantInfoReportDecisionPersistenceCommand,
         ): StoredRestaurantInfoReport {
-            val current = requireNotNull(stored)
+            savedDecisionCommands += command
+            val current = if (stored?.reportId == command.reportId) requireNotNull(stored)
+            else siblingReports.first { it.reportId == command.reportId }
             return current.copy(
                 status = ReportStatus.RESOLVED,
                 decision = command.decision,
                 decidedByUserId = command.decidedByUserId,
                 decidedAt = command.decidedAt,
-            ).also { stored = it }
+            ).also { resolved ->
+                if (stored?.reportId == resolved.reportId) stored = resolved
+                val index = siblingReports.indexOfFirst { it.reportId == resolved.reportId }
+                if (index >= 0) siblingReports[index] = resolved
+            }
         }
     }
 

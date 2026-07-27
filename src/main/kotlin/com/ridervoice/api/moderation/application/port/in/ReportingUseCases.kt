@@ -97,9 +97,25 @@ data class DecideRestaurantInfoReportCommand(
     val reportId: Long,
     val decision: RestaurantInfoReportDecision,
     val reason: String?,
+    val correction: RestaurantInfoCorrectionCommand? = null,
 ) {
     init {
         require(adminUserId > 0) { "Administrator user ID must be positive" }
         require(reportId > 0) { "Restaurant information report ID must be positive" }
+        require(
+            (decision == RestaurantInfoReportDecision.DISMISS && correction == null) ||
+                (decision == RestaurantInfoReportDecision.RESOLVE && correction != null),
+        ) { "DISMISS forbids correction and RESOLVE requires correction" }
     }
 }
+
+sealed interface RestaurantInfoCorrectionCommand
+data class RenameRestaurantCorrection(val name: String) : RestaurantInfoCorrectionCommand
+data class RelinkExistingPickupCorrection(val pickupLocationId: Long) : RestaurantInfoCorrectionCommand
+data class RelinkVerifiedAddressCorrection(
+    val addressQuery: String,
+    val selectedStandardAddress: String,
+    val detailAddress: String?,
+) : RestaurantInfoCorrectionCommand
+data class MergeRestaurantCorrection(val canonicalRestaurantId: Long) : RestaurantInfoCorrectionCommand
+data object CloseRestaurantCorrection : RestaurantInfoCorrectionCommand

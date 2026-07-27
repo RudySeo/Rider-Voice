@@ -53,6 +53,9 @@ enum class ReviewCooldownAction {
 enum class RestaurantAdminAction {
     MERGE_DUPLICATE,
     RELINK_PICKUP_LOCATION,
+    RENAME,
+    CLOSE,
+    REOPEN,
 }
 
 enum class ModerationAuditAction {
@@ -65,6 +68,9 @@ enum class ModerationAuditAction {
     RESTAURANT_INFO_CORRECTED,
     DUPLICATE_RESTAURANT_MERGED,
     RESTAURANT_PICKUP_RELINKED,
+    RESTAURANT_RENAMED,
+    RESTAURANT_CLOSED,
+    RESTAURANT_REOPENED,
 }
 
 enum class ModerationTargetType {

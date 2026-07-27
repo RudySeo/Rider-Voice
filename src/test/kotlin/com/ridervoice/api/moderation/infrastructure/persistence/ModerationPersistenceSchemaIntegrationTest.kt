@@ -91,6 +91,26 @@ class ModerationPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
             .allMatch { it == "RESTRICT" || it == "NO ACTION" }
     }
 
+    @Test
+    fun `moderation audit text columns retain reasons and state snapshots beyond 255 characters`() {
+        val columnTypes = entityManager.createNativeQuery(
+            """
+            select column_name, data_type
+            from information_schema.columns
+            where table_schema = database()
+              and table_name = 'moderation_audits'
+              and column_name in ('reason', 'before_state', 'after_state')
+            """.trimIndent(),
+        ).resultList.associate { row ->
+            row as Array<*>
+            row[0].toString() to row[1].toString()
+        }
+
+        assertThat(columnTypes["reason"]).isEqualTo("text")
+        assertThat(columnTypes["before_state"]).isEqualTo("mediumtext")
+        assertThat(columnTypes["after_state"]).isEqualTo("mediumtext")
+    }
+
     private fun fixture(): Fixture {
         val user = users.saveUser(User())
         val location = pickupLocations.save(

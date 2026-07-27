@@ -17,7 +17,6 @@ import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportCommand
-import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
@@ -42,8 +41,10 @@ import com.ridervoice.api.moderation.application.port.out.StoredReviewReport
 import com.ridervoice.api.moderation.application.port.out.StoredReviewReportTarget
 import com.ridervoice.api.moderation.domain.CurrentReviewPointerAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
+import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTransitionPolicy
 import com.ridervoice.api.moderation.domain.ReportStatus
+import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -61,12 +62,13 @@ internal class ReportingService(
     private val targets: ReviewReportTargetRepository,
     private val audits: ModerationAuditRepository,
     private val clock: Clock,
+    private val corrections: RestaurantInfoCorrectionExecutor,
 ) : CreateReviewReportUseCase,
     CreateRestaurantInfoReportUseCase,
     ListPendingReviewReportsUseCase,
     ListPendingRestaurantInfoReportsUseCase,
     DecideReviewReportUseCase,
-    DecideRestaurantInfoReportUseCase {
+    PreparedRestaurantInfoReportDecisionCoordinator {
 
     @Transactional
     override fun createReviewReport(command: CreateReviewReportCommand): ReviewReportResult {
@@ -204,6 +206,11 @@ internal class ReportingService(
         } catch (exception: IllegalStateException) {
             throw StateConflictException("Review report cannot receive this decision", exception)
         }
+        val siblingReports = if (command.decision == ReviewReportDecision.EXCLUDE_REVIEW) {
+            reviewReports.findOtherPendingForUpdate(report.reviewId, report.reportId)
+        } else {
+            emptyList()
+        }
         val keepHiddenForOtherReports =
             command.decision == ReviewReportDecision.DISMISS &&
                 target.commentStatus == ReviewCommentStatus.HIDDEN_REPORTED &&
@@ -245,12 +252,37 @@ internal class ReportingService(
                 occurredAt = decidedAt,
             ),
         )
+        if (command.decision == ReviewReportDecision.EXCLUDE_REVIEW) {
+            siblingReports.forEach { sibling ->
+                val autoResolved = reviewReports.saveDecision(
+                    ReviewReportDecisionPersistenceCommand(
+                        reportId = sibling.reportId,
+                        decision = ReviewReportDecision.EXCLUDE_REVIEW,
+                        decidedByUserId = command.adminUserId,
+                        decidedAt = decidedAt,
+                    ),
+                )
+                audits.append(
+                    ModerationAuditPersistenceCommand(
+                        actorUserId = command.adminUserId,
+                        action = transition.auditAction,
+                        targetType = ModerationTargetType.REVIEW_REPORT,
+                        targetId = sibling.reportId,
+                        reason = AUTO_RESOLVED_TARGET_EXCLUDED,
+                        beforeState = reviewReportState(sibling.status, target),
+                        afterState = reviewReportState(autoResolved.status, savedTarget),
+                        occurredAt = decidedAt,
+                    ),
+                )
+            }
+        }
         return savedReport.toResult()
     }
 
     @Transactional
-    override fun decideRestaurantInfoReport(
+    override fun decidePrepared(
         command: DecideRestaurantInfoReportCommand,
+        correction: PreparedRestaurantCorrection?,
     ): RestaurantInfoReportResult {
         requireActiveAdmin(command.adminUserId)
         val report = restaurantReports.findForUpdate(command.reportId)
@@ -262,6 +294,19 @@ internal class ReportingService(
             reportStatus = report.status,
             decision = command.decision,
         )
+        correction?.let {
+            corrections.execute(
+                command.adminUserId,
+                report.restaurantId,
+                it,
+                command.reason,
+            )
+        }
+        val siblingReports = if (correction is PreparedRestaurantCorrection.Merge) {
+            restaurantReports.findOtherPendingForUpdate(report.restaurantId, report.reportId)
+        } else {
+            emptyList()
+        }
         val decidedAt = clock.instant()
         val saved = restaurantReports.saveDecision(
             RestaurantInfoReportDecisionPersistenceCommand(
@@ -283,6 +328,28 @@ internal class ReportingService(
                 occurredAt = decidedAt,
             ),
         )
+        siblingReports.forEach { sibling ->
+            val autoResolved = restaurantReports.saveDecision(
+                RestaurantInfoReportDecisionPersistenceCommand(
+                    sibling.reportId,
+                    RestaurantInfoReportDecision.RESOLVE,
+                    command.adminUserId,
+                    decidedAt,
+                ),
+            )
+            audits.append(
+                ModerationAuditPersistenceCommand(
+                    actorUserId = command.adminUserId,
+                    action = ModerationAuditAction.RESTAURANT_INFO_CORRECTED,
+                    targetType = ModerationTargetType.RESTAURANT_INFO_REPORT,
+                    targetId = sibling.reportId,
+                    reason = AUTO_RESOLVED_TARGET_MERGED,
+                    beforeState = restaurantReportState(sibling),
+                    afterState = restaurantReportState(autoResolved),
+                    occurredAt = decidedAt,
+                ),
+            )
+        }
         return saved.toResult()
     }
 
@@ -343,6 +410,8 @@ internal class ReportingService(
 
     private companion object {
         const val REPORT_LIMIT = 20L
+        const val AUTO_RESOLVED_TARGET_EXCLUDED = "AUTO_RESOLVED_TARGET_EXCLUDED"
+        const val AUTO_RESOLVED_TARGET_MERGED = "AUTO_RESOLVED_TARGET_MERGED"
         val REPORT_WINDOW: Duration = Duration.ofHours(24)
     }
 }

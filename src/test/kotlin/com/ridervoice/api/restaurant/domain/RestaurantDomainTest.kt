@@ -80,6 +80,36 @@ class RestaurantDomainTest {
         }
     }
 
+    @Test
+    fun `active restaurant can be renamed closed and reopened`() {
+        val restaurant = Restaurant("기존 브랜드", pickupLocation())
+
+        restaurant.rename("  새 브랜드  ")
+        restaurant.close()
+
+        assertThat(restaurant.brandName).isEqualTo("새 브랜드")
+        assertThat(restaurant.normalizedName).isEqualTo("새 브랜드")
+        assertThat(restaurant.status).isEqualTo(RestaurantStatus.CLOSED)
+
+        restaurant.reopen()
+
+        assertThat(restaurant.status).isEqualTo(RestaurantStatus.ACTIVE)
+    }
+
+    @Test
+    fun `closed restaurant rejects active-only mutations and invalid state transitions`() {
+        val restaurant = Restaurant("브랜드", pickupLocation())
+        restaurant.close()
+
+        assertThatIllegalStateException().isThrownBy { restaurant.close() }
+        assertThatIllegalStateException().isThrownBy { restaurant.rename("변경") }
+        assertThatIllegalStateException().isThrownBy { restaurant.relinkPickupLocation(pickupLocation("서울 강남구 역삼로 2")) }
+        assertThatIllegalStateException().isThrownBy { restaurant.mergeInto(Restaurant("대표", pickupLocation())) }
+
+        restaurant.reopen()
+        assertThatIllegalStateException().isThrownBy { restaurant.reopen() }
+    }
+
     private fun pickupLocation(
         standardAddress: String = "서울 강남구 테헤란로 1",
         latitude: BigDecimal = BigDecimal("37.5"),

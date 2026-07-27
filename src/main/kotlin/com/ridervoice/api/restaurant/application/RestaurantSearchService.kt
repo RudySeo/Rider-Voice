@@ -55,8 +55,15 @@ class RestaurantSearchService(
                         return@forEach
                     }
 
-                    val linkedInternal = findLinkedInternalCandidate(external)
-                    if (linkedInternal != null) {
+                    val linkedInternal = when (val linked = findLinkedInternalCandidate(external)) {
+                        LinkedExternalCandidate.Suppressed -> return@forEach
+                        LinkedExternalCandidate.Unlinked -> {
+                            internalCandidates += externalCandidate(external)
+                            return@forEach
+                        }
+                        is LinkedExternalCandidate.Found -> linked.candidate
+                    }
+                    run {
                         val linkedRestaurantId = linkedInternal.restaurantId!!
                         if (includedRestaurantIds.add(linkedRestaurantId)) {
                             internalCandidates += linkedInternal
@@ -70,8 +77,6 @@ class RestaurantSearchService(
                                 )
                             }
                         }
-                    } else {
-                        internalCandidates += externalCandidate(external)
                     }
                 }
                 RestaurantSearchResult(
@@ -114,14 +119,18 @@ class RestaurantSearchService(
 
     private fun findLinkedInternalCandidate(
         external: ExternalRestaurantCandidate,
-    ): RestaurantSearchCandidate? {
+    ): LinkedExternalCandidate {
         val reference = externalReferences.findByProviderAndExternalPlaceId(
             RestaurantExternalProvider.KAKAO,
             external.externalPlaceId,
-        ) ?: return null
-        val canonical = restaurants.findCanonicalById(reference.restaurant.id) ?: return null
-        val stored = restaurants.findSearchCandidateById(canonical.id) ?: return null
-        return internalCandidate(stored.copy(externalPlaceId = external.externalPlaceId))
+        ) ?: return LinkedExternalCandidate.Unlinked
+        val canonical = restaurants.findCanonicalById(reference.restaurant.id)
+            ?: return LinkedExternalCandidate.Suppressed
+        val stored = restaurants.findSearchCandidateById(canonical.id)
+            ?: return LinkedExternalCandidate.Suppressed
+        return LinkedExternalCandidate.Found(
+            internalCandidate(stored.copy(externalPlaceId = external.externalPlaceId)),
+        )
     }
 
     private fun externalLocationId(location: PickupLocation): Long? =
@@ -149,5 +158,11 @@ class RestaurantSearchService(
 
     private companion object {
         const val SEARCH_LIMIT = 20
+    }
+
+    private sealed interface LinkedExternalCandidate {
+        data class Found(val candidate: RestaurantSearchCandidate) : LinkedExternalCandidate
+        data object Suppressed : LinkedExternalCandidate
+        data object Unlinked : LinkedExternalCandidate
     }
 }

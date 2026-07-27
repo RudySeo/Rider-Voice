@@ -59,6 +59,13 @@ class SecurityConfig(
             it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurant-reports/*").hasRole("ADMIN")
             it.requestMatchers(HttpMethod.POST, "/api/v1/admin/restaurants/*/merge").hasRole("ADMIN")
             it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/pickup-location").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/name").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/status").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/pickup-location/verified-address").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/reviews/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurants/search").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurants/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/moderation-audits").hasRole("ADMIN")
             it.anyRequest().denyAll()
         }
         .addFilterBefore(accessTokenFilter, AnonymousAuthenticationFilter::class.java)

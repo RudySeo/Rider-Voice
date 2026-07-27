@@ -39,10 +39,12 @@ class Restaurant(
 ) : BaseEntity() {
 
     @field:Column(name = "brand_name", nullable = false, length = 255)
-    val brandName: String = RestaurantNormalization.displayText(brandName)
+    final var brandName: String = RestaurantNormalization.displayText(brandName)
+        private set
 
     @field:Column(name = "normalized_name", nullable = false, length = 255)
-    val normalizedName: String = RestaurantNormalization.normalizedText(brandName)
+    final var normalizedName: String = RestaurantNormalization.normalizedText(brandName)
+        private set
 
     @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
     @field:JoinColumn(
@@ -79,6 +81,24 @@ class Restaurant(
 
         this.canonicalRestaurant = canonicalRestaurant
         status = RestaurantStatus.MERGED
+    }
+
+    fun rename(brandName: String) {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be renamed" }
+        val displayName = RestaurantNormalization.displayText(brandName)
+        require(displayName.isNotEmpty()) { "Restaurant brand name must not be blank" }
+        this.brandName = displayName
+        normalizedName = RestaurantNormalization.normalizedText(displayName)
+    }
+
+    fun close() {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be closed" }
+        status = RestaurantStatus.CLOSED
+    }
+
+    fun reopen() {
+        check(status == RestaurantStatus.CLOSED) { "Only a closed restaurant can be reopened" }
+        status = RestaurantStatus.ACTIVE
     }
 
     fun relinkPickupLocation(pickupLocation: PickupLocation) {
