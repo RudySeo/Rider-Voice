@@ -20,6 +20,9 @@ import com.ridervoice.api.restaurant.application.port.`in`.ValidatedKakaoRestaur
 import com.ridervoice.api.restaurant.application.port.`in`.ValidatedManualAddressRestaurantTarget
 import com.ridervoice.api.restaurant.application.port.`in`.ValidatedManualExistingLocationRestaurantTarget
 import com.ridervoice.api.restaurant.application.port.`in`.ValidatedRestaurantTarget
+import com.ridervoice.api.restaurant.application.port.`in`.ValidateAddressSelectionUseCase
+import com.ridervoice.api.restaurant.application.port.`in`.ValidateAddressSelectionCommand
+import com.ridervoice.api.restaurant.application.port.`in`.ValidatedAddressSelection
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
@@ -43,7 +46,7 @@ internal class RestaurantTargetResolutionService(
     private val keywordSearch: KakaoKeywordSearchPort,
     private val addressSearch: KakaoAddressSearchPort,
     private val targetWriter: RestaurantTargetWriter,
-) : ResolveRestaurantTargetUseCase, ValidateRestaurantTargetUseCase {
+) : ResolveRestaurantTargetUseCase, ValidateRestaurantTargetUseCase, ValidateAddressSelectionUseCase {
 
     override fun resolve(command: RestaurantTargetCommand): ResolvedRestaurantTargetResult =
         retryUniqueCollision { targetWriter.resolve(validate(command)) }
@@ -83,6 +86,16 @@ internal class RestaurantTargetResolutionService(
             platforms = command.platforms,
             candidate = selected,
         )
+    }
+
+    override fun validate(command: ValidateAddressSelectionCommand): ValidatedAddressSelection {
+        val query = RestaurantNormalization.displayText(command.addressQuery)
+        val candidates = availableCandidates(addressSearch.search(query, SEARCH_LIMIT), "Address")
+        val selectedAddress = RestaurantNormalization.normalizedText(command.selectedStandardAddress)
+        val selected = candidates.firstOrNull {
+            RestaurantNormalization.normalizedText(it.standardAddress) == selectedAddress
+        } ?: throw BadRequestException("Selected address was not present in the repeated search")
+        return ValidatedAddressSelection(selected, command.detailAddress)
     }
 
     private fun <T> availableCandidates(result: ProviderSearchResult<T>, target: String): List<T> =

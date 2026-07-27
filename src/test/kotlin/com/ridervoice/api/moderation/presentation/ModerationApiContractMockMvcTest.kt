@@ -33,6 +33,7 @@ import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurant
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.domain.CommentModerationDecision
 import com.ridervoice.api.moderation.domain.ReportStatus
@@ -234,6 +235,7 @@ class ModerationApiContractMockMvcTest {
                     202L,
                     RestaurantInfoReportDecision.RESOLVE,
                     "정보 정정",
+                    RenameRestaurantCorrection("정정 브랜드"),
                 ),
             ),
         ).thenReturn(
@@ -278,7 +280,7 @@ class ModerationApiContractMockMvcTest {
         mockMvc.patch("/api/v1/admin/restaurant-reports/202") {
             with(adminAuthentication())
             contentType = MediaType.APPLICATION_JSON
-            content = """{"decision":"RESOLVE","reason":"정보 정정"}"""
+            content = """{"decision":"RESOLVE","reason":"정보 정정","correction":{"type":"RENAME","name":"정정 브랜드"}}"""
         }.andExpect {
             status { isOk() }
             jsonPath("$.decision") { value("RESOLVE") }

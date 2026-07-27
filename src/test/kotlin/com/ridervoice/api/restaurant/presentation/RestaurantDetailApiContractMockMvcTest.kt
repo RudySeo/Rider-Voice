@@ -72,6 +72,7 @@ class RestaurantDetailApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.restaurantId") { value(20) }
             jsonPath("$.name") { value("대표 브랜드") }
+            jsonPath("$.status") { value("ACTIVE") }
             jsonPath("$.pickupLocation.pickupLocationId") { value(30) }
             jsonPath("$.pickupLocation.standardAddress") { value("서울 강남구 테헤란로 1") }
             jsonPath("$.pickupLocation.detailAddress") { value("지하 1층 픽업대") }

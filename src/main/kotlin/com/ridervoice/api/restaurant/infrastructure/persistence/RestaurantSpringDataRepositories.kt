@@ -76,18 +76,35 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
             pickupLocation.standardAddress,
             pickupLocation.detailAddress,
             pickupLocation.latitude,
-            pickupLocation.longitude
+            pickupLocation.longitude,
+            restaurant.status
         )
         from Restaurant restaurant
         join restaurant.pickupLocation pickupLocation
         where restaurant.id = :restaurantId
-          and restaurant.status = :activeStatus
+          and restaurant.status in :readableStatuses
         """,
     )
     fun findDetailById(
         @Param("restaurantId") restaurantId: Long,
-        @Param("activeStatus") activeStatus: RestaurantStatus,
+        @Param("readableStatuses") readableStatuses: Set<RestaurantStatus>,
     ): Optional<StoredRestaurantDetail>
+
+    @Query(
+        """
+        select case
+            when restaurant.status = :mergedStatus then canonicalRestaurant.id
+            else restaurant.id
+        end
+        from Restaurant restaurant
+        left join restaurant.canonicalRestaurant canonicalRestaurant
+        where restaurant.id = :restaurantId
+        """,
+    )
+    fun findReadableCanonicalTargetIdById(
+        @Param("restaurantId") restaurantId: Long,
+        @Param("mergedStatus") mergedStatus: RestaurantStatus,
+    ): Optional<Long>
 
     @Query(
         """

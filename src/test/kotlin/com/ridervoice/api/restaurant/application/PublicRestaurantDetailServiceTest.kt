@@ -8,6 +8,7 @@ import com.ridervoice.api.restaurant.application.model.RestaurantPickupLocationR
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.port.out.RestaurantDetailQuery
 import com.ridervoice.api.restaurant.application.port.out.RestaurantReportProvider
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -50,6 +51,17 @@ class PublicRestaurantDetailServiceTest {
             .isInstanceOf(ResourceNotFoundException::class.java)
         assertThat(reports.brandIds).isEmpty()
         assertThat(reports.locationIds).isEmpty()
+    }
+
+    @Test
+    fun `closed restaurant detail remains readable with closed status`() {
+        val closed = detail(restaurantId = 30L).copy(status = RestaurantStatus.CLOSED)
+        val service = PublicRestaurantDetailService(
+            RecordingDetailQuery(requestedId = 30L, result = closed),
+            RecordingReportProvider(),
+        )
+
+        assertThat(service.get(30L).status).isEqualTo(RestaurantStatus.CLOSED)
     }
 
     private fun detail(restaurantId: Long) = StoredRestaurantDetail(

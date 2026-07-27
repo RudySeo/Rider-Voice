@@ -1,6 +1,7 @@
 package com.ridervoice.api.restaurant.application.model
 
 import java.math.BigDecimal
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
 
 enum class ExternalSearchStatus {
     AVAILABLE,
@@ -61,6 +62,7 @@ data class StoredRestaurantDetail(
     val detailAddress: String?,
     val latitude: BigDecimal,
     val longitude: BigDecimal,
+    val status: RestaurantStatus = RestaurantStatus.ACTIVE,
 )
 
 data class PublicRestaurantPickupLocationResult(
@@ -104,6 +106,7 @@ data class RestaurantPickupLocationReportResult(
 data class PublicRestaurantDetailResult(
     val restaurantId: Long,
     val name: String,
+    val status: RestaurantStatus = RestaurantStatus.ACTIVE,
     val pickupLocation: PublicRestaurantPickupLocationResult,
     val brandReport: RestaurantBrandReportResult,
     val pickupLocationReport: RestaurantPickupLocationReportResult,

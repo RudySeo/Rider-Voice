@@ -75,6 +75,7 @@ interface ReviewReportRepository {
     fun findPending(cursor: ModerationCursor?, limit: Int): List<StoredReviewReport>
     fun findPendingForUpdate(reportId: Long): StoredReviewReport?
     fun findForUpdate(reportId: Long): StoredReviewReport?
+    fun findOtherPendingForUpdate(reviewId: Long, excludedReportId: Long): List<StoredReviewReport> = emptyList()
     fun saveDecision(command: ReviewReportDecisionPersistenceCommand): StoredReviewReport
 }
 
@@ -122,6 +123,7 @@ interface RestaurantInfoReportRepository {
     fun findPending(cursor: ModerationCursor?, limit: Int): List<StoredRestaurantInfoReport>
     fun findPendingForUpdate(reportId: Long): StoredRestaurantInfoReport?
     fun findForUpdate(reportId: Long): StoredRestaurantInfoReport?
+    fun findOtherPendingForUpdate(restaurantId: Long, excludedReportId: Long): List<StoredRestaurantInfoReport> = emptyList()
     fun saveDecision(command: RestaurantInfoReportDecisionPersistenceCommand): StoredRestaurantInfoReport
 }
 

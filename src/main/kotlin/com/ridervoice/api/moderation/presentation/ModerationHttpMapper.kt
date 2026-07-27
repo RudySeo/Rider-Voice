@@ -16,6 +16,11 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCom
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
+import com.ridervoice.api.moderation.application.port.`in`.RelinkExistingPickupCorrection
+import com.ridervoice.api.moderation.application.port.`in`.RelinkVerifiedAddressCorrection
+import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCorrection
+import com.ridervoice.api.moderation.application.port.`in`.CloseRestaurantCorrection
 import com.ridervoice.api.moderation.presentation.dto.CommentDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
@@ -31,6 +36,7 @@ import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportRespon
 import com.ridervoice.api.moderation.presentation.dto.ReviewCommentDecisionResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportResponse
+import com.ridervoice.api.moderation.presentation.dto.*
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -92,7 +98,25 @@ class ModerationHttpMapper {
         adminUserId: Long,
         reportId: Long,
         request: RestaurantInfoReportDecisionRequest,
-    ) = DecideRestaurantInfoReportCommand(adminUserId, reportId, requireNotNull(request.decision), request.reason)
+    ) = DecideRestaurantInfoReportCommand(
+        adminUserId,
+        reportId,
+        requireNotNull(request.decision),
+        request.reason,
+        request.correction?.let {
+            when (it) {
+                is RenameRestaurantCorrectionRequest -> RenameRestaurantCorrection(it.name)
+                is RelinkExistingPickupCorrectionRequest -> RelinkExistingPickupCorrection(it.pickupLocationId)
+                is RelinkVerifiedAddressCorrectionRequest -> RelinkVerifiedAddressCorrection(
+                    it.addressQuery,
+                    it.selectedStandardAddress,
+                    it.detailAddress,
+                )
+                is MergeRestaurantCorrectionRequest -> MergeRestaurantCorrection(it.canonicalRestaurantId)
+                is CloseRestaurantCorrectionRequest -> CloseRestaurantCorrection
+            }
+        },
+    )
 
     fun toResponse(result: ReviewReportResult) = ReviewReportResponse(
         result.reportId,

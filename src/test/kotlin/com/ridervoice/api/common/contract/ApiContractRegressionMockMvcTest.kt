@@ -12,17 +12,26 @@ import com.ridervoice.api.common.security.SecurityConfig
 import com.ridervoice.api.common.security.SecurityProblemHandler
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
+import com.ridervoice.api.moderation.application.port.`in`.ListModerationAuditsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.GetAdminRestaurantDetailUseCase
+import com.ridervoice.api.moderation.application.port.`in`.GetAdminReviewDetailUseCase
+import com.ridervoice.api.moderation.application.port.`in`.SearchAdminRestaurantsUseCase
+import com.ridervoice.api.moderation.presentation.AdminInvestigationController
 import com.ridervoice.api.moderation.presentation.AdminModerationController
 import com.ridervoice.api.moderation.presentation.AdminRestaurantController
 import com.ridervoice.api.moderation.presentation.ModerationHttpMapper
+import com.ridervoice.api.moderation.presentation.ModerationInvestigationHttpMapper
 import com.ridervoice.api.moderation.presentation.ModerationReportController
 import com.ridervoice.api.moderation.presentation.RestaurantAdministrationHttpMapper
 import com.ridervoice.api.restaurant.application.PublicRestaurantDetailService
@@ -91,6 +100,7 @@ import java.time.Instant
         ModerationReportController::class,
         AdminModerationController::class,
         AdminRestaurantController::class,
+        AdminInvestigationController::class,
     ],
 )
 @Import(
@@ -102,6 +112,7 @@ import java.time.Instant
     RestaurantDetailHttpMapper::class,
     ReviewHttpMapper::class,
     ModerationHttpMapper::class,
+    ModerationInvestigationHttpMapper::class,
     RestaurantAdministrationHttpMapper::class,
     SecurityConfig::class,
     OpaqueAccessTokenAuthenticationFilter::class,
@@ -144,6 +155,13 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var decideRestaurantReport: DecideRestaurantInfoReportUseCase
     @MockitoBean private lateinit var mergeRestaurant: MergeRestaurantUseCase
     @MockitoBean private lateinit var relinkRestaurant: RelinkRestaurantPickupLocationUseCase
+    @MockitoBean private lateinit var renameRestaurant: RenameRestaurantUseCase
+    @MockitoBean private lateinit var changeRestaurantStatus: ChangeRestaurantStatusUseCase
+    @MockitoBean private lateinit var relinkVerifiedAddress: RelinkRestaurantVerifiedAddressUseCase
+    @MockitoBean private lateinit var getAdminReviewDetail: GetAdminReviewDetailUseCase
+    @MockitoBean private lateinit var searchAdminRestaurants: SearchAdminRestaurantsUseCase
+    @MockitoBean private lateinit var getAdminRestaurantDetail: GetAdminRestaurantDetailUseCase
+    @MockitoBean private lateinit var listModerationAudits: ListModerationAuditsUseCase
 
     @Test
     fun `generated OpenAPI exposes the complete MVP path and authentication contract`() {
@@ -184,10 +202,13 @@ class ApiContractRegressionMockMvcTest {
         RESPONSE_REFS.forEach { (operation, response) ->
             val (path, method) = operation
             val (status, schemaName) = response
-            assertThat(
-                document.at("/paths/${pointer(path)}/$method/responses/$status/content/application~1json/schema/\u0024ref")
-                    .stringValue(),
-            ).isEqualTo("#/components/schemas/$schemaName")
+            val reference = document.at(
+                "/paths/${pointer(path)}/$method/responses/$status/content/application~1json/schema/\u0024ref",
+            )
+            assertThat(reference.isMissingNode)
+                .describedAs("$method $path response $status schema reference")
+                .isFalse()
+            assertThat(reference.stringValue()).isEqualTo("#/components/schemas/$schemaName")
         }
     }
 
@@ -228,6 +249,21 @@ class ApiContractRegressionMockMvcTest {
         assertThat(requiredProperties(schemas.required("ExistingRestaurantTargetRequest"))).contains("restaurantId")
         assertThat(requiredProperties(schemas.required("ManualExistingLocationRestaurantTargetRequest")))
             .contains("pickupLocationId", "name", "platforms")
+        val correction = schemas.required("RestaurantInfoCorrectionRequest")
+        assertThat(correction.at("/discriminator/propertyName").stringValue()).isEqualTo("type")
+        assertThat(correction.required("oneOf").size()).isEqualTo(5)
+        assertThat(
+            correction.at("/discriminator/mapping").properties().asSequence()
+                .associate { it.key to it.value.stringValue() },
+        ).containsExactlyInAnyOrderEntriesOf(CORRECTION_MAPPINGS)
+        assertThat(requiredProperties(correction)).contains("type")
+        assertThat(requiredProperties(schemas.required("RenameRestaurantCorrectionRequest"))).contains("name")
+        assertThat(requiredProperties(schemas.required("RelinkExistingPickupCorrectionRequest")))
+            .contains("pickupLocationId")
+        assertThat(requiredProperties(schemas.required("RelinkVerifiedAddressCorrectionRequest")))
+            .contains("addressQuery", "selectedStandardAddress")
+        assertThat(requiredProperties(schemas.required("MergeRestaurantCorrectionRequest")))
+            .contains("canonicalRestaurantId")
         assertThat(propertySchema(schemas, "CreateReviewRequest", "comment").required("maxLength").intValue())
             .isEqualTo(200)
 
@@ -432,6 +468,13 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/admin/restaurant-reports/{reportId}",
             "/api/v1/admin/restaurants/{restaurantId}/merge",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location",
+            "/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address",
+            "/api/v1/admin/restaurants/{restaurantId}/name",
+            "/api/v1/admin/restaurants/{restaurantId}/status",
+            "/api/v1/admin/reviews/{reviewId}",
+            "/api/v1/admin/restaurants/search",
+            "/api/v1/admin/restaurants/{restaurantId}",
+            "/api/v1/admin/moderation-audits",
         )
 
         val PUBLIC_OPERATIONS = setOf(
@@ -461,6 +504,13 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/admin/restaurant-reports/{reportId}" to "patch",
             "/api/v1/admin/restaurants/{restaurantId}/merge" to "post",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch",
+            "/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch",
+            "/api/v1/admin/restaurants/{restaurantId}/name" to "patch",
+            "/api/v1/admin/restaurants/{restaurantId}/status" to "patch",
+            "/api/v1/admin/reviews/{reviewId}" to "get",
+            "/api/v1/admin/restaurants/search" to "get",
+            "/api/v1/admin/restaurants/{restaurantId}" to "get",
+            "/api/v1/admin/moderation-audits" to "get",
         )
 
         val REQUEST_REFS = mapOf(
@@ -477,6 +527,10 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/admin/restaurants/{restaurantId}/merge" to "post") to "MergeRestaurantRequest",
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch") to
                 "RelinkRestaurantPickupLocationRequest",
+            ("/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch") to
+                "RelinkRestaurantVerifiedAddressRequest",
+            ("/api/v1/admin/restaurants/{restaurantId}/name" to "patch") to "RenameRestaurantRequest",
+            ("/api/v1/admin/restaurants/{restaurantId}/status" to "patch") to "ChangeRestaurantStatusRequest",
         )
 
         val RESPONSE_REFS = mapOf(
@@ -503,6 +557,18 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/admin/restaurants/{restaurantId}/merge" to "post") to ("200" to "RestaurantMergeResponse"),
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch") to
                 ("200" to "RestaurantPickupRelinkResponse"),
+            ("/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch") to
+                ("200" to "RestaurantPickupRelinkResponse"),
+            ("/api/v1/admin/restaurants/{restaurantId}/name" to "patch") to
+                ("200" to "RestaurantRenameResponse"),
+            ("/api/v1/admin/restaurants/{restaurantId}/status" to "patch") to
+                ("200" to "RestaurantStatusChangeResponse"),
+            ("/api/v1/admin/reviews/{reviewId}" to "get") to ("200" to "AdminReviewDetailResponse"),
+            ("/api/v1/admin/restaurants/search" to "get") to
+                ("200" to "AdminRestaurantSearchPageResponse"),
+            ("/api/v1/admin/restaurants/{restaurantId}" to "get") to
+                ("200" to "AdminRestaurantDetailResponse"),
+            ("/api/v1/admin/moderation-audits" to "get") to ("200" to "ModerationAuditPageResponse"),
         )
 
         val EXPECTED_SCHEMA_NAMES = setOf(
@@ -519,11 +585,19 @@ class ApiContractRegressionMockMvcTest {
             "PublicReviewListResponse", "PublicReviewListItemResponse", "PublicReviewAuthorActivityResponse",
             "DeleteReviewResponse", "CreateReviewReportRequest", "CreateRestaurantInfoReportRequest",
             "CommentDecisionRequest", "ReviewReportDecisionRequest", "RestaurantInfoReportDecisionRequest",
+            "RestaurantInfoCorrectionRequest", "RenameRestaurantCorrectionRequest",
+            "RelinkExistingPickupCorrectionRequest", "RelinkVerifiedAddressCorrectionRequest",
+            "MergeRestaurantCorrectionRequest", "CloseRestaurantCorrectionRequest",
             "MergeRestaurantRequest", "RelinkRestaurantPickupLocationRequest", "ReviewReportResponse",
+            "RenameRestaurantRequest", "ChangeRestaurantStatusRequest", "RelinkRestaurantVerifiedAddressRequest",
             "RestaurantInfoReportResponse", "PendingReviewCommentResponse", "PendingReviewCommentPageResponse",
             "ReviewCommentDecisionResponse", "PendingReviewReportResponse", "PendingReviewReportPageResponse",
             "PendingRestaurantInfoReportResponse", "PendingRestaurantInfoReportPageResponse",
-            "RestaurantMergeResponse", "RestaurantPickupRelinkResponse",
+            "RestaurantMergeResponse", "RestaurantPickupRelinkResponse", "RestaurantRenameResponse",
+            "RestaurantStatusChangeResponse", "AdminReviewDetailResponse", "AdminReviewAuthorResponse",
+            "AdminReviewRestaurantResponse", "AdminReviewRatingsResponse", "AdminRestaurantSearchPageResponse",
+            "AdminRestaurantSearchItemResponse", "AdminRestaurantDetailResponse", "AdminPickupLocationResponse",
+            "AdminExternalReferenceResponse", "ModerationAuditPageResponse", "ModerationAuditResponse",
         )
 
         val ENUM_PROPERTIES = mapOf(
@@ -555,6 +629,10 @@ class ApiContractRegressionMockMvcTest {
             ("CommentDecisionRequest" to "decision") to setOf("APPROVE", "REJECT"),
             ("ReviewReportDecisionRequest" to "decision") to setOf("DISMISS", "HIDE_COMMENT", "EXCLUDE_REVIEW"),
             ("RestaurantInfoReportDecisionRequest" to "decision") to setOf("DISMISS", "RESOLVE"),
+            ("RestaurantInfoCorrectionRequest" to "type") to setOf(
+                "RENAME", "RELINK_EXISTING_PICKUP", "RELINK_VERIFIED_ADDRESS", "MERGE", "CLOSE",
+            ),
+            ("ChangeRestaurantStatusRequest" to "action") to setOf("CLOSE", "REOPEN"),
             ("ReviewReportResponse" to "reason") to setOf(
                 "PERSONAL_INFORMATION", "ABUSIVE_CONTENT", "IRRELEVANT_CONTENT", "FALSE_INFORMATION", "SPAM", "OTHER",
             ),
@@ -571,7 +649,11 @@ class ApiContractRegressionMockMvcTest {
                 setOf("INCORRECT_NAME", "INCORRECT_PICKUP_LOCATION", "DUPLICATE", "CLOSED", "OTHER"),
             ("ReviewCommentDecisionResponse" to "commentModerationStatus") to
                 setOf("NONE", "PENDING", "PUBLISHED", "REJECTED", "HIDDEN_REPORTED"),
-            ("RestaurantMergeResponse" to "status") to setOf("ACTIVE", "MERGED"),
+            ("RestaurantMergeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
+            ("RestaurantStatusChangeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
+            ("RestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
+            ("AdminRestaurantSearchItemResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
+            ("AdminRestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
         )
 
         val NULLABLE_PROPERTIES = setOf(
@@ -586,12 +668,23 @@ class ApiContractRegressionMockMvcTest {
             "PublicReviewListResponse" to "nextCursor", "PublicReviewListItemResponse" to "comment",
             "CreateReviewReportRequest" to "details", "CreateRestaurantInfoReportRequest" to "details",
             "ReviewReportDecisionRequest" to "reason", "RestaurantInfoReportDecisionRequest" to "reason",
+            "RestaurantInfoReportDecisionRequest" to "correction",
+            "RelinkVerifiedAddressCorrectionRequest" to "detailAddress",
             "MergeRestaurantRequest" to "reason", "RelinkRestaurantPickupLocationRequest" to "reason",
+            "RenameRestaurantRequest" to "reason", "ChangeRestaurantStatusRequest" to "reason",
+            "RelinkRestaurantVerifiedAddressRequest" to "detailAddress",
+            "RelinkRestaurantVerifiedAddressRequest" to "reason",
             "ReviewReportResponse" to "decision", "ReviewReportResponse" to "decidedAt",
             "RestaurantInfoReportResponse" to "decision", "RestaurantInfoReportResponse" to "decidedAt",
             "PendingReviewCommentPageResponse" to "nextCursor", "PendingReviewReportResponse" to "details",
             "PendingReviewReportPageResponse" to "nextCursor", "PendingRestaurantInfoReportResponse" to "details",
             "PendingRestaurantInfoReportPageResponse" to "nextCursor",
+            "AdminRestaurantSearchPageResponse" to "nextCursor",
+            "AdminRestaurantSearchItemResponse" to "canonicalRestaurantId",
+            "AdminRestaurantSearchItemResponse" to "detailAddress",
+            "AdminRestaurantDetailResponse" to "canonicalRestaurantId",
+            "AdminPickupLocationResponse" to "detailAddress",
+            "ModerationAuditPageResponse" to "nextCursor", "ModerationAuditResponse" to "reason",
         )
 
         val NON_NULL_PROPERTIES = setOf(
@@ -613,6 +706,9 @@ class ApiContractRegressionMockMvcTest {
             "RestaurantInfoReportDecisionRequest" to "decision",
             "MergeRestaurantRequest" to "canonicalRestaurantId",
             "RelinkRestaurantPickupLocationRequest" to "pickupLocationId",
+            "RenameRestaurantRequest" to "name", "ChangeRestaurantStatusRequest" to "action",
+            "RelinkRestaurantVerifiedAddressRequest" to "addressQuery",
+            "RelinkRestaurantVerifiedAddressRequest" to "selectedStandardAddress",
         )
 
         val NULLABLE_REFERENCE_PROPERTIES = mapOf(
@@ -628,17 +724,28 @@ class ApiContractRegressionMockMvcTest {
             "MANUAL_ADDRESS" to "#/components/schemas/ManualAddressRestaurantTargetRequest",
         )
 
+        val CORRECTION_MAPPINGS = mapOf(
+            "RENAME" to "#/components/schemas/RenameRestaurantCorrectionRequest",
+            "RELINK_EXISTING_PICKUP" to "#/components/schemas/RelinkExistingPickupCorrectionRequest",
+            "RELINK_VERIFIED_ADDRESS" to "#/components/schemas/RelinkVerifiedAddressCorrectionRequest",
+            "MERGE" to "#/components/schemas/MergeRestaurantCorrectionRequest",
+            "CLOSE" to "#/components/schemas/CloseRestaurantCorrectionRequest",
+        )
+
         val CURSOR_OPERATIONS = setOf(
             "/api/v1/restaurants/{restaurantId}/reviews" to "get",
             "/api/v1/users/me/reviews" to "get",
             "/api/v1/admin/review-comments" to "get",
             "/api/v1/admin/review-reports" to "get",
             "/api/v1/admin/restaurant-reports" to "get",
+            "/api/v1/admin/restaurants/search" to "get",
+            "/api/v1/admin/moderation-audits" to "get",
         )
 
         val SEARCH_OPERATIONS = setOf(
             "/api/v1/restaurants/search" to "get",
             "/api/v1/addresses/search" to "get",
+            "/api/v1/admin/restaurants/search" to "get",
         )
 
         val HTTP_METHODS = setOf("get", "post", "put", "patch", "delete", "options", "head", "trace")

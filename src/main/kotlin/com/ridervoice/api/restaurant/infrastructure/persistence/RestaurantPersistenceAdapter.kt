@@ -58,8 +58,23 @@ internal class RestaurantPersistenceAdapter(
     }
 
     override fun findCanonicalDetail(restaurantId: Long): StoredRestaurantDetail? {
-        val canonicalId = findCanonicalId(restaurantId) ?: return null
-        return restaurants.findDetailById(canonicalId, RestaurantStatus.ACTIVE).orElse(null)
+        val canonicalId = findReadableCanonicalId(restaurantId) ?: return null
+        return restaurants.findDetailById(
+            canonicalId,
+            setOf(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED),
+        ).orElse(null)
+    }
+
+    private fun findReadableCanonicalId(restaurantId: Long): Long? {
+        val visitedIds = mutableSetOf<Long>()
+        var currentId = restaurantId
+        while (visitedIds.add(currentId)) {
+            val targetId = restaurants.findReadableCanonicalTargetIdById(currentId, RestaurantStatus.MERGED)
+                .orElse(null) ?: return null
+            if (targetId == currentId) return currentId
+            currentId = targetId
+        }
+        return null
     }
 
     private fun findCanonicalId(restaurantId: Long): Long? {

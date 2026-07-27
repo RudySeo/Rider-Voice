@@ -2,7 +2,10 @@ package com.ridervoice.api.moderation.application
 
 import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusCommand
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
+import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
 import com.ridervoice.api.moderation.application.port.out.MergedAuthorReviewState
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
@@ -11,6 +14,9 @@ import com.ridervoice.api.moderation.application.port.out.ModerationAuditReposit
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
 import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantRenamePersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.RestaurantStatusPersistenceCommand
+import com.ridervoice.api.moderation.application.port.out.VerifiedPickupLocationPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
 import com.ridervoice.api.moderation.application.port.out.StoredModerationAudit
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
@@ -115,6 +121,67 @@ class RestaurantAdministrationServiceTest {
     }
 
     @Test
+    fun `validated address creates or reuses a pickup location before atomic relink`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID)),
+            pickupLocationIds = setOf(CANONICAL_PICKUP_ID),
+        )
+        val service = service(repository, FakeAuditRepository())
+
+        val result = service.relinkValidatedPickupLocation(
+            RelinkValidatedRestaurantPickupLocationCommand(
+                ADMIN_ID,
+                DUPLICATE_ID,
+                "서울 강남구 새 주소 1",
+                "지하 1층",
+                java.math.BigDecimal("37.5"),
+                java.math.BigDecimal("127.0"),
+                "주소 정정",
+            ),
+        )
+
+        assertThat(repository.verifiedLocationCommand!!.standardAddress).isEqualTo("서울 강남구 새 주소 1")
+        assertThat(result.pickupLocationId).isEqualTo(CANONICAL_PICKUP_ID)
+    }
+
+    @Test
+    fun `rename normalizes the new name and audits the change`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID)),
+        )
+        val audits = FakeAuditRepository()
+        val service = service(repository, audits)
+
+        val result = service.rename(RenameRestaurantCommand(ADMIN_ID, DUPLICATE_ID, "  새 브랜드  ", "상호 정정"))
+
+        assertThat(result.name).isEqualTo("새 브랜드")
+        assertThat(repository.renameCommand).isEqualTo(
+            RestaurantRenamePersistenceCommand(DUPLICATE_ID, "새 브랜드"),
+        )
+        assertThat(audits.commands.single().action).isEqualTo(ModerationAuditAction.RESTAURANT_RENAMED)
+    }
+
+    @Test
+    fun `close and reopen preserve identity and audit each status transition`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID)),
+        )
+        val audits = FakeAuditRepository()
+        val service = service(repository, audits)
+
+        assertThat(
+            service.changeStatus(ChangeRestaurantStatusCommand.close(ADMIN_ID, DUPLICATE_ID, "폐업 확인")).status,
+        ).isEqualTo(RestaurantStatus.CLOSED)
+        assertThat(
+            service.changeStatus(ChangeRestaurantStatusCommand.reopen(ADMIN_ID, DUPLICATE_ID, "영업 재개")).status,
+        ).isEqualTo(RestaurantStatus.ACTIVE)
+        assertThat(audits.commands.map { it.action }).containsExactly(
+            ModerationAuditAction.RESTAURANT_CLOSED,
+            ModerationAuditAction.RESTAURANT_REOPENED,
+        )
+    }
+
+    @Test
     fun `service is transactional`() {
         assertThat(
             RestaurantAdministrationService::class.java.getMethod(
@@ -171,6 +238,8 @@ class RestaurantAdministrationServiceTest {
     ) : RestaurantAdministrationRepository {
         var mergeCommand: RestaurantMergePersistenceCommand? = null
         var relinkCommand: RestaurantPickupRelinkPersistenceCommand? = null
+        var renameCommand: RestaurantRenamePersistenceCommand? = null
+        var verifiedLocationCommand: VerifiedPickupLocationPersistenceCommand? = null
 
         override fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant> =
             restaurantIds.mapNotNull(restaurants::get)
@@ -205,6 +274,27 @@ class RestaurantAdministrationServiceTest {
             )
             restaurants[relinked.restaurantId] = relinked
             return relinked
+        }
+
+        override fun rename(command: RestaurantRenamePersistenceCommand): StoredAdminRestaurant {
+            renameCommand = command
+            val renamed = restaurants.getValue(command.restaurantId).copy(
+                brandName = command.name,
+                normalizedName = command.name.lowercase(),
+            )
+            restaurants[renamed.restaurantId] = renamed
+            return renamed
+        }
+
+        override fun changeStatus(command: RestaurantStatusPersistenceCommand): StoredAdminRestaurant {
+            val changed = restaurants.getValue(command.restaurantId).copy(status = command.status)
+            restaurants[changed.restaurantId] = changed
+            return changed
+        }
+
+        override fun findOrCreateVerifiedPickupLocation(command: VerifiedPickupLocationPersistenceCommand): Long {
+            verifiedLocationCommand = command
+            return CANONICAL_PICKUP_ID
         }
     }
 

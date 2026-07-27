@@ -3,11 +3,13 @@ package com.ridervoice.api.restaurant.presentation.dto
 import com.ridervoice.api.restaurant.application.model.AggregationStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
+import com.ridervoice.api.restaurant.domain.RestaurantStatus
 
 data class RestaurantDetailResponse(
     @field:Schema(format = "int64")
     val restaurantId: Long,
     val name: String,
+    val status: RestaurantStatus,
     val pickupLocation: RestaurantPickupLocationResponse,
     val brandReport: RestaurantBrandReportResponse,
     val pickupLocationReport: RestaurantPickupLocationReportResponse,

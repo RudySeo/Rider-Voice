@@ -15,3 +15,15 @@ data class RestaurantPickupRelinkResult(
     val pickupLocationId: Long,
     val completedAt: Instant,
 )
+
+data class RestaurantRenameResult(
+    val restaurantId: Long,
+    val name: String,
+    val completedAt: Instant,
+)
+
+data class RestaurantStatusChangeResult(
+    val restaurantId: Long,
+    val status: RestaurantStatus,
+    val completedAt: Instant,
+)

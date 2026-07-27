@@ -1,7 +1,6 @@
 package com.ridervoice.api.review.application
 
-import com.ridervoice.api.restaurant.application.port.`in`.ResolvedRestaurantTargetResult
-import com.ridervoice.api.restaurant.application.port.`in`.ResolveRestaurantTargetUseCase
+import com.ridervoice.api.restaurant.application.port.`in`.ResolveReadableRestaurantUseCase
 import com.ridervoice.api.review.application.model.PublicAuthorActivityInput
 import com.ridervoice.api.review.application.model.PublicReviewListItemInput
 import com.ridervoice.api.review.application.model.ReviewCursor
@@ -27,7 +26,7 @@ class PublicReviewListServiceTest {
         val query = FakePublicReviewQuery(listOf(first, history, extra))
         val service = PublicReviewListService(
             reviews = query,
-            resolveRestaurant = ResolveRestaurantTargetUseCase { ResolvedRestaurantTargetResult(20L) },
+            resolveRestaurant = ResolveReadableRestaurantUseCase { 20L },
             clock = Clock.fixed(Instant.parse("2026-07-26T03:00:00Z"), ZoneOffset.UTC),
         )
 
@@ -71,7 +70,7 @@ class PublicReviewListServiceTest {
         )
         val service = PublicReviewListService(
             reviews = query,
-            resolveRestaurant = ResolveRestaurantTargetUseCase { ResolvedRestaurantTargetResult(10L) },
+            resolveRestaurant = ResolveReadableRestaurantUseCase { 10L },
             clock = Clock.fixed(Instant.parse("2026-07-26T03:00:00Z"), ZoneOffset.UTC),
         )
 

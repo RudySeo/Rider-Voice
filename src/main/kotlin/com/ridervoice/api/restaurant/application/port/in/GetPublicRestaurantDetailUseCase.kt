@@ -5,3 +5,7 @@ import com.ridervoice.api.restaurant.application.model.PublicRestaurantDetailRes
 fun interface GetPublicRestaurantDetailUseCase {
     fun get(restaurantId: Long): PublicRestaurantDetailResult
 }
+
+fun interface ResolveReadableRestaurantUseCase {
+    fun resolve(restaurantId: Long): Long
+}

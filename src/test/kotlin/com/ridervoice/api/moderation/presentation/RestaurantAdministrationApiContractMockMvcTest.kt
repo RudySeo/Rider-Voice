@@ -9,10 +9,18 @@ import com.ridervoice.api.common.security.SecurityConfig
 import com.ridervoice.api.common.security.SecurityProblemHandler
 import com.ridervoice.api.moderation.application.model.RestaurantMergeResult
 import com.ridervoice.api.moderation.application.model.RestaurantPickupRelinkResult
+import com.ridervoice.api.moderation.application.model.RestaurantRenameResult
+import com.ridervoice.api.moderation.application.model.RestaurantStatusChangeResult
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusCommand
+import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCommand
+import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressCommand
+import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.`when`
@@ -65,6 +73,9 @@ class RestaurantAdministrationApiContractMockMvcTest {
     @Autowired private lateinit var mockMvc: MockMvc
     @MockitoBean private lateinit var mergeRestaurant: MergeRestaurantUseCase
     @MockitoBean private lateinit var relinkRestaurant: RelinkRestaurantPickupLocationUseCase
+    @MockitoBean private lateinit var renameRestaurant: RenameRestaurantUseCase
+    @MockitoBean private lateinit var changeRestaurantStatus: ChangeRestaurantStatusUseCase
+    @MockitoBean private lateinit var relinkVerifiedAddress: RelinkRestaurantVerifiedAddressUseCase
 
     @Test
     fun `restaurant administration endpoints require ADMIN`() {
@@ -112,6 +123,55 @@ class RestaurantAdministrationApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.restaurantId") { value(20) }
             jsonPath("$.pickupLocationId") { value(200) }
+        }
+    }
+
+    @Test
+    fun `ADMIN renames closes and reopens a restaurant`() {
+        `when`(
+            renameRestaurant.rename(RenameRestaurantCommand(ADMIN_ID, 20L, "새 브랜드", "상호 정정")),
+        ).thenReturn(RestaurantRenameResult(20L, "새 브랜드", NOW))
+        `when`(
+            changeRestaurantStatus.changeStatus(ChangeRestaurantStatusCommand.close(ADMIN_ID, 20L, "폐업")),
+        ).thenReturn(RestaurantStatusChangeResult(20L, RestaurantStatus.CLOSED, NOW))
+
+        mockMvc.patch("/api/v1/admin/restaurants/20/name") {
+            with(adminAuthentication())
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"name":"새 브랜드","reason":"상호 정정"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.restaurantId") { value(20) }
+            jsonPath("$.name") { value("새 브랜드") }
+        }
+
+        mockMvc.patch("/api/v1/admin/restaurants/20/status") {
+            with(adminAuthentication())
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"action":"CLOSE","reason":"폐업"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("CLOSED") }
+        }
+    }
+
+    @Test
+    fun `ADMIN relinks to a server-verified new address`() {
+        `when`(
+            relinkVerifiedAddress.relinkVerifiedAddress(
+                RelinkRestaurantVerifiedAddressCommand(
+                    ADMIN_ID, 20L, "서울 강남구 새 주소", "서울 강남구 새 주소 1", "지하 1층", "주소 정정",
+                ),
+            ),
+        ).thenReturn(RestaurantPickupRelinkResult(20L, 300L, NOW))
+
+        mockMvc.patch("/api/v1/admin/restaurants/20/pickup-location/verified-address") {
+            with(adminAuthentication())
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"addressQuery":"서울 강남구 새 주소","selectedStandardAddress":"서울 강남구 새 주소 1","detailAddress":"지하 1층","reason":"주소 정정"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.pickupLocationId") { value(300) }
         }
     }
 

@@ -3,10 +3,12 @@ package com.ridervoice.api.restaurant.domain
 enum class PickupLocationSource {
     KAKAO,
     MANUAL_ADDRESS,
+    ADMIN_CORRECTION,
 }
 
 enum class RestaurantStatus {
     ACTIVE,
+    CLOSED,
     MERGED,
 }
 

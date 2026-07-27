@@ -70,8 +70,8 @@ object ModerationTransitionPolicy {
             )
 
             ReviewReportDecision.HIDE_COMMENT -> {
-                check(commentStatus == ReviewCommentStatus.HIDDEN_REPORTED) {
-                    "Only a comment hidden by a report can be permanently hidden"
+                check(commentStatus in setOf(ReviewCommentStatus.HIDDEN_REPORTED, ReviewCommentStatus.REJECTED)) {
+                    "Only a report-hidden or already rejected comment can be permanently hidden"
                 }
                 ReviewReportTransition(
                     reportStatus = ReportStatus.RESOLVED,
@@ -124,5 +124,8 @@ object ModerationAuditPolicy {
     fun actionFor(action: RestaurantAdminAction): ModerationAuditAction = when (action) {
         RestaurantAdminAction.MERGE_DUPLICATE -> ModerationAuditAction.DUPLICATE_RESTAURANT_MERGED
         RestaurantAdminAction.RELINK_PICKUP_LOCATION -> ModerationAuditAction.RESTAURANT_PICKUP_RELINKED
+        RestaurantAdminAction.RENAME -> ModerationAuditAction.RESTAURANT_RENAMED
+        RestaurantAdminAction.CLOSE -> ModerationAuditAction.RESTAURANT_CLOSED
+        RestaurantAdminAction.REOPEN -> ModerationAuditAction.RESTAURANT_REOPENED
     }
 }

@@ -1,7 +1,6 @@
 package com.ridervoice.api.review.application
 
-import com.ridervoice.api.restaurant.application.port.`in`.ExistingRestaurantTargetCommand
-import com.ridervoice.api.restaurant.application.port.`in`.ResolveRestaurantTargetUseCase
+import com.ridervoice.api.restaurant.application.port.`in`.ResolveReadableRestaurantUseCase
 import com.ridervoice.api.review.application.model.PublicAuthorActivityInput
 import com.ridervoice.api.review.application.model.PublicReviewAuthorActivityResult
 import com.ridervoice.api.review.application.model.PublicReviewListItemInput
@@ -22,15 +21,13 @@ import java.time.temporal.ChronoUnit
 @Service
 internal class PublicReviewListService(
     private val reviews: PublicReviewQuery,
-    private val resolveRestaurant: ResolveRestaurantTargetUseCase,
+    private val resolveRestaurant: ResolveReadableRestaurantUseCase,
     private val clock: Clock,
 ) : ListPublicRestaurantReviewsUseCase {
 
     @Transactional(readOnly = true)
     override fun list(command: ListPublicRestaurantReviewsCommand): PublicReviewListResult {
-        val canonicalRestaurantId = resolveRestaurant.resolve(
-            ExistingRestaurantTargetCommand(command.restaurantId),
-        ).restaurantId
+        val canonicalRestaurantId = resolveRestaurant.resolve(command.restaurantId)
         val page = reviews.findActiveByRestaurantId(
             restaurantId = canonicalRestaurantId,
             cursor = command.cursor,
