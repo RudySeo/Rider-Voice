@@ -2,11 +2,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ComponentProps } from 'react'
 import { RouterProvider } from 'react-router-dom'
 
+import {
+  apiSession,
+  AuthProvider,
+  type AuthSession,
+} from '@/features/auth/AuthFlow'
+
 type AppProps = {
   router: ComponentProps<typeof RouterProvider>['router']
+  session?: AuthSession
 }
 
-export function App({ router }: AppProps) {
+export function App({ router, session = apiSession }: AppProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -20,7 +27,9 @@ export function App({ router }: AppProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthProvider session={session}>
+        <RouterProvider router={router} />
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

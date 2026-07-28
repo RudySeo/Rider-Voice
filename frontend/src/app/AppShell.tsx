@@ -1,5 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 
+import { AuthNavigation } from '@/features/auth/AuthFlow'
+
 import styles from './AppShell.module.css'
 
 export function AppShell() {
@@ -32,6 +34,7 @@ export function AppShell() {
             >
               홈
             </NavLink>
+            <AuthNavigation />
           </nav>
         </div>
       </header>

@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "auth-user-flow",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-29T00:44:24+0900",
+      "summary": "OAuth callback·약관 동의·보호 경로 auth routes와 상태별 header/logout UI를 구현하고 안전한 내부 복귀 경로 및 mock API Testing Library 회귀 테스트를 추가했다."
     },
     {
       "step": 5,

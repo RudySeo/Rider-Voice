@@ -1,5 +1,10 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 
+import {
+  Consent,
+  LoginPageContent,
+  OAuthCallback,
+} from '@/features/auth/AuthFlow'
 import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -13,6 +18,18 @@ export const appRoutes: RouteObject[] = [
       {
         index: true,
         element: <HomePage />,
+      },
+      {
+        path: 'login',
+        element: <LoginPageContent />,
+      },
+      {
+        path: 'auth/callback',
+        element: <OAuthCallback />,
+      },
+      {
+        path: 'consent',
+        element: <Consent />,
       },
       {
         path: '*',
