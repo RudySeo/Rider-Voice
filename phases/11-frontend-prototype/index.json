@@ -7,7 +7,8 @@
       "name": "docs-client-contract",
       "status": "completed",
       "started_at": "2026-07-29T00:11:25+0900",
-      "summary": "README와 PRD·ARCHITECTURE·ADR·API_SPEC에 로컬 React frontend 범위와 60초 단일 사용 OAuth 교환 코드 계약을 기록했다."
+      "summary": "README와 PRD·ARCHITECTURE·ADR·API_SPEC에 로컬 React frontend 범위와 60초 단일 사용 OAuth 교환 코드 계약을 기록했다.",
+      "completed_at": "2026-07-29T00:14:58+0900"
     },
     {
       "step": 1,
