@@ -1,6 +1,6 @@
 # Rider Voice
 
-Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 API 서버입니다. 완성된 Spring Boot 서버 위에 주요 사용자 흐름을 검증하는 로컬 `/frontend` React SPA prototype을 추가할 예정입니다.
+Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 API 서버입니다. 완성된 Spring Boot 서버와 주요 사용자 흐름을 검증하는 로컬 `/frontend` React SPA prototype을 함께 제공합니다.
 
 초기 리뷰는 라이더 신분과 실제 방문이 인증된 정보가 아닙니다. 카카오 로그인은 서비스 계정 식별 수단이며 모든 공개 리뷰와 리포트는 `UNVERIFIED` 상태와 미인증 안내를 제공합니다.
 
@@ -48,7 +48,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 ## 현재 구현 상태
 
-서버 API MVP 구현과 Phase 10 최종 검증이 완료되어 있습니다. 아래 항목은 현재 서버 구현 상태이며, `/frontend`와 OAuth 교환 endpoint는 Phase 11에서 구현할 목표입니다.
+서버 API MVP와 로컬 React frontend prototype이 구현되어 있습니다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 약관 동의
 - onboarding token, opaque access token, rotating refresh token, logout
@@ -61,16 +61,19 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 의견 검수, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
+- 60초 단일 사용 OAuth 교환 코드와 `POST /api/v1/auth/oauth2/exchange`
+- 공개 검색·상세·리뷰, 로그인·약관, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
+- 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-Phase 10에서는 전체 endpoint 보안·OpenAPI 계약, 로컬 MySQL schema·동시성, 기본·통합·build 회귀 검증을 완료했습니다.
+관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E, Docker·AWS·production 배포는 구현 범위에 포함하지 않습니다.
 
-## frontend prototype 목표
+## frontend prototype
 
 루트 Spring Boot 프로젝트는 그대로 유지하고 `/frontend`에 로컬 React SPA를 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인·약관 동의, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 브라우저에서 검증합니다. 관리자·신고 UI, 운영 배포와 실제 카카오 계정을 사용하는 브라우저 E2E는 포함하지 않습니다.
 
-OAuth 성공 시 backend callback은 onboarding/access/refresh token을 URL에 전달하지 않습니다. 고정된 `http://localhost:5173/auth/callback`에 60초 단일 사용 교환 코드만 전달하고, frontend가 `POST /api/v1/auth/oauth2/exchange`를 호출해 token을 JSON으로 받는 계약을 구현할 예정입니다. token은 frontend memory에만 보관하므로 새로고침하면 다시 로그인해야 합니다.
+OAuth 성공 시 backend callback은 onboarding/access/refresh token을 URL에 전달하지 않습니다. 고정된 `http://localhost:5173/auth/callback`에 60초 단일 사용 교환 코드만 전달하고, frontend가 `POST /api/v1/auth/oauth2/exchange`를 호출해 token을 JSON으로 받습니다. access token은 JavaScript module memory에, refresh token과 onboarding token은 탭 단위 `sessionStorage`에 보관합니다. 새로고침 시 저장된 refresh token으로 access token을 한 번 복구하며 `localStorage`, cookie와 URL에는 service token을 저장하지 않습니다.
 
 모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
 
@@ -82,6 +85,7 @@ OAuth 성공 시 backend callback은 onboarding/access/refresh token을 URL에 �
 # OAuth와 service token
 GET    /api/v1/auth/oauth2/authorization/kakao
 GET    /api/v1/auth/oauth2/callback/kakao
+POST   /api/v1/auth/oauth2/exchange
 POST   /api/v1/auth/consents
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
@@ -112,12 +116,6 @@ POST   /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH  /api/v1/admin/restaurants/{restaurantId}/pickup-location
 ```
 
-Phase 11 목표 계약에는 다음 endpoint가 추가됩니다. 현재 server code에는 아직 구현되지 않았습니다.
-
-```text
-POST   /api/v1/auth/oauth2/exchange
-```
-
 ## Swagger / OpenAPI
 
 로컬 서버 실행 후 다음 경로를 사용합니다.
@@ -135,6 +133,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 - JDK 21
 - MySQL 9.3
 - Gradle Wrapper
+- Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)
 
 API 서버와 MySQL은 로컬 프로세스로 실행합니다. Docker와 Testcontainers는 사용하지 않습니다.
 
@@ -146,9 +145,8 @@ Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 
 KAKAO_CLIENT_ID=your-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
 KAKAO_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth2/callback/kakao
+FRONTEND_BASE_URL=http://localhost:5173
 KAKAO_LOCAL_REST_API_KEY=your-kakao-rest-api-key
-KAKAO_LOCAL_BASE_URL=https://dapi.kakao.com
-KAKAO_LOCAL_TIMEOUT=2s
 DB_URL=jdbc:mysql://localhost:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
 DB_USERNAME=root
 DB_PASSWORD=1234
@@ -166,6 +164,24 @@ http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 ./gradlew bootRun
 ```
 
+frontend를 실행하기 전에 로컬 MySQL과 backend가 실행 중이어야 합니다. Vite 개발 서버는 브라우저의 `/api` 요청을 `http://localhost:8080`으로 proxy하므로 별도 frontend API URL 설정은 필요하지 않습니다. 다른 frontend origin을 사용할 때는 backend의 `FRONTEND_BASE_URL`도 같은 origin으로 설정하고 카카오 Redirect URI는 위 backend callback URI를 그대로 유지합니다.
+
+```bash
+cd frontend
+nvm use
+npm ci
+npm run dev
+```
+
+`npm run dev`의 기본 주소는 `http://localhost:5173`입니다.
+
+backend endpoint나 DTO 계약이 변경되면 backend를 실행한 상태에서 TypeScript generated type을 다시 생성하고 변경된 `src/shared/api/generated.ts`를 함께 커밋합니다. 생성 파일을 직접 수정하지 않습니다.
+
+```bash
+cd frontend
+npm run api:generate
+```
+
 ## 테스트
 
 ```bash
@@ -178,6 +194,15 @@ http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 
 ```bash
 ./gradlew integrationTest
+```
+
+frontend 회귀 검증은 Node 24에서 실행합니다.
+
+```bash
+cd frontend
+npm run lint
+npm test
+npm run build
 ```
 
 ## 개발 원칙

@@ -2,7 +2,7 @@
 
 ## 1. 문서 상태와 범위
 
-이 문서는 Rider Voice 공개 리뷰 MVP의 목표 아키텍처다. Spring Boot 서버는 Spring Security OAuth2 Client와 픽업 장소·배달 브랜드 분리 모델을 포함해 현재 구현되어 있다. `/frontend`의 로컬 React SPA와 OAuth 교환 코드 계약은 구현 예정 목표이며, 구현 후에도 `/v3/api-docs`를 최종 실행 계약으로 사용한다.
+이 문서는 Rider Voice 공개 리뷰 MVP의 현재 아키텍처다. Spring Boot 서버와 `/frontend`의 로컬 React SPA, 60초 단일 사용 OAuth 교환 코드 계약이 구현되어 있으며 `/v3/api-docs`를 최종 실행 계약으로 사용한다.
 
 서버는 다음 책임을 갖는다.
 
@@ -92,8 +92,8 @@ frontend/
 - `/v3/api-docs`에서 TypeScript API 타입을 생성해 `shared` 아래에 두며 생성 파일을 수동 편집하지 않는다. endpoint와 DTO의 기준은 문서 사본이 아니라 실행 중인 OpenAPI다.
 - component style은 CSS Modules로 격리하고 reset, design token과 최소 전역 style만 `shared`에서 관리한다.
 - TanStack Query는 서버 상태와 mutation, React Router는 route, React Hook Form과 Zod는 form 상태와 client-side schema 검증을 담당한다. Zod 검증은 서버 Bean Validation을 대체하지 않는다.
-- onboarding token, access token과 refresh token은 JavaScript memory에만 보관하며 `localStorage`, `sessionStorage`, IndexedDB, URL, console 또는 analytics에 기록하지 않는다. 새로고침하면 session이 사라져 다시 로그인해야 하는 prototype 제약을 수용한다.
-- refresh 성공 시 memory의 access/refresh token 쌍을 함께 교체하고, logout과 인증 실패 시 모두 제거한다.
+- access token은 JavaScript module memory에, onboarding token과 refresh token은 탭 단위 `sessionStorage`에 보관한다. `localStorage`, IndexedDB, cookie, URL, console 또는 analytics에는 service token을 기록하지 않는다.
+- 새로고침 시 `sessionStorage`의 refresh token으로 access token을 한 번 복구한다. refresh 성공 시 memory의 access token과 저장된 refresh token을 함께 교체하고, logout과 인증 실패 시 모든 token을 제거한다.
 
 ## 4. 인증과 권한
 

@@ -373,7 +373,7 @@ GET   /api/v1/admin/moderation-audits
 
 ## 10. 현재 구현 상태
 
-현재 코드는 아래 서버 API를 구현한다. 이 문서에서 새로 정의한 60초 단일 사용 OAuth 교환 코드, `/api/v1/auth/oauth2/exchange`와 `/frontend` prototype은 Phase 11 구현 예정이며 현재 실행 계약에는 아직 포함되지 않는다.
+현재 코드는 아래 서버 API와 로컬 `/frontend` prototype을 구현한다. 60초 단일 사용 OAuth 교환 코드와 `/api/v1/auth/oauth2/exchange`도 현재 OpenAPI 실행 계약에 포함된다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 opaque service token
 - 픽업 장소·배달 브랜드·외부 참조 모델과 첫 리뷰 작성 시 지연 등록
@@ -384,3 +384,6 @@ GET   /api/v1/admin/moderation-audits
 - 음식점 이름 변경, 기존·검증 주소 픽업 장소 재연결, 폐업·재개장과 canonical 병합
 - 음식점 신고 처리, 실제 정정과 감사 기록의 트랜잭션 원자성
 - 전체 endpoint 권한과 OpenAPI DTO 계약 회귀 검증
+- 공개 검색·상세·리뷰, 로그인·약관, 네 가지 음식점 target 리뷰 작성과 내 리뷰 조회·수정·삭제 frontend
+
+관리자·신고 frontend 화면과 실제 카카오 계정을 사용하는 자동 브라우저 E2E는 구현하지 않는다.

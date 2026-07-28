@@ -6,7 +6,7 @@ Rider Voice는 음식 배달 픽업 과정에서 관찰한 음식점 운영 환�
 
 기존 음식점 리뷰가 맛과 소비자 경험에 집중한다면 Rider Voice는 픽업 공간, 포장 상태, 주문 준비와 전달 과정, 직원 응대처럼 배달 픽업 현장에서 확인할 수 있는 정보를 다룬다. 또한 소비자에게 보이는 배달 브랜드와 실제 픽업 장소가 다를 수 있다는 점을 모델에 반영한다.
 
-현재 `master`에는 서버 API MVP와 최종 회귀 검증까지 구현되어 있다. 별도의 웹 또는 모바일 클라이언트는 현재 범위에 포함되지 않는다.
+현재 서버 API MVP와 주요 사용자 흐름을 검증하는 로컬 `/frontend` React SPA prototype이 구현되어 있다. 운영용 웹 또는 모바일 클라이언트는 현재 범위에 포함되지 않는다.
 
 ## 2. 신뢰 경계
 
@@ -229,12 +229,15 @@ application result
 - Spring `RestClient`, Spring Cache, Caffeine
 - springdoc-openapi, RFC 7807 `ProblemDetail`
 - JUnit 5, Mockito, MockMvc와 HTTP stub server
+- Node 24, React 19, Vite 8, TypeScript와 npm
+- TanStack Query, React Router, React Hook Form, Zod, Vitest와 Testing Library
 
 현재는 로컬 단일 API 인스턴스와 `rider` MySQL 데이터베이스를 전제로 한다. 로컬과 통합 테스트에서는 Hibernate `ddl-auto=update`, 운영 profile에서는 `ddl-auto=none`을 사용한다.
 
 다음 항목은 현재 범위에 포함되지 않는다.
 
-- 웹 또는 모바일 클라이언트
+- 운영용 웹 또는 모바일 클라이언트와 frontend 배포
+- 관리자·신고 frontend 화면과 실제 카카오 계정 자동 브라우저 E2E
 - 라이더 신분과 실제 방문 인증
 - 이미지 업로드, OCR와 배달 앱 화면 분석
 - Redis, Kafka와 Elasticsearch
@@ -257,8 +260,9 @@ application result
 - 장소 집계 작성자 중복 제거와 `NOT_OBSERVED` 처리 테스트
 - 의견 검수, 신고, 전체 제외와 canonical 음식점 처리 테스트
 - 관리자 조사·정정 API, 신고와 정정의 원자성, 형제 신고 자동 종결과 폐업 음식점 공개 경계 테스트
+- frontend 공개 조회, OAuth 교환·약관 동의, 네 가지 리뷰 target 작성과 내 리뷰 관리 Testing Library 테스트
 
-현재 `test`, 로컬 MySQL `integrationTest`, `check`와 `build`가 통과한 상태다.
+현재 backend `test`, 로컬 MySQL `integrationTest`, `check`, `build`와 frontend `api:generate`, `lint`, `test`, `build`가 통과한 상태다.
 
 ## 14. 관련 문서
 
