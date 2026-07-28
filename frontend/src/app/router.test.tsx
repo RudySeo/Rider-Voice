@@ -8,6 +8,7 @@ describe('appRoutes', () => {
     expect(appRoutes[0]?.children).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: 'restaurants/:restaurantId' }),
+        expect.objectContaining({ path: 'reviews/new' }),
       ]),
     )
   })

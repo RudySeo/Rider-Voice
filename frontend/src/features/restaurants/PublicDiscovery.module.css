@@ -162,6 +162,12 @@
   color: var(--color-on-accent);
 }
 
+.searchCardActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
 .secondaryAction {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -403,6 +409,14 @@
   .reviewHeader {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .searchCardActions {
+    width: 100%;
+  }
+
+  .searchCardActions > * {
+    flex: 1;
   }
 
   .primaryAction,

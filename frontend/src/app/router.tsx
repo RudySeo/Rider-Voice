@@ -4,8 +4,10 @@ import {
   Consent,
   LoginPageContent,
   OAuthCallback,
+  ProtectedRoute,
 } from '@/features/auth/AuthFlow'
 import { RestaurantDetailPage } from '@/features/restaurants/PublicDiscovery'
+import { ReviewCreate } from '@/features/reviews/ReviewCreate'
 import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -35,6 +37,14 @@ export const appRoutes: RouteObject[] = [
       {
         path: 'restaurants/:restaurantId',
         element: <RestaurantDetailPage />,
+      },
+      {
+        path: 'reviews/new',
+        element: (
+          <ProtectedRoute>
+            <ReviewCreate />
+          </ProtectedRoute>
+        ),
       },
       {
         path: '*',

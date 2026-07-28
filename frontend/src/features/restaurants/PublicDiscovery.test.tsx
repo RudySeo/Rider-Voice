@@ -171,6 +171,18 @@ describe('public restaurant search', () => {
     expect(
       screen.getByRole('link', { name: '후보 1 상세 보기' }),
     ).toHaveAttribute('href', '/restaurants/10')
+    const internalReviewAction = screen.getByRole('link', {
+      name: '후보 1 리뷰 작성 시작',
+    })
+    const internalActionUrl = new URL(
+      internalReviewAction.getAttribute('href') ?? '',
+      window.location.origin,
+    )
+    expect(internalActionUrl.pathname).toBe('/reviews/new')
+    expect(internalActionUrl.searchParams.get('targetType')).toBe('EXISTING')
+    expect(internalActionUrl.searchParams.get('restaurantId')).toBe('10')
+    expect(internalActionUrl.searchParams.get('name')).toBe('후보 1')
+    expect(internalActionUrl.searchParams.get('address')).toBe('서울 주소 1')
 
     const kakaoAction = screen.getByRole('link', {
       name: '후보 2 리뷰 작성 시작',
@@ -183,6 +195,8 @@ describe('public restaurant search', () => {
     expect(actionUrl.searchParams.get('targetType')).toBe('KAKAO')
     expect(actionUrl.searchParams.get('query')).toBe('강남 분식')
     expect(actionUrl.searchParams.get('kakaoPlaceId')).toBe('kakao-place-1')
+    expect(actionUrl.searchParams.get('name')).toBe('후보 2')
+    expect(actionUrl.searchParams.get('address')).toBe('서울 주소 2')
     expect(screen.queryByText('후보 21')).not.toBeInTheDocument()
   })
 })
@@ -343,6 +357,9 @@ describe('public restaurant detail', () => {
       await screen.findByRole('heading', { level: 1, name: '폐업한 브랜드' }),
     ).toBeInTheDocument()
     expect(screen.getByText('폐업')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: '이 음식점 리뷰 작성' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByText('서울 강남구 테헤란로 1 · 지하 1층 픽업대'),
     ).toBeInTheDocument()

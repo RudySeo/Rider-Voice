@@ -112,6 +112,26 @@ const toKakaoReviewPath = (
     targetType: 'KAKAO',
     query,
     kakaoPlaceId: candidate.kakaoPlaceId ?? '',
+    name: candidate.name ?? '',
+    address: candidate.address ?? '',
+  })
+  return `/reviews/new?${parameters.toString()}`
+}
+
+const toExistingReviewPath = ({
+  address,
+  name,
+  restaurantId,
+}: {
+  address?: string
+  name?: string
+  restaurantId: number
+}): string => {
+  const parameters = new URLSearchParams({
+    targetType: 'EXISTING',
+    restaurantId: String(restaurantId),
+    name: name ?? '',
+    address: address ?? '',
   })
   return `/reviews/new?${parameters.toString()}`
 }
@@ -165,13 +185,26 @@ function SearchCandidate({
       {candidate.candidateType === 'INTERNAL' &&
       candidate.restaurantId !== null &&
       candidate.restaurantId !== undefined ? (
-        <Link
-          aria-label={`${candidate.name ?? '음식점'} 상세 보기`}
-          className={styles.secondaryAction}
-          to={`/restaurants/${candidate.restaurantId}`}
-        >
-          상세 보기
-        </Link>
+        <div className={styles.searchCardActions}>
+          <Link
+            aria-label={`${candidate.name ?? '음식점'} 상세 보기`}
+            className={styles.secondaryAction}
+            to={`/restaurants/${candidate.restaurantId}`}
+          >
+            상세 보기
+          </Link>
+          <Link
+            aria-label={`${candidate.name ?? '음식점'} 리뷰 작성 시작`}
+            className={styles.primaryAction}
+            to={toExistingReviewPath({
+              address: candidate.address,
+              name: candidate.name,
+              restaurantId: candidate.restaurantId,
+            })}
+          >
+            리뷰 작성
+          </Link>
+        </div>
       ) : candidate.candidateType === 'KAKAO' && candidate.kakaoPlaceId ? (
         <Link
           aria-label={`${candidate.name ?? '음식점'} 리뷰 작성 시작`}
@@ -571,6 +604,18 @@ export function RestaurantDetailPage({
           notice={restaurant.verificationNotice}
           status={restaurant.verificationStatus}
         />
+        {restaurant.status === 'ACTIVE' ? (
+          <Link
+            className={styles.primaryAction}
+            to={toExistingReviewPath({
+              address,
+              name: restaurant.name,
+              restaurantId,
+            })}
+          >
+            이 음식점 리뷰 작성
+          </Link>
+        ) : null}
       </section>
 
       <div className={styles.reportGrid}>
