@@ -23,7 +23,8 @@
       "name": "frontend-foundation",
       "status": "completed",
       "started_at": "2026-07-29T00:24:18+0900",
-      "summary": "/frontend에 Node 24·npm, React 19·Vite 8·TypeScript SPA scaffold와 app/pages/features/shared/test 구조, Query·Router·Form·Zod 의존성, CSS Modules 기반 shell·404 smoke test를 구성했고 npm ci·npm run lint·npm test·npm run build가 통과했다."
+      "summary": "/frontend에 Node 24·npm, React 19·Vite 8·TypeScript SPA scaffold와 app/pages/features/shared/test 구조, Query·Router·Form·Zod 의존성, CSS Modules 기반 shell·404 smoke test를 구성했고 npm ci·npm run lint·npm test·npm run build가 통과했다.",
+      "completed_at": "2026-07-29T00:36:21+0900"
     },
     {
       "step": 3,
