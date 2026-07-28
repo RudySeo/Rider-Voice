@@ -1,6 +1,6 @@
 # Rider Voice
 
-Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 API 서버입니다.
+Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 API 서버입니다. 완성된 Spring Boot 서버 위에 주요 사용자 흐름을 검증하는 로컬 `/frontend` React SPA prototype을 추가할 예정입니다.
 
 초기 리뷰는 라이더 신분과 실제 방문이 인증된 정보가 아닙니다. 카카오 로그인은 서비스 계정 식별 수단이며 모든 공개 리뷰와 리포트는 `UNVERIFIED` 상태와 미인증 안내를 제공합니다.
 
@@ -40,12 +40,15 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc, 로컬 MySQL 통합 테스트
 - 카카오 REST OAuth와 카카오 로컬 REST API
+- Node 24 LTS, React 19, Vite 8, TypeScript와 npm
+- TanStack Query, React Router, React Hook Form, Zod
+- Vitest, Testing Library와 CSS Modules
 
 초기에는 단일 API 서버와 MySQL을 사용합니다. Redis, Kafka, Elasticsearch, Docker, Testcontainers와 AWS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
-서버 API MVP 구현과 Phase 10 최종 검증이 현재 기능 브랜치에 완료되어 있습니다. 현재 구현된 내용은 다음과 같습니다.
+서버 API MVP 구현과 Phase 10 최종 검증이 완료되어 있습니다. 아래 항목은 현재 서버 구현 상태이며, `/frontend`와 OAuth 교환 endpoint는 Phase 11에서 구현할 목표입니다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 약관 동의
 - onboarding token, opaque access token, rotating refresh token, logout
@@ -62,6 +65,14 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
 Phase 10에서는 전체 endpoint 보안·OpenAPI 계약, 로컬 MySQL schema·동시성, 기본·통합·build 회귀 검증을 완료했습니다.
+
+## frontend prototype 목표
+
+루트 Spring Boot 프로젝트는 그대로 유지하고 `/frontend`에 로컬 React SPA를 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인·약관 동의, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 브라우저에서 검증합니다. 관리자·신고 UI, 운영 배포와 실제 카카오 계정을 사용하는 브라우저 E2E는 포함하지 않습니다.
+
+OAuth 성공 시 backend callback은 onboarding/access/refresh token을 URL에 전달하지 않습니다. 고정된 `http://localhost:5173/auth/callback`에 60초 단일 사용 교환 코드만 전달하고, frontend가 `POST /api/v1/auth/oauth2/exchange`를 호출해 token을 JSON으로 받는 계약을 구현할 예정입니다. token은 frontend memory에만 보관하므로 새로고침하면 다시 로그인해야 합니다.
+
+모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
 
 목표 기획과 기술 계약은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [API 계약](docs/API_SPEC.md)을 참고하세요.
 
@@ -99,6 +110,12 @@ GET    /api/v1/admin/restaurant-reports
 PATCH  /api/v1/admin/restaurant-reports/{reportId}
 POST   /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH  /api/v1/admin/restaurants/{restaurantId}/pickup-location
+```
+
+Phase 11 목표 계약에는 다음 endpoint가 추가됩니다. 현재 server code에는 아직 구현되지 않았습니다.
+
+```text
+POST   /api/v1/auth/oauth2/exchange
 ```
 
 ## Swagger / OpenAPI

@@ -33,10 +33,11 @@ Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카�
 
 1. 사용자가 Spring Security OAuth2 Client가 제공하는 카카오 로그인 흐름을 시작한다.
 2. 카카오 callback에서 외부 계정의 고유 식별자를 확인한다.
-3. 신규 사용자는 필수 약관에 동의한다.
-4. 활성 사용자에게 Rider Voice access token과 rotating refresh token을 발급한다.
+3. 서버는 service token 대신 60초 동안 한 번만 사용할 수 있는 교환 코드를 고정된 frontend callback URL에 전달한다.
+4. 웹 클라이언트는 교환 코드를 API에 제출해 약관 상태에 따라 onboarding token 또는 Rider Voice access token과 rotating refresh token을 받는다.
+5. 신규 사용자는 onboarding token으로 필수 약관에 동의한다.
 
-OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 opaque bearer token으로 인증한다.
+OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 opaque bearer token으로 인증한다. onboarding token, access token과 refresh token은 URL query string이나 fragment에 포함하지 않는다.
 
 ### 4.2 음식점 검색
 
@@ -80,6 +81,18 @@ OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 
 2. 음식점 신고는 기각하거나 실제 이름·픽업 장소·중복·폐업 정정과 함께 승인한다.
 3. 신고 승인, 실제 데이터 변경과 감사 기록은 하나의 트랜잭션에서 함께 완료한다.
 4. 신고 없이 발견한 오류도 같은 검증과 감사 규칙으로 선제 정정할 수 있다.
+
+### 4.7 임시 웹 클라이언트
+
+로컬 사용자 흐름을 검증하기 위해 `/frontend`의 React SPA를 제공한다. 이 클라이언트는 현재 서버 API 계약을 브라우저에서 확인하는 prototype이며 별도 운영 제품이나 배포 대상이 아니다.
+
+- 로그인하지 않은 사용자는 음식점을 검색하고 상세, 공개 리뷰와 브랜드·픽업 장소 리포트를 조회한다.
+- 사용자는 카카오 로그인 callback의 교환 코드를 처리하고, 필요한 경우 필수 약관에 동의한다.
+- 활성 사용자는 `EXISTING`, `KAKAO`, `MANUAL_EXISTING_LOCATION`, `MANUAL_ADDRESS` 네 가지 음식점 target으로 리뷰를 작성한다.
+- 활성 사용자는 내 리뷰 목록에서 현재 리뷰를 수정하거나 삭제한다.
+- 모든 공개 리뷰와 리포트 화면은 `UNVERIFIED` 상태와 미인증 안내를 누락 없이 표시한다.
+
+관리자·신고 UI와 실제 카카오 계정을 사용하는 브라우저 E2E는 이 prototype 범위에 포함하지 않는다. 카카오 OAuth redirect와 provider 연동은 서버 테스트와 수동 로컬 확인의 경계를 유지한다.
 
 ## 5. 음식점 모델
 
@@ -174,6 +187,9 @@ OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 
 - 관리자 대상 상세·검색·감사 조회
 - 음식점 이름·픽업 장소·폐업 정정, 중복 병합과 canonical 음식점 연결
 - OpenAPI, 권한·유효성·동시성 테스트
+- `/frontend` 로컬 React SPA에서 공개 검색·상세·리뷰 조회
+- 웹 카카오 로그인 교환·약관 동의와 네 가지 target 리뷰 작성
+- 웹 내 리뷰 조회·수정·삭제
 
 ### 제외
 
@@ -182,7 +198,9 @@ OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 
 - 종합 별점, 순위와 인증 배지
 - 같은 픽업 장소의 다른 브랜드 공개
 - 리워드와 서버 강제 지역 제한
-- React Native 또는 별도 웹 클라이언트
+- 운영용 웹·React Native 클라이언트와 frontend 배포
+- 관리자·신고 UI
+- 실제 카카오 계정을 사용하는 브라우저 E2E 자동화
 - Redis, Kafka, Elasticsearch
 - Docker, Testcontainers, AWS와 운영 배포
 
@@ -200,6 +218,7 @@ OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 
 - 폐업 음식점은 검색·신규 작성에서 제외되고 기존 공개 이력은 유지된다.
 - 모든 공개 응답이 미인증 상태를 명확히 전달한다.
 - 공개·사용자·관리자 권한과 OpenAPI 계약이 테스트된다.
+- 로컬 웹 prototype에서 공개 조회, OAuth 교환·약관 동의, 네 가지 target 리뷰 작성과 내 리뷰 수정·삭제 흐름을 실행할 수 있다.
 
 ## 10. 후속 검토
 
@@ -208,5 +227,5 @@ OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 
 1. 낮은 마찰의 라이더 또는 방문 인증
 2. 다중 서버 확장과 Redis 기반 캐시·rate limit
 3. 검색 규모 증가 시 전문 검색 엔진
-4. 실제 소비자·작성자용 클라이언트
+4. 임시 prototype을 대체할 실제 소비자·작성자용 클라이언트와 배포 방식
 5. schema migration과 배포 인프라

@@ -2,7 +2,7 @@
 
 ## 1. 문서 상태와 범위
 
-이 문서는 Rider Voice 공개 리뷰 MVP의 목표 아키텍처다. 현재 코드는 Spring Security OAuth2 Client와 픽업 장소·배달 브랜드 분리 모델을 포함해 이 문서의 구조로 구현되어 있으며, `/v3/api-docs`를 최종 실행 계약으로 사용한다.
+이 문서는 Rider Voice 공개 리뷰 MVP의 목표 아키텍처다. Spring Boot 서버는 Spring Security OAuth2 Client와 픽업 장소·배달 브랜드 분리 모델을 포함해 현재 구현되어 있다. `/frontend`의 로컬 React SPA와 OAuth 교환 코드 계약은 구현 예정 목표이며, 구현 후에도 `/v3/api-docs`를 최종 실행 계약으로 사용한다.
 
 서버는 다음 책임을 갖는다.
 
@@ -24,14 +24,19 @@
 - Spring `RestClient`, Spring Cache, Caffeine
 - springdoc-openapi, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc와 HTTP stub server
+- Node 24 LTS, React 19, Vite 8, TypeScript와 npm
+- TanStack Query, React Router, React Hook Form과 Zod
+- Vitest와 Testing Library, CSS Modules
 
-API 서버와 `rider` MySQL 데이터베이스는 로컬 프로세스로 실행한다. 초기에는 단일 API 인스턴스를 전제로 하며 Redis, Kafka, Elasticsearch, Docker, Testcontainers, AWS와 배포 작업을 추가하지 않는다.
+API 서버와 `rider` MySQL 데이터베이스는 로컬 프로세스로 실행한다. frontend prototype도 로컬 Vite 개발 서버로만 실행한다. 초기에는 단일 API 인스턴스를 전제로 하며 Redis, Kafka, Elasticsearch, Docker, Testcontainers, AWS와 배포 작업을 추가하지 않는다.
 
 로컬 설정은 Git에서 제외한 프로젝트 루트 `.env` 하나로 관리한다. `local` profile만 이를 선택적으로 읽고, IntelliJ EnvFile 플러그인은 개인 실행 설정으로 사용할 수 있다. OS 또는 IDE 환경 변수가 `.env`보다 우선하며 `test`와 `prod` profile은 `.env`를 자동으로 읽지 않는다.
 
 로컬과 통합 테스트는 Hibernate `ddl-auto=update`, 운영 profile은 `ddl-auto=none`을 사용한다. 현재 로컬 MVP에서는 Flyway를 사용하지 않으며 목표 모델 적용 시 로컬 `rider` schema를 한 번 초기화한다.
 
 ## 3. 아키텍처 경계
+
+### 3.1 서버 경계
 
 ```text
 com.ridervoice.api
@@ -67,6 +72,29 @@ application result
 - 모든 Entity는 `BaseEntity`의 `Long` ID와 `GenerationType.IDENTITY`를 사용한다.
 - 시각은 UTC로 저장하고 API에서는 RFC 3339로 반환한다. 방문 연월 검증에만 `Asia/Seoul` 기준을 사용한다.
 
+### 3.2 frontend 경계
+
+루트 Spring Boot 프로젝트의 Gradle 구조와 source directory를 이동하지 않고 같은 저장소의 `/frontend`에 독립된 Vite SPA를 둔다.
+
+```text
+frontend/
+├── src/
+│   ├── app       # bootstrap, router와 전역 provider
+│   ├── pages     # route 단위 화면과 feature 조합
+│   ├── features  # auth, restaurant, review 사용자 흐름
+│   └── shared    # 생성 API 타입, HTTP client, 공용 UI·유틸·스타일
+└── package.json
+```
+
+의존 방향은 `app -> pages -> features -> shared`다. `shared`는 상위 계층을 import하지 않고, page에는 서버 호출이나 token 처리 정책을 직접 두지 않는다. 관리자와 신고 기능은 frontend feature로 만들지 않는다.
+
+- 개발 중 브라우저 요청은 Vite의 `/api` proxy를 통해 `http://localhost:8080`의 Spring Boot API로 전달한다. frontend가 DB나 카카오 API를 직접 호출하지 않는다.
+- `/v3/api-docs`에서 TypeScript API 타입을 생성해 `shared` 아래에 두며 생성 파일을 수동 편집하지 않는다. endpoint와 DTO의 기준은 문서 사본이 아니라 실행 중인 OpenAPI다.
+- component style은 CSS Modules로 격리하고 reset, design token과 최소 전역 style만 `shared`에서 관리한다.
+- TanStack Query는 서버 상태와 mutation, React Router는 route, React Hook Form과 Zod는 form 상태와 client-side schema 검증을 담당한다. Zod 검증은 서버 Bean Validation을 대체하지 않는다.
+- onboarding token, access token과 refresh token은 JavaScript memory에만 보관하며 `localStorage`, `sessionStorage`, IndexedDB, URL, console 또는 analytics에 기록하지 않는다. 새로고침하면 session이 사라져 다시 로그인해야 하는 prototype 제약을 수용한다.
+- refresh 성공 시 memory의 access/refresh token 쌍을 함께 교체하고, logout과 인증 실패 시 모두 제거한다.
+
 ## 4. 인증과 권한
 
 ### 4.1 OAuth 로그인 체인
@@ -80,7 +108,11 @@ GET /api/v1/auth/oauth2/callback/kakao
   -> authorization code 교환
   -> Kakao user info 조회
   -> OAuthAccount 확인 또는 생성
-  -> 약관/활성 상태에 따른 Rider Voice token 응답
+  -> 60초 단일 사용 교환 코드 생성
+  -> 고정된 frontend callback URL로 교환 코드 redirect
+POST /api/v1/auth/oauth2/exchange
+  -> 교환 코드를 원자적으로 소비
+  -> 약관/활성 상태에 따른 Rider Voice token JSON 응답
 ```
 
 - 사용자 식별에는 카카오 user info의 `id`만 사용한다.
@@ -89,6 +121,9 @@ GET /api/v1/auth/oauth2/callback/kakao
 - `KAKAO_CLIENT_SECRET`이 없으면 client authentication `none`, 있으면 `client_secret_post`를 사용한다.
 - 카카오 access token은 user info 확인 뒤 저장하지 않는다.
 - 성공 handler는 provider 타입을 application에 넘기지 않고 `provider`와 `subject`로 command를 만든다.
+- 성공 redirect에는 opaque 교환 코드만 query parameter로 전달하고 onboarding, access와 refresh token은 URL에 포함하지 않는다.
+- 교환 코드는 발급 후 60초에 만료되고 한 번만 사용할 수 있다. 원문 대신 hash를 저장하며 잘못됨·만료·재사용을 동일한 인증 실패로 처리한다.
+- OAuth 실패는 provider 오류나 내부 예외를 노출하지 않는 일반화된 실패 값으로 같은 고정 frontend callback URL에 redirect한다.
 
 ### 4.2 REST API 체인
 
@@ -228,6 +263,7 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 # OAuth와 service token
 GET    /api/v1/auth/oauth2/authorization/kakao
 GET    /api/v1/auth/oauth2/callback/kakao
+POST   /api/v1/auth/oauth2/exchange
 POST   /api/v1/auth/consents
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
@@ -280,6 +316,7 @@ GET       /api/v1/admin/moderation-audits
 ## 11. 테스트 전략
 
 - OAuth redirect, state, code 교환, user info와 임시 session 폐기
+- frontend 교환 코드의 60초 만료, 단일 사용, 재사용 거부와 일반화된 실패 redirect
 - OAuth session으로 stateless API 접근 불가
 - onboarding, opaque token 회전, logout과 USER/ADMIN 권한
 - 카카오·주소 adapter의 성공, timeout, rate limit과 손상 응답
@@ -296,4 +333,5 @@ GET       /api/v1/admin/moderation-audits
 - 삭제·제외로 5명 미만이 될 때 집계 비공개 전환
 - canonical 음식점 처리
 - 공개·USER·ADMIN endpoint와 OpenAPI DTO 계약
+- frontend route·form·API 상태와 모든 공개 리뷰·리포트의 `UNVERIFIED` 안내
 - 실행 중인 로컬 MySQL에서 schema, FK, index, unique와 동시 요청 검증

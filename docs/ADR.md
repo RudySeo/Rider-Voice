@@ -32,15 +32,17 @@
 
 OAuth handshake에만 임시 HTTP session을 사용하고 성공·실패 후 폐기한다. REST API는 별도 stateless security chain과 기존 opaque bearer token을 사용한다.
 
+성공 callback은 service token을 직접 응답하거나 URL에 넣지 않는다. 서버가 60초 동안 한 번만 사용할 수 있는 opaque 교환 코드를 발급해 고정된 frontend callback URL에 query parameter로 전달하고, frontend는 별도 exchange API의 JSON 응답으로 token을 받는다. 실패 callback도 provider 세부사항을 숨긴 일반화된 실패 값만 같은 frontend URL로 전달한다.
+
 **이유**: OAuth 보안 흐름을 직접 관리하는 범위를 줄이면서 웹과 향후 모바일 클라이언트가 같은 service token API를 사용할 수 있다.
 
-**트레이드오프**: OAuth endpoint에는 일시적인 session이 필요하고 카카오 provider 속성 및 사용자 매핑을 직접 설정해야 한다. API chain은 OAuth session을 인증으로 받아들이지 않도록 분리해야 한다.
+**트레이드오프**: OAuth endpoint에는 일시적인 session과 단기 교환 코드 저장소가 필요하고 카카오 provider 속성 및 사용자 매핑을 직접 설정해야 한다. API chain은 OAuth session을 인증으로 받아들이지 않도록 분리해야 한다.
 
 카카오 access token은 사용자 확인 후 저장하지 않는다. `KAKAO_CLIENT_SECRET`이 없으면 client authentication `none`, 있으면 `client_secret_post`를 사용한다.
 
 ## ADR-005: Rider Voice opaque access/refresh token 유지
 
-**결정**: 카카오 로그인 성공 후 Rider Voice access token과 rotating refresh token을 발급한다. 약관 미동의 사용자에게는 5분 onboarding token만 발급한다.
+**결정**: 카카오 로그인 성공 후 frontend가 단일 사용 교환 코드를 제출하면 Rider Voice access token과 rotating refresh token을 JSON으로 발급한다. 약관 미동의 사용자에게는 5분 onboarding token만 발급한다. onboarding, access와 refresh token은 redirect URL의 query string이나 fragment에 넣지 않는다.
 
 **이유**: 소셜 로그인 과정과 서비스 API session을 분리하고 refresh session 폐기·회전을 서버에서 통제할 수 있다.
 
@@ -135,3 +137,13 @@ OAuth handshake에만 임시 HTTP session을 사용하고 성공·실패 후 폐
 **이유**: 신고 상태만 종결되고 실제 정보가 남는 불일치를 막고, 관리자 API만으로 조사부터 정정과 감사까지 완료할 수 있어야 한다.
 
 **트레이드오프**: 관리자 command와 트랜잭션 범위가 커지고 자동 종결 이력을 구분해야 한다. 외부 API 호출은 트랜잭션 밖에서 수행해 DB lock 시간을 늘리지 않는다.
+
+## ADR-016: 로컬 React SPA frontend prototype
+
+**결정**: 루트 Spring Boot 프로젝트를 이동하지 않고 `/frontend`에 Node 24 LTS, React 19, Vite 8와 TypeScript 기반 SPA를 npm으로 관리한다. 서버 상태는 TanStack Query, route는 React Router, form은 React Hook Form과 Zod, component style은 CSS Modules, 테스트는 Vitest와 Testing Library를 사용한다. 실행 중인 `/v3/api-docs`에서 TypeScript API 타입을 생성하고 개발 요청은 Vite `/api` proxy를 통해 Spring Boot로 전달한다.
+
+frontend source는 기능 중심의 `app`, `pages`, `features`, `shared` 경계를 사용한다. token은 browser 영구 저장소가 아니라 memory에만 보관한다.
+
+**이유**: 이미 완성된 서버와 OpenAPI 계약을 유지하면서 공개 조회, 로그인·약관, 네 가지 음식점 target 작성과 내 리뷰 관리 흐름을 실제 브라우저 UI로 빠르게 검증할 수 있다.
+
+**트레이드오프**: 새로고침하면 로그인 상태가 사라지고 frontend 개발 서버와 backend를 함께 실행해야 한다. 이 SPA는 local prototype이며 운영 배포, SEO, SSR, 관리자·신고 UI와 실제 카카오 브라우저 E2E를 다루지 않는다. 실제 제품 클라이언트로 전환할 때 token 전달·보관과 배포 구성을 다시 결정한다.

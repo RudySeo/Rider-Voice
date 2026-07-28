@@ -2,14 +2,53 @@
   "project": "Rider Voice",
   "phase": "11-frontend-prototype",
   "steps": [
-    { "step": 0, "name": "docs-client-contract", "status": "pending" },
-    { "step": 1, "name": "oauth-login-exchange", "status": "pending" },
-    { "step": 2, "name": "frontend-foundation", "status": "pending" },
-    { "step": 3, "name": "api-session-layer", "status": "pending" },
-    { "step": 4, "name": "auth-user-flow", "status": "pending" },
-    { "step": 5, "name": "public-discovery", "status": "pending" },
-    { "step": 6, "name": "review-create", "status": "pending" },
-    { "step": 7, "name": "review-management", "status": "pending" },
-    { "step": 8, "name": "frontend-regression-docs", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "docs-client-contract",
+      "status": "completed",
+      "started_at": "2026-07-29T00:11:25+0900",
+      "summary": "README와 PRD·ARCHITECTURE·ADR·API_SPEC에 로컬 React frontend 범위와 60초 단일 사용 OAuth 교환 코드 계약을 기록했다."
+    },
+    {
+      "step": 1,
+      "name": "oauth-login-exchange",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "frontend-foundation",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "api-session-layer",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "auth-user-flow",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "public-discovery",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "review-create",
+      "status": "pending"
+    },
+    {
+      "step": 7,
+      "name": "review-management",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "name": "frontend-regression-docs",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-29T00:11:25+0900"
 }

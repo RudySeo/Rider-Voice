@@ -26,7 +26,7 @@
 
 | 구분 | 인증 | 용도 |
 | --- | --- | --- |
-| 공개 | 없음 | OAuth 시작·callback, 음식점 검색·상세·리뷰 조회, token 갱신 |
+| 공개 | 없음 | OAuth 시작·callback·교환, 음식점 검색·상세·리뷰 조회, token 갱신 |
 | 온보딩 | onboarding bearer token | 필수 약관 동의 |
 | 사용자 | opaque access bearer token, `ROLE_USER` | 작성, 내 리뷰, 신고 |
 | 관리자 | opaque access bearer token, `ROLE_ADMIN` | 검수, 신고 처리, 병합·정정 |
@@ -38,13 +38,36 @@ OAuth 임시 HTTP session은 authorization과 callback에서만 사용하며 RES
 ```text
 GET  /api/v1/auth/oauth2/authorization/kakao
 GET  /api/v1/auth/oauth2/callback/kakao
+POST /api/v1/auth/oauth2/exchange
 POST /api/v1/auth/consents
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/users/me
 ```
 
-카카오 OAuth 성공 응답은 약관 상태에 따라 구분한다.
+카카오 OAuth callback은 성공 시 service token을 응답하거나 URL에 포함하지 않는다. 서버는 발급 후 60초 동안 한 번만 사용할 수 있는 opaque 교환 코드를 고정된 frontend callback URL로 전달한다.
+
+```http
+HTTP/1.1 302 Found
+Location: http://localhost:5173/auth/callback?code={singleUseExchangeCode}
+```
+
+- frontend callback은 서버 설정으로 고정하며 요청자가 임의의 return URL을 전달할 수 없다.
+- query string에는 교환 코드만 전달한다. onboarding token, access token과 refresh token은 query string이나 fragment에 넣지 않는다.
+- 교환 코드는 원문 대신 hash로 저장하고 발급 후 60초에 만료되며 유효한 교환 요청에서 원자적으로 소비해 단 한 번만 사용할 수 있게 한다.
+
+frontend는 callback에서 받은 코드를 다음 API의 JSON body로 교환한다.
+
+```http
+POST /api/v1/auth/oauth2/exchange
+Content-Type: application/json
+
+{
+  "code": "single-use-exchange-code"
+}
+```
+
+교환 성공 응답은 약관 상태에 따라 구분한다.
 
 ```json
 {
@@ -64,6 +87,21 @@ GET  /api/v1/users/me
   }
 }
 ```
+
+교환 실패는 RFC 7807 `ProblemDetail`로 반환한다.
+
+- 누락되거나 공백인 `code`: `400 Bad Request`, `code=INVALID_OAUTH_EXCHANGE_REQUEST`
+- 잘못되었거나 만료되었거나 이미 사용한 `code`: `401 Unauthorized`, `code=INVALID_OAUTH_EXCHANGE_CODE`
+- 잘못됨·만료·재사용의 구체적인 원인은 응답에서 구분하지 않는다.
+
+카카오 인증 거절, provider 오류와 내부 로그인 실패는 같은 고정 frontend callback URL로 일반화해 redirect한다.
+
+```http
+HTTP/1.1 302 Found
+Location: http://localhost:5173/auth/callback?error=oauth_failed
+```
+
+`error`는 안정적인 일반 실패 값만 사용하며 provider 오류 내용, token, secret과 stack trace를 포함하지 않는다. OAuth 성공·실패 처리 후 임시 HTTP session은 폐기한다.
 
 ## 4. 공개 음식점 API
 
@@ -335,7 +373,7 @@ GET   /api/v1/admin/moderation-audits
 
 ## 10. 현재 구현 상태
 
-현재 코드는 이 목표 계약의 서버 API를 구현한다.
+현재 코드는 아래 서버 API를 구현한다. 이 문서에서 새로 정의한 60초 단일 사용 OAuth 교환 코드, `/api/v1/auth/oauth2/exchange`와 `/frontend` prototype은 Phase 11 구현 예정이며 현재 실행 계약에는 아직 포함되지 않는다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 opaque service token
 - 픽업 장소·배달 브랜드·외부 참조 모델과 첫 리뷰 작성 시 지연 등록
