@@ -71,7 +71,8 @@
       "name": "frontend-regression-docs",
       "status": "completed",
       "summary": "OAuth 교환부터 공개 조회·네 target 리뷰 작성·내 리뷰 관리까지 frontend 구현 상태와 로컬 실행·OpenAPI 생성 절차를 문서화하고 ./gradlew test, integrationTest, check build 및 npm ci, api:generate, lint, test(72개), build와 git diff --check를 통과했다.",
-      "started_at": "2026-07-29T01:23:40+0900"
+      "started_at": "2026-07-29T01:23:40+0900",
+      "completed_at": "2026-07-29T01:30:33+0900"
     }
   ],
   "created_at": "2026-07-29T00:11:25+0900"
