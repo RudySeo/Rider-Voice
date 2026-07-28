@@ -55,7 +55,8 @@
       "name": "review-create",
       "status": "completed",
       "summary": "/reviews/new 단계형 review wizard와 검증 주소 기반 네 restaurant target mapper를 구현하고 payload·validation·409/503 회귀 테스트를 추가했다.",
-      "started_at": "2026-07-29T01:03:29+0900"
+      "started_at": "2026-07-29T01:03:29+0900",
+      "completed_at": "2026-07-29T01:13:00+0900"
     },
     {
       "step": 7,
