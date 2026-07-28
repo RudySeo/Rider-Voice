@@ -7,8 +7,6 @@ import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.Paths
 import io.swagger.v3.oas.models.media.ComposedSchema
-import io.swagger.v3.oas.models.media.Content
-import io.swagger.v3.oas.models.media.MediaType
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
@@ -18,8 +16,6 @@ import io.swagger.v3.oas.models.PathItem
 import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
-import org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE
 import org.springframework.http.ProblemDetail
 
 @Configuration(proxyBeanMethods = false)
@@ -55,22 +51,18 @@ class AuthOpenApiConfiguration {
                 Operation()
                     .tags(listOf(AUTHENTICATION_TAG))
                     .summary("카카오 OAuth callback")
-                    .description("OAuth 로그인을 완료하고 약관 상태에 맞는 Rider Voice token 응답을 반환합니다.")
+                    .description(
+                        "OAuth 로그인을 완료한 뒤 60초 단일 사용 교환 코드 또는 일반화된 실패 값을 " +
+                            "설정된 frontend callback URL로 redirect합니다.",
+                    )
                     .addParametersItem(callbackParameter("code"))
                     .addParametersItem(callbackParameter("state"))
                     .responses(
                         ApiResponses()
                             .addApiResponse(
-                                "200",
+                                "302",
                                 ApiResponse()
-                                    .description("로그인 완료")
-                                    .content(jsonContent(OAuth2LoginResponse::class.java.simpleName, APPLICATION_JSON_VALUE)),
-                            )
-                            .addApiResponse(
-                                "401",
-                                ApiResponse()
-                                    .description("OAuth 인증 실패")
-                                    .content(jsonContent("ProblemDetail", APPLICATION_PROBLEM_JSON_VALUE)),
+                                    .description("고정된 frontend callback URL로 이동"),
                             ),
                     ),
             ),
@@ -105,11 +97,6 @@ class AuthOpenApiConfiguration {
         .`in`("query")
         .required(true)
         .schema(StringSchema())
-
-    private fun jsonContent(schemaName: String, mediaType: String) = Content().addMediaType(
-        mediaType,
-        MediaType().schema(Schema<Any>().apply { `$ref` = "#/components/schemas/$schemaName" }),
-    )
 
     private companion object {
         const val AUTHENTICATION_TAG = "Authentication"

@@ -5,6 +5,7 @@ import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
+import java.time.Instant
 
 interface UserStore {
     fun findUser(userId: Long): User?
@@ -25,4 +26,14 @@ interface OnboardingTokenStore {
     fun findOnboardingToken(tokenHash: String): OnboardingToken?
     fun findOnboardingTokenForUpdate(tokenHash: String): OnboardingToken?
     fun saveOnboardingToken(token: OnboardingToken): OnboardingToken
+}
+
+data class OAuthExchangeGrant(
+    val userId: Long,
+    val expiresAt: Instant,
+)
+
+interface OAuthExchangeGrantStore {
+    fun save(codeHash: String, grant: OAuthExchangeGrant)
+    fun consume(codeHash: String, consumedAt: Instant): OAuthExchangeGrant?
 }

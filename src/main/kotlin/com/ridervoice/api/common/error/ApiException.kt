@@ -9,8 +9,14 @@ open class ApiException(
 class BadRequestException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.BAD_REQUEST, message, cause)
 
+class InvalidOAuthExchangeRequestException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.INVALID_OAUTH_EXCHANGE_REQUEST, message, cause)
+
 class AuthenticationRequiredException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.AUTHENTICATION_REQUIRED, message, cause)
+
+class InvalidOAuthExchangeCodeException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.INVALID_OAUTH_EXCHANGE_CODE, message, cause)
 
 class ResourceNotFoundException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.RESOURCE_NOT_FOUND, message, cause)

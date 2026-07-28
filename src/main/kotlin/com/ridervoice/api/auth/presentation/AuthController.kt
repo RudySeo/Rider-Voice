@@ -1,10 +1,15 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.presentation.dto.AuthTokensResponse
 import com.ridervoice.api.auth.presentation.dto.ConsentRequest
+import com.ridervoice.api.auth.presentation.dto.OAuth2LoginResponse
+import com.ridervoice.api.auth.presentation.dto.OAuthExchangeCodeRequest
 import com.ridervoice.api.auth.presentation.dto.TokenRequest
 import com.ridervoice.api.common.config.OpenApiConfiguration
+import com.ridervoice.api.common.error.InvalidOAuthExchangeRequestException
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OnboardingPrincipal
 import io.swagger.v3.oas.annotations.Operation
@@ -14,8 +19,31 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.validation.BindingResult
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
+
+@RestController
+@RequestMapping("/api/v1/auth/oauth2")
+@Tag(name = "Authentication", description = "서비스 온보딩과 세션 API")
+class OAuthExchangeController(
+    private val exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase,
+    private val responseMapper: AuthResponseMapper,
+) {
+    @Operation(summary = "OAuth 단일 사용 코드 교환")
+    @PostMapping("/exchange")
+    fun exchange(
+        @Valid @RequestBody request: OAuthExchangeCodeRequest,
+        bindingResult: BindingResult,
+    ): OAuth2LoginResponse {
+        if (bindingResult.hasErrors()) {
+            throw InvalidOAuthExchangeRequestException()
+        }
+        return responseMapper.toOAuth2LoginResponse(
+            exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand(request.code)),
+        )
+    }
+}
 
 @RestController
 @RequestMapping("/api/v1/auth")

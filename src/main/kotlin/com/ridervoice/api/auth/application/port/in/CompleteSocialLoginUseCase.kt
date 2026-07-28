@@ -3,8 +3,12 @@ package com.ridervoice.api.auth.application.port.`in`
 import com.ridervoice.api.auth.application.UserSummary
 import com.ridervoice.api.auth.domain.OAuthProvider
 
-fun interface CompleteSocialLoginUseCase {
-    fun complete(command: CompleteSocialLoginCommand): CompleteSocialLoginResult
+fun interface CompleteProviderLoginUseCase {
+    fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult
+}
+
+fun interface ExchangeSocialLoginCodeUseCase {
+    fun exchange(command: ExchangeSocialLoginCodeCommand): CompleteSocialLoginResult
 }
 
 data class CompleteSocialLoginCommand(
@@ -13,6 +17,18 @@ data class CompleteSocialLoginCommand(
 ) {
     init {
         require(providerSubject.isNotBlank()) { "Provider subject must not be blank" }
+    }
+}
+
+data class ProviderLoginResult(
+    val code: String,
+)
+
+data class ExchangeSocialLoginCodeCommand(
+    val code: String,
+) {
+    init {
+        require(code.isNotBlank()) { "OAuth exchange code must not be blank" }
     }
 }
 

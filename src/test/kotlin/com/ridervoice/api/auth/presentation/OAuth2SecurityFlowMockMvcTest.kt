@@ -1,12 +1,9 @@
 package com.ridervoice.api.auth.presentation
 
-import com.ridervoice.api.auth.application.UserSummary
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginUseCase
-import com.ridervoice.api.auth.application.port.`in`.ServiceTokens
+import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
+import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
 import com.ridervoice.api.auth.domain.OAuthProvider
-import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.infrastructure.oauth.KakaoOAuth2UserService
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
@@ -39,7 +36,6 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.json.JsonCompareMode
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.boot.test.context.TestConfiguration
@@ -111,7 +107,7 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 
     @Test
-    fun `valid callback calls login use case writes token contract and destroys temporary session`() {
+    fun `valid callback creates exchange code redirects to fixed frontend and destroys temporary session`() {
         val authorization = beginAuthorization()
         val session = authorization.request.getSession(false) as MockHttpSession
         val state = queryParameter(authorization.response.getHeader("Location")!!, "state")
@@ -121,66 +117,20 @@ class OAuth2SecurityFlowMockMvcTest {
             param("state", state)
             this.session = session
         }.andExpect {
-            status { isOk() }
-            content { contentTypeCompatibleWith("application/json") }
-            content {
-                json(
-                    """
-                    {
-                      "termsAgreed": true,
-                      "onboardingToken": null,
-                      "tokens": {
-                        "accessToken": "service-access-token",
-                        "refreshToken": "service-refresh-token"
-                      }
-                    }
-                    """.trimIndent(),
-                    JsonCompareMode.STRICT,
-                )
-            }
+            status { isFound() }
+            redirectedUrl("http://localhost:5173/auth/callback?code=oauth-exchange-code")
         }.andReturn()
 
-        val login = context.getBean(RecordingSocialLoginUseCase::class.java)
+        val login = context.getBean(RecordingProviderLoginUseCase::class.java)
         assertThat(login.command).isEqualTo(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "123456789"))
+        assertThat(callback.response.getHeader("Location"))
+            .doesNotContain("service-access-token", "service-refresh-token", "onboarding-token")
         assertThat(callback.request.getSession(false)).isNull()
         assertThat(session.isInvalid).isTrue()
     }
 
     @Test
-    fun `callback returns only an onboarding token when terms are not agreed`() {
-        val authorization = beginAuthorization()
-        val session = authorization.request.getSession(false) as MockHttpSession
-        val state = queryParameter(authorization.response.getHeader("Location")!!, "state")
-        context.getBean(RecordingSocialLoginUseCase::class.java).result = CompleteSocialLoginResult(
-            user = UserSummary(42L, "PENDING_TERMS", UserRole.USER, null),
-            termsAgreed = false,
-            onboardingToken = "onboarding-token",
-            tokens = null,
-        )
-
-        mockMvc.get("/api/v1/auth/oauth2/callback/kakao") {
-            param("code", "authorization-code")
-            param("state", state)
-            this.session = session
-        }.andExpect {
-            status { isOk() }
-            content {
-                json(
-                    """
-                    {
-                      "termsAgreed": false,
-                      "onboardingToken": "onboarding-token",
-                      "tokens": null
-                    }
-                    """.trimIndent(),
-                    JsonCompareMode.STRICT,
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `callback rejects an invalid state safely and destroys temporary session`() {
+    fun `callback rejects an invalid state with generalized fixed redirect and destroys temporary session`() {
         val authorization = beginAuthorization()
         val session = authorization.request.getSession(false) as MockHttpSession
 
@@ -189,12 +139,12 @@ class OAuth2SecurityFlowMockMvcTest {
             param("state", "wrong-state")
             this.session = session
         }.andExpect {
-            status { isUnauthorized() }
-            content { contentTypeCompatibleWith("application/problem+json") }
-            jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
-            content { string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("wrong-state"))) }
+            status { isFound() }
+            redirectedUrl("http://localhost:5173/auth/callback?error=oauth_failed")
         }.andReturn()
 
+        assertThat(callback.response.getHeader("Location"))
+            .doesNotContain("wrong-state", "provider-access-token", "stack")
         assertThat(callback.request.getSession(false)).isNull()
         assertThat(session.isInvalid).isTrue()
     }
@@ -248,7 +198,7 @@ class OAuth2SecurityFlowMockMvcTest {
     OAuth2LoginFailureHandler::class,
     AuthResponseMapper::class,
     OAuth2SecurityFlowFixtureController::class,
-    RecordingSocialLoginUseCase::class,
+    RecordingProviderLoginUseCase::class,
 )
 private class OAuth2SecurityFlowTestConfiguration {
 
@@ -284,16 +234,11 @@ private class OAuth2SecurityFlowTestConfiguration {
 }
 
 @TestComponent
-private class RecordingSocialLoginUseCase : CompleteSocialLoginUseCase {
+private class RecordingProviderLoginUseCase : CompleteProviderLoginUseCase {
     lateinit var command: CompleteSocialLoginCommand
-    var result = CompleteSocialLoginResult(
-        user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
-        termsAgreed = true,
-        onboardingToken = null,
-        tokens = ServiceTokens("service-access-token", "service-refresh-token"),
-    )
+    var result = ProviderLoginResult("oauth-exchange-code")
 
-    override fun complete(command: CompleteSocialLoginCommand): CompleteSocialLoginResult {
+    override fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult {
         this.command = command
         return result
     }

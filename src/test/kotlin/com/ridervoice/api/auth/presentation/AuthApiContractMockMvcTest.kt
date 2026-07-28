@@ -1,7 +1,13 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.AuthService
+import com.ridervoice.api.auth.application.UserSummary
+import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.ServiceTokens
+import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.common.config.OpenApiConfiguration
+import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.SecurityProblemHandler
 import org.assertj.core.api.Assertions.assertThat
@@ -26,7 +32,7 @@ import org.springdoc.core.configuration.SpringDocConfiguration
 import org.springdoc.core.properties.SpringDocConfigProperties
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration
 
-@WebMvcTest(controllers = [AuthController::class, UserController::class])
+@WebMvcTest(controllers = [AuthController::class, OAuthExchangeController::class, UserController::class])
 @Import(
     OpenApiConfiguration::class,
     AuthOpenApiConfiguration::class,
@@ -49,14 +55,20 @@ class AuthApiContractMockMvcTest {
     private lateinit var authService: AuthService
 
     @Test
-    fun `generated OpenAPI exposes public OAuth2 endpoints and nullable login response`() {
+    fun `generated OpenAPI exposes redirect callback and public exchange contract`() {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/authorization/kakao'].get.security") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/authorization/kakao'].get.responses['302']") { exists() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.security") { doesNotExist() }
-                jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['200'].content['application/json'].schema['\$ref']") {
+                jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['302']") { exists() }
+                jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['200']") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.security") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.requestBody.content['application/json'].schema['\$ref']") {
+                    value("#/components/schemas/OAuthExchangeCodeRequest")
+                }
+                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.responses['200'].content['application/json'].schema['\$ref']") {
                     value("#/components/schemas/OAuth2LoginResponse")
                 }
                 jsonPath("$.components.schemas.OAuth2LoginResponse.properties.termsAgreed.type") { value("boolean") }
@@ -78,6 +90,56 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.paths['/api/v1/auth/kakao/authorize']") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/kakao/callback']") { doesNotExist() }
             }
+    }
+
+    @Test
+    fun `valid exchange code returns the existing login response contract`() {
+        val result = CompleteSocialLoginResult(
+            user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
+            termsAgreed = true,
+            onboardingToken = null,
+            tokens = ServiceTokens("service-access-token", "service-refresh-token"),
+        )
+        `when`(authService.exchange(ExchangeSocialLoginCodeCommand("valid-code")))
+            .thenReturn(result)
+
+        mockMvc.post("/api/v1/auth/oauth2/exchange") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"code":"valid-code"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.termsAgreed") { value(true) }
+            jsonPath("$.onboardingToken") { value(null) }
+            jsonPath("$.tokens.accessToken") { value("service-access-token") }
+            jsonPath("$.tokens.refreshToken") { value("service-refresh-token") }
+        }
+    }
+
+    @Test
+    fun `blank exchange code returns stable request problem`() {
+        mockMvc.post("/api/v1/auth/oauth2/exchange") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"code":"  "}"""
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.code") { value("INVALID_OAUTH_EXCHANGE_REQUEST") }
+        }
+    }
+
+    @Test
+    fun `invalid expired or reused exchange code returns the same unauthorized problem`() {
+        `when`(authService.exchange(ExchangeSocialLoginCodeCommand("invalid-code")))
+            .thenThrow(InvalidOAuthExchangeCodeException())
+
+        mockMvc.post("/api/v1/auth/oauth2/exchange") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"code":"invalid-code"}"""
+        }.andExpect {
+            status { isUnauthorized() }
+            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
+            jsonPath("$.code") { value("INVALID_OAUTH_EXCHANGE_CODE") }
+        }
     }
 
     @Test

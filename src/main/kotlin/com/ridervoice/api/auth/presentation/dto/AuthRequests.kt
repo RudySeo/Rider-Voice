@@ -14,3 +14,12 @@ data class TokenRequest(
     @field:Schema(description = "서비스 refresh token")
     val refreshToken: String,
 )
+
+data class OAuthExchangeCodeRequest(
+    @field:NotBlank
+    @field:Schema(
+        description = "OAuth callback에서 전달받은 60초 단일 사용 교환 코드",
+        example = "single-use-exchange-code",
+    )
+    val code: String = "",
+)

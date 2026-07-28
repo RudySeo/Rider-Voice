@@ -40,6 +40,7 @@ class SecurityConfig(
             it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/search").permitAll()
             it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/reviews").permitAll()
             it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*").permitAll()
+            it.requestMatchers(HttpMethod.POST, "/api/v1/auth/oauth2/exchange").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")

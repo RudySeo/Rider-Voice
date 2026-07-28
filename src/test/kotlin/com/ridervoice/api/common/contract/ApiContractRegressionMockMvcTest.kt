@@ -4,6 +4,7 @@ import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.presentation.AuthController
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
+import com.ridervoice.api.auth.presentation.OAuthExchangeController
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.GlobalExceptionHandler
@@ -90,6 +91,7 @@ import java.time.Instant
 @WebMvcTest(
     controllers = [
         AuthController::class,
+        OAuthExchangeController::class,
         UserController::class,
         RestaurantSearchController::class,
         AddressSearchController::class,
@@ -447,6 +449,7 @@ class ApiContractRegressionMockMvcTest {
         val EXPECTED_PATHS = setOf(
             "/api/v1/auth/oauth2/authorization/kakao",
             "/api/v1/auth/oauth2/callback/kakao",
+            "/api/v1/auth/oauth2/exchange",
             "/api/v1/auth/consents",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
@@ -480,6 +483,7 @@ class ApiContractRegressionMockMvcTest {
         val PUBLIC_OPERATIONS = setOf(
             "/api/v1/auth/oauth2/authorization/kakao" to "get",
             "/api/v1/auth/oauth2/callback/kakao" to "get",
+            "/api/v1/auth/oauth2/exchange" to "post",
             "/api/v1/auth/refresh" to "post",
             "/api/v1/restaurants/search" to "get",
             "/api/v1/restaurants/{restaurantId}" to "get",
@@ -514,6 +518,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val REQUEST_REFS = mapOf(
+            ("/api/v1/auth/oauth2/exchange" to "post") to "OAuthExchangeCodeRequest",
             ("/api/v1/auth/consents" to "post") to "ConsentRequest",
             ("/api/v1/auth/refresh" to "post") to "TokenRequest",
             ("/api/v1/auth/logout" to "post") to "TokenRequest",
@@ -534,7 +539,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val RESPONSE_REFS = mapOf(
-            ("/api/v1/auth/oauth2/callback/kakao" to "get") to ("200" to "OAuth2LoginResponse"),
+            ("/api/v1/auth/oauth2/exchange" to "post") to ("200" to "OAuth2LoginResponse"),
             ("/api/v1/auth/consents" to "post") to ("200" to "AuthTokensResponse"),
             ("/api/v1/auth/refresh" to "post") to ("200" to "AuthTokensResponse"),
             ("/api/v1/users/me" to "get") to ("200" to "UserResponse"),
@@ -572,7 +577,8 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val EXPECTED_SCHEMA_NAMES = setOf(
-            "ProblemDetail", "ConsentRequest", "TokenRequest", "OAuth2LoginResponse", "ServiceTokensResponse",
+            "ProblemDetail", "OAuthExchangeCodeRequest", "ConsentRequest", "TokenRequest",
+            "OAuth2LoginResponse", "ServiceTokensResponse",
             "AuthTokensResponse", "UserResponse", "RestaurantSearchResponse", "RestaurantSearchCandidateResponse",
             "AddressSearchResponse", "AddressSearchCandidateResponse", "RestaurantDetailResponse",
             "RestaurantPickupLocationResponse", "RestaurantBrandReportResponse",

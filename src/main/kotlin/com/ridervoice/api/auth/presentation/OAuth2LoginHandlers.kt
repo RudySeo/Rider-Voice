@@ -1,12 +1,11 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginUseCase
+import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
 import com.ridervoice.api.auth.domain.OAuthProvider
-import com.ridervoice.api.common.security.SecurityProblemHandler
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.http.MediaType
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.authentication.InternalAuthenticationServiceException
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
@@ -14,14 +13,14 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.web.authentication.AuthenticationFailureHandler
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
+import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class OAuth2LoginSuccessHandler(
-    private val completeSocialLogin: CompleteSocialLoginUseCase,
-    private val responseMapper: AuthResponseMapper,
-    private val objectMapper: ObjectMapper,
+    private val completeProviderLogin: CompleteProviderLoginUseCase,
     private val failureHandler: OAuth2LoginFailureHandler,
+    @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
+    private val frontendBaseUrl: String,
 ) : AuthenticationSuccessHandler {
 
     override fun onAuthenticationSuccess(
@@ -35,16 +34,12 @@ class OAuth2LoginSuccessHandler(
             val provider = OAuthProvider.entries.firstOrNull {
                 it.name.equals(oauth.authorizedClientRegistrationId, ignoreCase = true)
             } ?: throw InternalAuthenticationServiceException("Unsupported OAuth provider")
-            val result = completeSocialLogin.complete(
+            val result = completeProviderLogin.complete(
                 CompleteSocialLoginCommand(provider, oauth.principal.name),
             )
-            val body = responseMapper.toOAuth2LoginResponse(result)
 
             destroyTemporarySession(request)
-            response.status = HttpServletResponse.SC_OK
-            response.contentType = MediaType.APPLICATION_JSON_VALUE
-            response.characterEncoding = Charsets.UTF_8.name()
-            objectMapper.writeValue(response.writer, body)
+            response.sendRedirect(frontendCallback("code", result.code))
         } catch (_: RuntimeException) {
             failureHandler.onAuthenticationFailure(
                 request,
@@ -53,11 +48,20 @@ class OAuth2LoginSuccessHandler(
             )
         }
     }
+
+    private fun frontendCallback(name: String, value: String): String = UriComponentsBuilder
+        .fromUriString(frontendBaseUrl.trimEnd('/'))
+        .path(FRONTEND_CALLBACK_PATH)
+        .queryParam(name, value)
+        .build()
+        .encode()
+        .toUriString()
 }
 
 @Component
 class OAuth2LoginFailureHandler(
-    private val problemHandler: SecurityProblemHandler,
+    @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
+    private val frontendBaseUrl: String,
 ) : AuthenticationFailureHandler {
 
     override fun onAuthenticationFailure(
@@ -66,9 +70,18 @@ class OAuth2LoginFailureHandler(
         exception: org.springframework.security.core.AuthenticationException,
     ) {
         destroyTemporarySession(request)
-        problemHandler.commence(request, response, exception)
+        val redirect = UriComponentsBuilder
+            .fromUriString(frontendBaseUrl.trimEnd('/'))
+            .path(FRONTEND_CALLBACK_PATH)
+            .queryParam("error", "oauth_failed")
+            .build()
+            .encode()
+            .toUriString()
+        response.sendRedirect(redirect)
     }
 }
+
+private const val FRONTEND_CALLBACK_PATH = "/auth/callback"
 
 private fun destroyTemporarySession(request: HttpServletRequest) {
     request.getSession(false)?.invalidate()

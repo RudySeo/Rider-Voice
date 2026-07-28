@@ -18,10 +18,20 @@ enum class ApiErrorCode(
         "Bad request",
         "The request is invalid.",
     ),
+    INVALID_OAUTH_EXCHANGE_REQUEST(
+        HttpStatus.BAD_REQUEST,
+        "Invalid OAuth exchange request",
+        "The OAuth exchange request is invalid.",
+    ),
     AUTHENTICATION_REQUIRED(
         HttpStatus.UNAUTHORIZED,
         "Authentication required",
         "Authentication is required.",
+    ),
+    INVALID_OAUTH_EXCHANGE_CODE(
+        HttpStatus.UNAUTHORIZED,
+        "Invalid OAuth exchange code",
+        "The OAuth exchange code is invalid or expired.",
     ),
     ACCESS_DENIED(
         HttpStatus.FORBIDDEN,

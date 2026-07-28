@@ -2,9 +2,14 @@ package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginUseCase
+import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
 import com.ridervoice.api.auth.application.port.`in`.ServiceTokens
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
+import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
+import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
 import com.ridervoice.api.auth.application.port.out.OnboardingTokenStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
@@ -15,6 +20,7 @@ import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
 import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.common.error.AuthenticationRequiredException
+import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.BearerPrincipal
@@ -43,16 +49,35 @@ class AuthService(
     private val accounts: OAuthAccountStore,
     private val sessions: UserSessionStore,
     private val onboardingTokens: OnboardingTokenStore,
+    private val exchangeGrants: OAuthExchangeGrantStore,
     private val clock: Clock = Clock.systemUTC(),
-) : CompleteSocialLoginUseCase, AccessTokenAuthenticator {
+) : CompleteProviderLoginUseCase, ExchangeSocialLoginCodeUseCase, AccessTokenAuthenticator {
     private val accessTokens = ConcurrentHashMap<String, AccessTokenRecord>()
     private val random = SecureRandom()
 
     @Transactional
-    override fun complete(command: CompleteSocialLoginCommand): CompleteSocialLoginResult {
+    override fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult {
         val user = accounts.findOAuthAccount(command.provider, command.providerSubject)?.user
             ?: createUserWithAccount(command)
+        val rawCode = randomToken()
+        val issuedAt = clock.instant()
+        exchangeGrants.save(
+            hash(rawCode),
+            OAuthExchangeGrant(
+                userId = user.id,
+                expiresAt = issuedAt.plusSeconds(OAUTH_EXCHANGE_EXPIRY_SECONDS),
+            ),
+        )
+        return ProviderLoginResult(rawCode)
+    }
 
+    @Transactional
+    override fun exchange(command: ExchangeSocialLoginCodeCommand): CompleteSocialLoginResult {
+        val now = clock.instant()
+        val grant = exchangeGrants.consume(hash(command.code), now)
+            ?: throw InvalidOAuthExchangeCodeException()
+        val user = users.findUser(grant.userId)
+            ?: throw InvalidOAuthExchangeCodeException()
         return when (user.status) {
             UserStatus.PENDING_TERMS -> CompleteSocialLoginResult(
                 user = userSummary(user),
@@ -191,6 +216,7 @@ class AuthService(
 
     private companion object {
         const val ONBOARDING_EXPIRY_SECONDS = 5 * 60L
+        const val OAUTH_EXCHANGE_EXPIRY_SECONDS = 60L
         const val ACCESS_TOKEN_EXPIRY_MINUTES = 15L
         const val REFRESH_TOKEN_EXPIRY_DAYS = 30L
     }
