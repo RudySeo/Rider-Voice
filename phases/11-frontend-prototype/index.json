@@ -63,7 +63,8 @@
       "name": "review-management",
       "status": "completed",
       "summary": "/me/reviews와 /reviews/:reviewId/edit 보호 route, cursor 내 리뷰 목록·공유 평가/의견 form·확인 삭제 및 cache 무효화와 안전한 오류 회귀 테스트를 추가했다.",
-      "started_at": "2026-07-29T01:13:00+0900"
+      "started_at": "2026-07-29T01:13:00+0900",
+      "completed_at": "2026-07-29T01:23:40+0900"
     },
     {
       "step": 8,
