@@ -9,6 +9,8 @@ describe('appRoutes', () => {
       expect.arrayContaining([
         expect.objectContaining({ path: 'restaurants/:restaurantId' }),
         expect.objectContaining({ path: 'reviews/new' }),
+        expect.objectContaining({ path: 'me/reviews' }),
+        expect.objectContaining({ path: 'reviews/:reviewId/edit' }),
       ]),
     )
   })
@@ -27,4 +29,23 @@ describe('appRoutes', () => {
       }),
     ).toBeInTheDocument()
   })
+
+  it.each(['/me/reviews', '/reviews/101/edit'])(
+    'protects %s with the login route',
+    async (path) => {
+      const router = createMemoryRouter(appRoutes, {
+        initialEntries: [path],
+      })
+
+      render(<RouterProvider router={router} />)
+
+      expect(
+        await screen.findByRole('heading', {
+          level: 1,
+          name: '리뷰를 작성하려면 로그인해 주세요',
+        }),
+      ).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/login')
+    },
+  )
 })

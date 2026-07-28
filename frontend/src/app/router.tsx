@@ -8,6 +8,10 @@ import {
 } from '@/features/auth/AuthFlow'
 import { RestaurantDetailPage } from '@/features/restaurants/PublicDiscovery'
 import { ReviewCreate } from '@/features/reviews/ReviewCreate'
+import {
+  MyReviews,
+  ReviewEdit,
+} from '@/features/reviews/ReviewManagement'
 import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -43,6 +47,22 @@ export const appRoutes: RouteObject[] = [
         element: (
           <ProtectedRoute>
             <ReviewCreate />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'me/reviews',
+        element: (
+          <ProtectedRoute>
+            <MyReviews />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'reviews/:reviewId/edit',
+        element: (
+          <ProtectedRoute>
+            <ReviewEdit />
           </ProtectedRoute>
         ),
       },

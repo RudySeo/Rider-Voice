@@ -8,6 +8,15 @@ import { ApiError } from '@/shared/api/errors'
 import type { components } from '@/shared/api/generated'
 
 import styles from './ReviewCreate.module.css'
+import {
+  RATING_OPTIONS,
+  REVIEW_RATING_FIELDS,
+  ReviewCommentField,
+  ReviewRatingFields,
+  reviewFieldsSchema,
+  type ReviewRating,
+  type ReviewRatingKey,
+} from './ReviewFields'
 
 type RestaurantSearchResponse =
   components['schemas']['RestaurantSearchResponse']
@@ -19,7 +28,6 @@ type AddressCandidate =
 type CreateReviewRequest = components['schemas']['CreateReviewRequest']
 type RestaurantTarget =
   components['schemas']['RestaurantTargetRequest']
-type ReviewRating = CreateReviewRequest['pickupSpaceCleanliness']
 type DeliveryPlatform =
   components['schemas']['ManualAddressRestaurantTargetRequest']['platforms'][number]
 
@@ -42,63 +50,6 @@ type SelectedAddress = {
 }
 
 type ReviewValues = Omit<CreateReviewRequest, 'restaurantTarget'>
-
-const RATING_VALUES = [
-  'VERY_GOOD',
-  'GOOD',
-  'NEEDS_IMPROVEMENT',
-  'MAJOR_IMPROVEMENT',
-  'NOT_OBSERVED',
-] as const satisfies readonly ReviewRating[]
-
-const RATING_OPTIONS: ReadonlyArray<{
-  value: ReviewRating
-  label: string
-  description: string
-}> = [
-  {
-    value: 'VERY_GOOD',
-    label: '매우 좋음',
-    description: '기대보다 매우 좋은 상태였습니다.',
-  },
-  {
-    value: 'GOOD',
-    label: '좋음',
-    description: '전반적으로 원활하고 좋은 상태였습니다.',
-  },
-  {
-    value: 'NEEDS_IMPROVEMENT',
-    label: '개선 필요',
-    description: '일부 불편이 있어 개선이 필요했습니다.',
-  },
-  {
-    value: 'MAJOR_IMPROVEMENT',
-    label: '큰 개선 필요',
-    description: '픽업 과정에 큰 어려움이 있었습니다.',
-  },
-  {
-    value: 'NOT_OBSERVED',
-    label: '관찰하지 못함',
-    description: '이번 방문에서는 해당 항목을 확인하지 못했습니다.',
-  },
-]
-
-const RATING_FIELDS = [
-  ['pickupSpaceCleanliness', '픽업 공간 청결'],
-  ['packagingStability', '포장 안정성'],
-  ['orderReadiness', '주문 준비 상태'],
-  ['handoffAccuracy', '주문 확인·전달 정확성'],
-  ['staffInteraction', '직원 응대'],
-  ['riderRespect', '라이더 존중'],
-] as const satisfies ReadonlyArray<
-  readonly [
-    Exclude<
-      keyof ReviewValues,
-      'visitMonth' | 'comment'
-    >,
-    string,
-  ]
->
 
 const PLATFORM_OPTIONS = [
   ['BAEMIN', '배달의민족'],
@@ -154,38 +105,12 @@ const manualBrandSchema = z.object({
 })
 
 const reviewSchema = (allowedVisitMonths: readonly string[]) =>
-  z.object({
+  reviewFieldsSchema.extend({
     visitMonth: z
       .string()
       .refine((value) => allowedVisitMonths.includes(value), {
         message: '방문 연월을 선택해 주세요.',
       }),
-    pickupSpaceCleanliness: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    packagingStability: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    orderReadiness: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    handoffAccuracy: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    staffInteraction: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    riderRespect: z.enum(RATING_VALUES, {
-      error: '평가를 선택해 주세요.',
-    }),
-    comment: z
-      .string()
-      .trim()
-      .max(
-        200,
-        '의견은 공백을 정리한 뒤 200자 이하여야 합니다.',
-      )
-      .transform((value) => value || null),
   })
 
 const getSeoulMonthOptions = (
@@ -349,7 +274,7 @@ export function ReviewCreate({
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({})
   const [visitMonth, setVisitMonth] = useState('')
   const [ratings, setRatings] = useState<Partial<Record<
-    Exclude<keyof ReviewValues, 'visitMonth' | 'comment'>,
+    ReviewRatingKey,
     ReviewRating
   >>>({})
   const [comment, setComment] = useState('')
@@ -539,7 +464,14 @@ export function ReviewCreate({
         method: 'post',
         body: {
           restaurantTarget: selection.target,
-          ...reviewValues,
+          visitMonth: reviewValues.visitMonth,
+          pickupSpaceCleanliness: reviewValues.pickupSpaceCleanliness,
+          packagingStability: reviewValues.packagingStability,
+          orderReadiness: reviewValues.orderReadiness,
+          handoffAccuracy: reviewValues.handoffAccuracy,
+          staffInteraction: reviewValues.staffInteraction,
+          riderRespect: reviewValues.riderRespect,
+          comment: reviewValues.comment,
         },
         auth: 'access',
       })
@@ -836,54 +768,19 @@ export function ReviewCreate({
               <p className={styles.error}>{reviewErrors.visitMonth}</p>
             ) : null}
           </div>
-          <div className={styles.ratingGrid}>
-            {RATING_FIELDS.map(([key, label]) => (
-              <fieldset className={styles.ratingField} key={key}>
-                <legend>{label}</legend>
-                {RATING_OPTIONS.map((option) => (
-                  <label key={option.value}>
-                    <input
-                      aria-label={option.label}
-                      checked={ratings[key] === option.value}
-                      name={key}
-                      onChange={() =>
-                        setRatings((current) => ({
-                          ...current,
-                          [key]: option.value,
-                        }))
-                      }
-                      type="radio"
-                      value={option.value}
-                    />
-                    <span>
-                      <strong>{option.label}</strong>
-                      <small>{option.description}</small>
-                    </span>
-                  </label>
-                ))}
-                {reviewErrors[key] ? (
-                  <p className={styles.error}>{reviewErrors[key]}</p>
-                ) : null}
-              </fieldset>
-            ))}
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="review-comment">자유 의견 (선택)</label>
-            <textarea
-              id="review-comment"
-              maxLength={205}
-              onChange={(event) => setComment(event.target.value)}
-              rows={5}
-              value={comment}
-            />
-            <p className={styles.helper}>
-              <span>의견은 관리자 사전 검수 후 공개됩니다.</span>
-              <span>공백을 정리한 뒤 최대 200자입니다.</span>
-            </p>
-            {reviewErrors.comment ? (
-              <p className={styles.error}>{reviewErrors.comment}</p>
-            ) : null}
-          </div>
+          <ReviewRatingFields
+            errors={reviewErrors}
+            onChange={(key, value) =>
+              setRatings((current) => ({ ...current, [key]: value }))
+            }
+            ratings={ratings}
+          />
+          <ReviewCommentField
+            comment={comment}
+            error={reviewErrors.comment}
+            notice="의견은 관리자 사전 검수 후 공개됩니다."
+            onChange={setComment}
+          />
           <div className={styles.actions}>
             <button
               className={styles.secondaryButton}
@@ -921,7 +818,7 @@ export function ReviewCreate({
               <dt>방문 연월</dt>
               <dd>{reviewValues.visitMonth}</dd>
             </div>
-            {RATING_FIELDS.map(([key, label]) => (
+            {REVIEW_RATING_FIELDS.map(([key, label]) => (
               <div key={key}>
                 <dt>{label}</dt>
                 <dd>
