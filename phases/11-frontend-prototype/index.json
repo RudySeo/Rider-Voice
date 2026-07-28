@@ -29,7 +29,9 @@
     {
       "step": 3,
       "name": "api-session-layer",
-      "status": "pending"
+      "status": "completed",
+      "summary": "실행 중인 backend OpenAPI로 generated types를 생성하고 native fetch typed client와 memory·sessionStorage 기반 단일 refresh·회전·실패 정리 session 정책을 구현했다.",
+      "started_at": "2026-07-29T00:36:21+0900"
     },
     {
       "step": 4,
