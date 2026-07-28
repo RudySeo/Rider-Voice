@@ -1,0 +1,15 @@
+{
+  "project": "Rider Voice",
+  "phase": "11-frontend-prototype",
+  "steps": [
+    { "step": 0, "name": "docs-client-contract", "status": "pending" },
+    { "step": 1, "name": "oauth-login-exchange", "status": "pending" },
+    { "step": 2, "name": "frontend-foundation", "status": "pending" },
+    { "step": 3, "name": "api-session-layer", "status": "pending" },
+    { "step": 4, "name": "auth-user-flow", "status": "pending" },
+    { "step": 5, "name": "public-discovery", "status": "pending" },
+    { "step": 6, "name": "review-create", "status": "pending" },
+    { "step": 7, "name": "review-management", "status": "pending" },
+    { "step": 8, "name": "frontend-regression-docs", "status": "pending" }
+  ]
+}

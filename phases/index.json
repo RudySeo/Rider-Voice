@@ -54,6 +54,10 @@
       "dir": "10-mvp-verification",
       "status": "completed",
       "completed_at": "2026-07-26T16:16:11+0900"
+    },
+    {
+      "dir": "11-frontend-prototype",
+      "status": "pending"
     }
   ]
 }
