@@ -15,7 +15,8 @@
       "name": "oauth-login-exchange",
       "status": "completed",
       "started_at": "2026-07-29T00:14:58+0900",
-      "summary": "provider 로그인과 token 교환 input port를 분리하고 SHA-256/Caffeine 단일 사용 grant adapter, 공개 exchange endpoint, 고정 frontend redirect와 application·MockMvc 회귀 테스트를 추가했다."
+      "summary": "provider 로그인과 token 교환 input port를 분리하고 SHA-256/Caffeine 단일 사용 grant adapter, 공개 exchange endpoint, 고정 frontend redirect와 application·MockMvc 회귀 테스트를 추가했다.",
+      "completed_at": "2026-07-29T00:24:18+0900"
     },
     {
       "step": 2,
