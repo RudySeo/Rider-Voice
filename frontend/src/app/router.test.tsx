@@ -4,6 +4,14 @@ import { render, screen } from '@testing-library/react'
 import { appRoutes } from './router'
 
 describe('appRoutes', () => {
+  it('registers the public restaurant detail route', () => {
+    expect(appRoutes[0]?.children).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'restaurants/:restaurantId' }),
+      ]),
+    )
+  })
+
   it('uses the catch-all page for an unknown path', () => {
     const router = createMemoryRouter(appRoutes, {
       initialEntries: ['/unknown'],

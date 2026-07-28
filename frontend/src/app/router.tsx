@@ -5,6 +5,7 @@ import {
   LoginPageContent,
   OAuthCallback,
 } from '@/features/auth/AuthFlow'
+import { RestaurantDetailPage } from '@/features/restaurants/PublicDiscovery'
 import { HomePage } from '@/pages/HomePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
@@ -30,6 +31,10 @@ export const appRoutes: RouteObject[] = [
       {
         path: 'consent',
         element: <Consent />,
+      },
+      {
+        path: 'restaurants/:restaurantId',
+        element: <RestaurantDetailPage />,
       },
       {
         path: '*',

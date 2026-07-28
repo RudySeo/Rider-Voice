@@ -1,3 +1,8 @@
+.page {
+  display: grid;
+  gap: var(--space-8);
+}
+
 .hero {
   max-width: 46rem;
   display: grid;

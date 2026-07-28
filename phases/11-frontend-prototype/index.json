@@ -45,7 +45,9 @@
     {
       "step": 5,
       "name": "public-discovery",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-29T00:54:17+0900",
+      "summary": "홈 검색과 음식점 상세 route에 공개 검색·단일 픽업 장소·독립 집계·미인증 리뷰 cursor UI components를 연결하고 validation·장애·집계 경계·금지 정보 비노출 Testing Library 회귀 테스트를 추가했다."
     },
     {
       "step": 6,
