@@ -9,6 +9,7 @@ import org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import org.assertj.core.api.Assertions.assertThatIllegalStateException
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.time.Instant
 
 class ReviewDomainTest {
 
@@ -90,23 +91,29 @@ class ReviewDomainTest {
     }
 
     @Test
-    fun `review starts active and exclusion is irreversible`() {
+    fun `review starts active and exclusion clears the current slot`() {
         val review = review()
 
-        assertThat(review.visibilityStatus).isEqualTo(ReviewVisibilityStatus.ACTIVE)
+        assertThat(review.isActive).isTrue()
+        assertThat(review.currentSlot).isEqualTo(1)
         review.exclude()
         assertThat(review.visibilityStatus).isEqualTo(ReviewVisibilityStatus.EXCLUDED)
+        assertThat(review.currentSlot).isNull()
+        assertThat(review.isActive).isFalse()
         assertThatIllegalStateException().isThrownBy { review.exclude() }
     }
 
     @Test
-    fun `current review is derived from state pointer and every other review is history`() {
-        assertThat(ReviewHistoryPolicy.classify(reviewId = 11, currentReviewId = 11))
-            .isEqualTo(ReviewHistoryStatus.CURRENT)
-        assertThat(ReviewHistoryPolicy.classify(reviewId = 10, currentReviewId = 11))
-            .isEqualTo(ReviewHistoryStatus.HISTORY)
-        assertThat(ReviewHistoryPolicy.classify(reviewId = 11, currentReviewId = null))
-            .isEqualTo(ReviewHistoryStatus.HISTORY)
+    fun `soft delete preserves the review and clears its current slot`() {
+        val review = review()
+        val deletedAt = Instant.parse("2026-07-30T00:00:00Z")
+
+        review.softDelete(deletedAt)
+
+        assertThat(review.deletedAt).isEqualTo(deletedAt)
+        assertThat(review.currentSlot).isNull()
+        assertThat(review.isActive).isFalse()
+        assertThatIllegalStateException().isThrownBy { review.softDelete(deletedAt) }
     }
 
     private fun review(comment: String? = null) = Review(
@@ -115,7 +122,6 @@ class ReviewDomainTest {
         visitMonth = VisitMonth.parse("2026-07"),
         ratings = ratings(),
         comment = comment,
-        sequence = 1,
     )
 
     private fun ratings() = ReviewRatings(

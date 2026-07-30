@@ -356,7 +356,6 @@ class ApiContractRegressionMockMvcTest {
             PublicReviewListItemResult(
                 reviewId = 100L,
                 visitMonth = VisitMonth.parse("2026-07"),
-                current = true,
                 ratings = ReviewRatings(
                     pickupSpaceCleanliness = ReviewRating.GOOD,
                     packagingStability = ReviewRating.GOOD,
@@ -626,7 +625,6 @@ class ApiContractRegressionMockMvcTest {
             ("ReviewResponse" to "commentModerationStatus") to
                 setOf("NONE", "PENDING", "PUBLISHED", "REJECTED", "HIDDEN_REPORTED"),
             ("ReviewResponse" to "visibilityStatus") to setOf("ACTIVE", "EXCLUDED"),
-            ("ReviewResponse" to "historyStatus") to setOf("CURRENT", "HISTORY"),
             ("CreateReviewReportRequest" to "reason") to setOf(
                 "PERSONAL_INFORMATION", "ABUSIVE_CONTENT", "IRRELEVANT_CONTENT", "FALSE_INFORMATION", "SPAM", "OTHER",
             ),

@@ -19,11 +19,9 @@ import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.ReviewRepository
+import com.ridervoice.api.review.application.port.out.ReviewSubmissionSnapshot
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -112,29 +110,25 @@ class ReviewApplicationContractsTest {
     @Test
     fun `cursor and persistence dependencies expose application contracts`() {
         val cursor = ReviewCursor(Instant.parse("2026-07-25T03:00:00Z"), 100L)
-        val state = AuthorRestaurantReviewStateSnapshot(
-            stateId = 30L,
+        val submission = ReviewSubmissionSnapshot(
+            reviewId = cursor.reviewId,
             authorUserId = 7L,
             restaurantId = 10L,
-            lastSubmittedAt = cursor.createdAt,
-            lastSequence = 2L,
-            currentReviewId = cursor.reviewId,
+            submittedAt = cursor.createdAt,
+            active = true,
         )
 
-        assertThat(cursor.createdAt).isEqualTo(state.lastSubmittedAt)
-        assertThat(cursor.reviewId).isEqualTo(state.currentReviewId)
+        assertThat(cursor.createdAt).isEqualTo(submission.submittedAt)
+        assertThat(cursor.reviewId).isEqualTo(submission.reviewId)
         assertThat(ReviewRepository::class.java.isInterface).isTrue()
-        assertThat(AuthorRestaurantReviewStateRepository::class.java.isInterface).isTrue()
         assertThat(ReviewRepository::class.java.declaredMethods.map { it.name }).containsExactlyInAnyOrder(
             "create",
             "save",
-            "findOwnedCurrentForUpdate",
-            "delete",
+            "findLatestSubmissionForUpdate",
+            "findOwnedActiveForUpdate",
             "countByAuthorUserIdSince",
             "findByAuthorUserId",
         )
-        assertThat(AuthorRestaurantReviewStateRepository::class.java.declaredMethods.map { it.name })
-            .containsExactlyInAnyOrder("findForUpdate", "findByAuthorUserIdAndRestaurantIds", "save")
     }
 
     private fun reviewResult(now: Instant) = ReviewResult(
@@ -149,8 +143,6 @@ class ReviewApplicationContractsTest {
         comment = "의견",
         commentModerationStatus = ReviewCommentStatus.PENDING,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
-        historyStatus = ReviewHistoryStatus.CURRENT,
-        sequence = 2L,
         createdAt = now,
         updatedAt = now,
     )

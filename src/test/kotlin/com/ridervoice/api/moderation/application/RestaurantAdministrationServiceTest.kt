@@ -6,8 +6,7 @@ import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatu
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationCommand
-import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
-import com.ridervoice.api.moderation.application.port.out.MergedAuthorReviewState
+import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReview
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
@@ -21,7 +20,6 @@ import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
 import com.ridervoice.api.moderation.application.port.out.StoredModerationAudit
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -33,25 +31,17 @@ import java.time.ZoneOffset
 class RestaurantAdministrationServiceTest {
 
     @Test
-    fun `merge keeps latest valid current per author maximum cooldown and audits the full move`() {
+    fun `merge keeps the latest active review per author and audits the full move`() {
         val repository = FakeRestaurantAdministrationRepository(
             restaurants = mutableMapOf(
                 DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID),
                 CANONICAL_ID to restaurant(CANONICAL_ID, CANONICAL_PICKUP_ID),
             ),
-            states = listOf(
-                state(11L, DUPLICATE_ID, 101L, "2026-07-20T00:00:00Z", 3, "2026-07-20T00:00:00Z"),
-                state(11L, CANONICAL_ID, 100L, "2026-07-10T00:00:00Z", 5, "2026-07-10T00:00:00Z"),
-                state(
-                    12L,
-                    DUPLICATE_ID,
-                    201L,
-                    "2026-07-24T00:00:00Z",
-                    2,
-                    "2026-07-24T00:00:00Z",
-                    ReviewVisibilityStatus.EXCLUDED,
-                ),
-                state(12L, CANONICAL_ID, 200L, "2026-07-21T00:00:00Z", 1, "2026-07-21T00:00:00Z"),
+            reviews = listOf(
+                review(101L, 11L, DUPLICATE_ID, "2026-07-20T00:00:00Z"),
+                review(100L, 11L, CANONICAL_ID, "2026-07-10T00:00:00Z"),
+                review(201L, 12L, DUPLICATE_ID, "2026-07-24T00:00:00Z", active = false),
+                review(200L, 12L, CANONICAL_ID, "2026-07-21T00:00:00Z"),
             ),
         )
         val audits = FakeAuditRepository()
@@ -64,10 +54,7 @@ class RestaurantAdministrationServiceTest {
         assertThat(result.restaurantId).isEqualTo(DUPLICATE_ID)
         assertThat(result.canonicalRestaurantId).isEqualTo(CANONICAL_ID)
         assertThat(result.status).isEqualTo(RestaurantStatus.MERGED)
-        assertThat(repository.mergeCommand!!.authorStates).containsExactlyInAnyOrder(
-            MergedAuthorReviewState(11L, Instant.parse("2026-07-20T00:00:00Z"), 5, 101L),
-            MergedAuthorReviewState(12L, Instant.parse("2026-07-24T00:00:00Z"), 2, 200L),
-        )
+        assertThat(repository.mergeCommand!!.activeReviewIds).containsExactlyInAnyOrder(101L, 200L)
         assertThat(repository.mergeCommand!!.transferReviews).isTrue()
         assertThat(repository.mergeCommand!!.transferExternalReferences).isTrue()
         assertThat(repository.mergeCommand!!.transferPlatforms).isTrue()
@@ -213,27 +200,23 @@ class RestaurantAdministrationServiceTest {
         status: RestaurantStatus = RestaurantStatus.ACTIVE,
     ) = StoredAdminRestaurant(id, "브랜드-$id", "브랜드-$id", pickupLocationId, status, null)
 
-    private fun state(
+    private fun review(
+        reviewId: Long,
         authorUserId: Long,
         restaurantId: Long,
-        currentReviewId: Long?,
-        lastSubmittedAt: String,
-        lastSequence: Long,
-        currentReviewCreatedAt: String?,
-        visibilityStatus: ReviewVisibilityStatus = ReviewVisibilityStatus.ACTIVE,
-    ) = AdminRestaurantReviewState(
+        submittedAt: String,
+        active: Boolean = true,
+    ) = AdminRestaurantReview(
+        reviewId = reviewId,
         authorUserId = authorUserId,
         restaurantId = restaurantId,
-        lastSubmittedAt = Instant.parse(lastSubmittedAt),
-        lastSequence = lastSequence,
-        currentReviewId = currentReviewId,
-        currentReviewCreatedAt = currentReviewCreatedAt?.let(Instant::parse),
-        currentReviewVisibilityStatus = currentReviewId?.let { visibilityStatus },
+        submittedAt = Instant.parse(submittedAt),
+        active = active,
     )
 
     private class FakeRestaurantAdministrationRepository(
         private val restaurants: MutableMap<Long, StoredAdminRestaurant>,
-        private val states: List<AdminRestaurantReviewState> = emptyList(),
+        private val reviews: List<AdminRestaurantReview> = emptyList(),
         private val pickupLocationIds: Set<Long> = emptySet(),
     ) : RestaurantAdministrationRepository {
         var mergeCommand: RestaurantMergePersistenceCommand? = null
@@ -244,8 +227,8 @@ class RestaurantAdministrationServiceTest {
         override fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant> =
             restaurantIds.mapNotNull(restaurants::get)
 
-        override fun findReviewStatesForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReviewState> =
-            states.filter { it.restaurantId in restaurantIds }
+        override fun findReviewsForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReview> =
+            reviews.filter { it.restaurantId in restaurantIds }
 
         override fun pickupLocationExists(pickupLocationId: Long): Boolean = pickupLocationId in pickupLocationIds
 

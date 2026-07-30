@@ -16,9 +16,7 @@ import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
-import com.ridervoice.api.review.domain.ReviewHistoryPolicy
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Component
@@ -41,24 +39,14 @@ internal class ModerationInvestigationPersistenceAdapter(
             Review::class.java,
         ).setParameter("reviewId", reviewId).resultList.singleOrNull() ?: return null
 
-        val currentReviewId = entityManager.createQuery(
-            """
-            select state.currentReview.id
-            from AuthorRestaurantReviewState state
-            where state.author.id = :authorUserId
-              and state.restaurant.id = :restaurantId
-            """.trimIndent(),
-            java.lang.Long::class.java,
-        )
-            .setParameter("authorUserId", review.author.id)
-            .setParameter("restaurantId", review.restaurant.id)
-            .resultList.singleOrNull()?.toLong()
         val activity = entityManager.createQuery(
             """
             select min(publicReview.createdAt), count(publicReview.id)
             from Review publicReview
             where publicReview.author.id = :authorUserId
               and publicReview.visibilityStatus = :activeStatus
+              and publicReview.currentSlot is not null
+              and publicReview.deletedAt is null
             """.trimIndent(),
             Array<Any>::class.java,
         )
@@ -83,8 +71,8 @@ internal class ModerationInvestigationPersistenceAdapter(
             comment = review.comment,
             commentStatus = review.commentModerationStatus,
             visibilityStatus = review.visibilityStatus,
-            historyStatus = ReviewHistoryPolicy.classify(review.id, currentReviewId),
-            sequence = review.sequence,
+            active = review.isActive,
+            deletedAt = review.deletedAt,
             createdAt = review.createdAt,
             updatedAt = review.updatedAt,
         )

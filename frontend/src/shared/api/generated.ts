@@ -704,10 +704,6 @@ export type components = {
             commentModerationStatus?: "NONE" | "PENDING" | "PUBLISHED" | "REJECTED" | "HIDDEN_REPORTED";
             /** @enum {string} */
             visibilityStatus?: "ACTIVE" | "EXCLUDED";
-            /** @enum {string} */
-            historyStatus?: "CURRENT" | "HISTORY";
-            /** Format: int64 */
-            sequence?: number;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -1069,7 +1065,6 @@ export type components = {
             reviewId?: number;
             /** @example 2026-07 */
             visitMonth?: string;
-            current?: boolean;
             ratings?: components["schemas"]["ReviewRatingsResponse"];
             /** @description 관리자 승인된 의견만 노출됩니다. */
             comment?: string | null;
@@ -1126,10 +1121,9 @@ export type components = {
             commentStatus?: "NONE" | "PENDING" | "PUBLISHED" | "REJECTED" | "HIDDEN_REPORTED";
             /** @enum {string} */
             visibilityStatus?: "ACTIVE" | "EXCLUDED";
-            /** @enum {string} */
-            historyStatus?: "CURRENT" | "HISTORY";
-            /** Format: int64 */
-            sequence?: number;
+            active?: boolean;
+            /** Format: date-time */
+            deletedAt?: string | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */

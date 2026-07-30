@@ -37,20 +37,24 @@ class AggregateReviewQueryAdapterTest {
     }
 
     @Test
-    fun `persistence queries join only current state and filter active visibility`() {
+    fun `persistence queries select only active current slots from reviews`() {
         val restaurantQuery = queryText("findCurrentAggregateRowsByRestaurantId")
         val locationQuery = queryText("findCurrentAggregateRowsByPickupLocationId")
 
-        assertThat(restaurantQuery).contains("join state.currentReview review")
+        assertThat(restaurantQuery).contains("from Review review")
         assertThat(restaurantQuery).contains("review.visibilityStatus = :visibilityStatus")
-        assertThat(restaurantQuery).contains("state.restaurant.id = :restaurantId")
-        assertThat(locationQuery).contains("join state.currentReview review")
+        assertThat(restaurantQuery).contains("review.restaurant.id = :restaurantId")
+        assertThat(restaurantQuery).contains("review.currentSlot is not null")
+        assertThat(restaurantQuery).contains("review.deletedAt is null")
+        assertThat(locationQuery).contains("from Review review")
         assertThat(locationQuery).contains("review.visibilityStatus = :visibilityStatus")
-        assertThat(locationQuery).contains("state.restaurant.pickupLocation.id = :pickupLocationId")
+        assertThat(locationQuery).contains("review.restaurant.pickupLocation.id = :pickupLocationId")
+        assertThat(locationQuery).contains("review.currentSlot is not null")
+        assertThat(locationQuery).contains("review.deletedAt is null")
     }
 
     private fun queryText(methodName: String): String =
-        SpringDataAuthorRestaurantReviewStateRepository::class.java.declaredMethods
+        SpringDataReviewRepository::class.java.declaredMethods
             .single { it.name == methodName }
             .getAnnotation(Query::class.java)
             .value
@@ -64,16 +68,16 @@ class AggregateReviewQueryAdapterTest {
 
     private fun fakeRepository(
         handler: (Method, List<Any?>) -> Any?,
-    ): SpringDataAuthorRestaurantReviewStateRepository =
-        SpringDataAuthorRestaurantReviewStateRepository::class.java.cast(
+    ): SpringDataReviewRepository =
+        SpringDataReviewRepository::class.java.cast(
             Proxy.newProxyInstance(
-                SpringDataAuthorRestaurantReviewStateRepository::class.java.classLoader,
-                arrayOf(SpringDataAuthorRestaurantReviewStateRepository::class.java),
+                SpringDataReviewRepository::class.java.classLoader,
+                arrayOf(SpringDataReviewRepository::class.java),
             ) { proxy, method, arguments ->
                 when (method.name) {
                     "equals" -> proxy === arguments?.singleOrNull()
                     "hashCode" -> System.identityHashCode(proxy)
-                    "toString" -> "FakeSpringDataAuthorRestaurantReviewStateRepository"
+                    "toString" -> "FakeSpringDataReviewRepository"
                     else -> handler(method, arguments?.toList().orEmpty())
                 }
             },

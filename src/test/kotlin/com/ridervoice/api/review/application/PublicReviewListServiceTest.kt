@@ -19,10 +19,10 @@ import java.time.ZoneOffset
 class PublicReviewListServiceTest {
 
     @Test
-    fun `lists active current and history with published comments anonymous activity and cursor`() {
-        val first = item(103L, 7L, "2026-07-25T03:00:00Z", 103L, ReviewCommentStatus.PENDING)
-        val history = item(102L, 7L, "2026-07-24T03:00:00Z", 103L, ReviewCommentStatus.PUBLISHED)
-        val extra = item(101L, 8L, "2026-07-23T03:00:00Z", null, ReviewCommentStatus.REJECTED)
+    fun `lists active reviews with published comments anonymous activity and cursor`() {
+        val first = item(103L, 7L, "2026-07-25T03:00:00Z", ReviewCommentStatus.PENDING)
+        val history = item(102L, 7L, "2026-07-24T03:00:00Z", ReviewCommentStatus.PUBLISHED)
+        val extra = item(101L, 8L, "2026-07-23T03:00:00Z", ReviewCommentStatus.REJECTED)
         val query = FakePublicReviewQuery(listOf(first, history, extra))
         val service = PublicReviewListService(
             reviews = query,
@@ -36,7 +36,6 @@ class PublicReviewListServiceTest {
         assertThat(query.limit).isEqualTo(3)
         assertThat(query.activityAuthorIds).containsExactlyInAnyOrder(7L)
         assertThat(result.items.map { it.reviewId }).containsExactly(103L, 102L)
-        assertThat(result.items.map { it.current }).containsExactly(true, false)
         assertThat(result.items.map { it.comment }).containsExactly(null, "공개 의견")
         assertThat(result.items.map { it.authorActivity.activityMonths }).containsOnly(3)
         assertThat(result.items.map { it.authorActivity.publicReviewCount }).containsOnly(8L)
@@ -63,7 +62,6 @@ class PublicReviewListServiceTest {
                     reviewId = 200L - index,
                     authorUserId = 7L,
                     createdAt = "2026-07-${25 - index}T03:00:00Z",
-                    currentReviewId = 200L,
                     commentStatus = status,
                 )
             },
@@ -113,7 +111,6 @@ class PublicReviewListServiceTest {
         reviewId: Long,
         authorUserId: Long,
         createdAt: String,
-        currentReviewId: Long?,
         commentStatus: ReviewCommentStatus,
     ) = PublicReviewListItemInput(
         reviewId = reviewId,
@@ -129,7 +126,6 @@ class PublicReviewListServiceTest {
         ),
         comment = "공개 의견",
         commentModerationStatus = commentStatus,
-        currentReviewId = currentReviewId,
         createdAt = Instant.parse(createdAt),
     )
 }

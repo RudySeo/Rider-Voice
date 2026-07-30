@@ -186,7 +186,7 @@ const submitErrorMessage = (error: unknown): string => {
     return '리뷰를 제출하지 못했습니다. 잠시 후 다시 시도해 주세요.'
   }
   if (error.status === 409) {
-    return '같은 음식점은 마지막 리뷰 제출 후 90일이 지나야 다시 작성할 수 있습니다.'
+    return '같은 음식점에 활성 리뷰가 있으면 새로 작성할 수 없으며, 삭제·제외된 경우 최초 작성 시각부터 90일 뒤 다시 작성할 수 있습니다.'
   }
   if (error.status === 503) {
     return '음식점 또는 주소를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'

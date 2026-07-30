@@ -23,7 +23,6 @@ import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.domain.Review
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -232,7 +231,7 @@ class ModerationPersistenceContractTest {
     }
 
     @Test
-    fun `review report target adapter hides comment then excludes without cooldown or history fallback`() {
+    fun `review report target adapter hides comment then excludes by releasing the active slot`() {
         val fixture = fixture()
         val reviewRepository = fakeRepository(SpringDataModerationReviewTargetRepository::class.java) {
                 method,
@@ -240,16 +239,6 @@ class ModerationPersistenceContractTest {
             ->
             when (method.name) {
                 "findByIdForUpdate" -> Optional.of(fixture.review)
-                "saveAndFlush" -> arguments.single()
-                else -> unexpected(method)
-            }
-        }
-        val stateRepository = fakeRepository(SpringDataModerationReviewStateRepository::class.java) {
-                method,
-                arguments,
-            ->
-            when (method.name) {
-                "findForUpdate" -> Optional.of(fixture.state)
                 "saveAndFlush" -> arguments.single()
                 else -> unexpected(method)
             }
@@ -264,7 +253,6 @@ class ModerationPersistenceContractTest {
         }
         val adapter = ReviewReportTargetPersistenceAdapter(
             reviewRepository,
-            stateRepository,
             restaurantRepository,
         )
         val initial = adapter.findReviewForUpdate(fixture.review.id)!!
@@ -290,13 +278,13 @@ class ModerationPersistenceContractTest {
             ),
         )
 
-        assertThat(initial.currentReviewId).isEqualTo(fixture.review.id)
+        assertThat(initial.active).isTrue()
         assertThat(hidden.commentStatus).isEqualTo(ReviewCommentStatus.HIDDEN_REPORTED)
         assertThat(hidden.visibilityStatus).isEqualTo(ReviewVisibilityStatus.ACTIVE)
         assertThat(excluded.visibilityStatus).isEqualTo(ReviewVisibilityStatus.EXCLUDED)
-        assertThat(excluded.currentReviewId).isNull()
-        assertThat(excluded.lastSubmittedAt).isEqualTo(fixture.state.lastSubmittedAt)
-        assertThat(excluded.lastSequence).isEqualTo(fixture.state.lastSequence)
+        assertThat(excluded.active).isFalse()
+        assertThat(excluded.submittedAt).isEqualTo(fixture.createdAt)
+        assertThat(excluded.deletedAt).isNull()
     }
 
     private fun assertReportMapping(
@@ -350,18 +338,11 @@ class ModerationPersistenceContractTest {
                 riderRespect = ReviewRating.GOOD,
             ),
             comment = "공개된 의견",
-            sequence = 1L,
         ).also {
             it.id = 40L
+            setAuditTimes(it, Instant.parse("2026-07-25T03:00:00Z"))
             it.publishComment()
         }
-        val state = AuthorRestaurantReviewState(
-            author = reporter,
-            restaurant = restaurant,
-            lastSubmittedAt = Instant.parse("2026-07-25T03:00:00Z"),
-            lastSequence = 1L,
-            currentReview = review,
-        ).also { it.id = 50L }
         val entityManager = fakeRepository(EntityManager::class.java) { method, arguments ->
             when (method.name) {
                 "getReference" -> when (arguments[0]) {
@@ -378,7 +359,6 @@ class ModerationPersistenceContractTest {
             admin,
             restaurant,
             review,
-            state,
             entityManager,
             Instant.parse("2026-07-25T03:00:00Z"),
             Instant.parse("2026-07-26T04:00:00Z"),
@@ -417,7 +397,6 @@ class ModerationPersistenceContractTest {
         val admin: User,
         val restaurant: Restaurant,
         val review: Review,
-        val state: AuthorRestaurantReviewState,
         val entityManager: EntityManager,
         val createdAt: Instant,
         val decidedAt: Instant,

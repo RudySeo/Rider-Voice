@@ -14,7 +14,6 @@ import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -97,8 +96,8 @@ class ModerationInvestigationServiceTest {
         comment = "검수 원문",
         commentStatus = ReviewCommentStatus.PENDING,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
-        historyStatus = ReviewHistoryStatus.CURRENT,
-        sequence = 1,
+        active = true,
+        deletedAt = null,
         createdAt = NOW,
         updatedAt = NOW,
     )

@@ -26,7 +26,6 @@ import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -129,8 +128,8 @@ class ModerationInvestigationApiContractMockMvcTest {
     private fun review() = AdminReviewDetailResult(
         40L, 9L, UserStatus.ACTIVE, 3, 4, 20L, "브랜드", RestaurantStatus.ACTIVE,
         30L, "서울 강남구 1", VisitMonth.parse("2026-07"), ratings(), "검수 원문",
-        ReviewCommentStatus.PENDING, ReviewVisibilityStatus.ACTIVE, ReviewHistoryStatus.CURRENT,
-        1, NOW, NOW,
+        ReviewCommentStatus.PENDING, ReviewVisibilityStatus.ACTIVE, true,
+        null, NOW, NOW,
     )
 
     private fun restaurantItem() = AdminRestaurantSearchItemResult(

@@ -49,11 +49,6 @@ const VISIBILITY_STATUS_LABELS = {
   EXCLUDED: '공개 제외',
 } as const
 
-const HISTORY_STATUS_LABELS = {
-  CURRENT: '현재 리뷰',
-  HISTORY: '이전 리뷰',
-} as const
-
 const issueMessages = (error: z.ZodError): Record<string, string> =>
   Object.fromEntries(
     error.issues.map((issue) => [String(issue.path[0] ?? 'form'), issue.message]),
@@ -84,7 +79,7 @@ const actionErrorMessage = (
 ): string => {
   if (error instanceof ApiError) {
     if (error.status === 404) {
-      return '소유하지 않았거나 더 이상 수정 가능한 최신 리뷰가 아닙니다.'
+      return '소유하지 않았거나 더 이상 활성 상태인 리뷰가 아닙니다.'
     }
     if (error.status === 409) {
       return `리뷰 상태가 변경되어 ${action}할 수 없습니다. 내 리뷰 목록을 다시 확인해 주세요.`
@@ -144,7 +139,6 @@ function ReviewCard({
   review: Review
 }) {
   const reviewId = reviewIdOf(review)
-  const current = review.historyStatus === 'CURRENT'
   const restaurantName = review.restaurant?.name ?? '음식점 정보 없음'
 
   return (
@@ -159,11 +153,6 @@ function ReviewCard({
             {review.visibilityStatus
               ? VISIBILITY_STATUS_LABELS[review.visibilityStatus]
               : '공개 상태 정보 없음'}
-          </span>
-          <span>
-            {review.historyStatus
-              ? HISTORY_STATUS_LABELS[review.historyStatus]
-              : '이력 상태 정보 없음'}
           </span>
           <span>
             {review.commentModerationStatus
@@ -188,7 +177,7 @@ function ReviewCard({
       <p className={styles.timestamps}>
         생성 {dateTimeLabel(review.createdAt)} · 수정 {dateTimeLabel(review.updatedAt)}
       </p>
-      {current && reviewId ? (
+      {reviewId ? (
         <div className={styles.actions}>
           <Link className={styles.secondaryButton} to={`/reviews/${reviewId}/edit`}>
             수정
@@ -264,7 +253,7 @@ export function MyReviews({ client = apiSession.client }: ClientProps) {
       <div className={styles.heading}>
         <p className={styles.eyebrow}>내 리뷰</p>
         <h1>작성한 리뷰를 관리하세요</h1>
-        <p>현재 리뷰만 수정하거나 삭제할 수 있으며 이전 리뷰는 이력으로 남습니다.</p>
+        <p>활성 리뷰를 수정하거나 삭제할 수 있으며 삭제된 리뷰는 목록에서 숨겨집니다.</p>
       </div>
 
       {reviews.isPending ? (
@@ -310,7 +299,7 @@ export function MyReviews({ client = apiSession.client }: ClientProps) {
           <h2>리뷰를 삭제할까요?</h2>
           <p>삭제한 리뷰 내용은 복구할 수 없습니다.</p>
           <p className={styles.warning}>
-            삭제해도 마지막 제출 후 90일 작성 제한은 유지됩니다.
+            삭제하면 작성 시각부터 90일이 지난 뒤 같은 음식점에 다시 작성할 수 있습니다.
           </p>
           <div className={styles.actions}>
             <button
@@ -455,11 +444,11 @@ export function ReviewEdit({ client = apiSession.client }: ClientProps) {
   if (review.isError) {
     return <p className={styles.error} role="alert">{listErrorMessage(review.error)}</p>
   }
-  if (!review.data || review.data.historyStatus !== 'CURRENT') {
+  if (!review.data) {
     return (
       <section className={styles.errorPanel}>
         <h1>리뷰를 수정할 수 없습니다</h1>
-        <p>소유하지 않았거나 더 이상 수정 가능한 최신 리뷰가 아닙니다.</p>
+        <p>소유하지 않았거나 더 이상 활성 상태인 리뷰가 아닙니다.</p>
         <Link className={styles.secondaryButton} to="/me/reviews">내 리뷰로 돌아가기</Link>
       </section>
     )

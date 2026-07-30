@@ -80,7 +80,7 @@ internal class ReportingService(
 
         val target = targets.findReviewForUpdate(command.reviewId)
             ?: throw ResourceNotFoundException("Review report target was not found")
-        if (target.visibilityStatus != ReviewVisibilityStatus.ACTIVE) {
+        if (!target.active || target.visibilityStatus != ReviewVisibilityStatus.ACTIVE) {
             throw ResourceNotFoundException("Review report target was not found")
         }
         val transition = ModerationTransitionPolicy.receiveReviewReport(
@@ -192,7 +192,7 @@ internal class ReportingService(
         }
         val target = targets.findReviewForUpdate(report.reviewId)
             ?: throw ResourceNotFoundException("Reported review was not found")
-        if (target.visibilityStatus != ReviewVisibilityStatus.ACTIVE) {
+        if (!target.active || target.visibilityStatus != ReviewVisibilityStatus.ACTIVE) {
             throw StateConflictException("Reported review is no longer active")
         }
 
@@ -400,9 +400,9 @@ internal class ReportingService(
         "{\"reportStatus\":\"${status.name}\"," +
             "\"reviewVisibilityStatus\":\"${target.visibilityStatus.name}\"," +
             "\"commentModerationStatus\":\"${target.commentStatus.name}\"," +
-            "\"currentReviewId\":${target.currentReviewId ?: "null"}," +
-            "\"lastSubmittedAt\":\"${target.lastSubmittedAt}\"," +
-            "\"lastSequence\":${target.lastSequence}}"
+            "\"active\":${target.active}," +
+            "\"submittedAt\":\"${target.submittedAt}\"," +
+            "\"deletedAt\":${target.deletedAt?.let { "\"$it\"" } ?: "null"}}"
 
     private fun restaurantReportState(report: StoredRestaurantInfoReport): String =
         "{\"reportStatus\":\"${report.status.name}\"," +

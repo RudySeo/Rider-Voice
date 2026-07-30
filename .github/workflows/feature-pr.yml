@@ -1,0 +1,129 @@
+name: Feature branch Draft PR and CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feature-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create-draft-pr:
+    name: Create Draft PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create develop Draft PR once
+        uses: actions/github-script@v9
+        env:
+          HEAD_BRANCH: ${{ github.ref_name }}
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headBranch = process.env.HEAD_BRANCH;
+            const baseBranch = 'develop';
+            const head = `${owner}:${headBranch}`;
+            const body = [
+              '## 변경 요약',
+              '',
+              `\`${headBranch}\` 브랜치의 변경 사항으로 Draft PR이 자동 생성되었습니다.`,
+              '',
+              '## 확인 사항',
+              '',
+              '- [ ] Backend CI가 통과했습니다.',
+              '- [ ] 관련 문서와 OpenAPI 계약을 반영했습니다.',
+              '- [ ] secret, token 또는 개인정보를 포함하지 않았습니다.',
+              '- [ ] 기존 테스트를 삭제하거나 약화하지 않았습니다.',
+              '- [ ] 검토 가능한 상태가 되면 Ready for review로 전환합니다.',
+            ].join('\n');
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head,
+              base: baseBranch,
+              per_page: 1,
+            });
+
+            if (existing.data.length > 0) {
+              const existingPr = existing.data[0];
+              const existingBody = existingPr.body || '';
+              const isLegacyGeneratedBody = existingBody.startsWith(
+                '## Summary\n\nDraft PR created automatically from',
+              ) && existingBody.includes('## Checklist');
+
+              if (isLegacyGeneratedBody) {
+                await github.rest.pulls.update({
+                  owner,
+                  repo,
+                  pull_number: existingPr.number,
+                  body,
+                });
+                core.notice(`Updated Draft PR #${existingPr.number} with the Korean template.`);
+              } else {
+                core.notice(`Draft PR already exists: #${existingPr.number}`);
+              }
+              return;
+            }
+
+            const comparison = await github.rest.repos.compareCommits({
+              owner,
+              repo,
+              base: baseBranch,
+              head: headBranch,
+            });
+
+            if (comparison.data.ahead_by === 0) {
+              core.notice(`No commits ahead of ${baseBranch}; PR creation is deferred.`);
+              return;
+            }
+
+            const commitMessage = process.env.HEAD_COMMIT_MESSAGE || headBranch;
+            const title = commitMessage.split(/\r?\n/, 1)[0].trim() || headBranch;
+
+            const created = await github.rest.pulls.create({
+              owner,
+              repo,
+              base: baseBranch,
+              head: headBranch,
+              title,
+              body,
+              draft: true,
+            });
+
+            core.notice(`Created Draft PR #${created.data.number}`);
+
+  backend:
+    name: Backend build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Validate workflow contract
+        run: python3 scripts/test_feature_pr_workflow.py
+
+      - name: Build backend
+        run: ./gradlew build

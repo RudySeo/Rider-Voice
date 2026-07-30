@@ -7,7 +7,6 @@ import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import com.ridervoice.api.review.domain.VisitMonth
@@ -30,8 +29,8 @@ data class AdminReviewDetailResult(
     val comment: String?,
     val commentStatus: ReviewCommentStatus,
     val visibilityStatus: ReviewVisibilityStatus,
-    val historyStatus: ReviewHistoryStatus,
-    val sequence: Long,
+    val active: Boolean,
+    val deletedAt: Instant?,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

@@ -206,13 +206,11 @@ class ReportingServiceTest {
     }
 
     @Test
-    fun `exclude clears only matching current pointer removes aggregate input and retains cooldown`() {
+    fun `exclude releases active slot removes aggregate input and retains submission time`() {
         val fixture = fixture(
             reviewTarget(
                 commentStatus = ReviewCommentStatus.HIDDEN_REPORTED,
-                currentReviewId = REVIEW_ID,
-                lastSubmittedAt = LAST_SUBMITTED_AT,
-                lastSequence = 3,
+                submittedAt = LAST_SUBMITTED_AT,
             ),
         ).also { it.reviewReports.seedPending() }
 
@@ -221,9 +219,8 @@ class ReportingServiceTest {
         )
 
         assertThat(fixture.targets.current.visibilityStatus).isEqualTo(ReviewVisibilityStatus.EXCLUDED)
-        assertThat(fixture.targets.current.currentReviewId).isNull()
-        assertThat(fixture.targets.current.lastSubmittedAt).isEqualTo(LAST_SUBMITTED_AT)
-        assertThat(fixture.targets.current.lastSequence).isEqualTo(3)
+        assertThat(fixture.targets.current.active).isFalse()
+        assertThat(fixture.targets.current.submittedAt).isEqualTo(LAST_SUBMITTED_AT)
         assertThat(fixture.targets.currentAggregateReviewIds()).isEmpty()
         assertThat(fixture.targets.historyReviewIds).containsExactly(REVIEW_ID - 1)
         assertAudit(fixture.audits.commands.single(), ModerationAuditAction.REVIEW_EXCLUDED)
@@ -256,11 +253,7 @@ class ReportingServiceTest {
     @Test
     fun `full exclusion drops five distinct aggregate authors back to collecting`() {
         val fixture = fixture(
-            reviewTarget(
-                currentReviewId = REVIEW_ID,
-                lastSubmittedAt = LAST_SUBMITTED_AT,
-                lastSequence = 3,
-            ),
+            reviewTarget(submittedAt = LAST_SUBMITTED_AT),
         ).also { it.reviewReports.seedPending() }
         val unaffected = (1L..4L).map { authorId -> aggregateInput(authorId, authorId) }
         val aggregateService = ReviewAggregateService(
@@ -298,16 +291,17 @@ class ReportingServiceTest {
     }
 
     @Test
-    fun `excluding a history review does not clear a newer current review`() {
-        val fixture = fixture(reviewTarget(currentReviewId = REVIEW_ID + 1)).also {
+    fun `decision rejects an already inactive review`() {
+        val fixture = fixture(reviewTarget(active = false)).also {
             it.reviewReports.seedPending()
         }
 
-        fixture.service.decideReviewReport(
-            DecideReviewReportCommand(ADMIN_ID, REVIEW_REPORT_ID, ReviewReportDecision.EXCLUDE_REVIEW, null),
-        )
-
-        assertThat(fixture.targets.current.currentReviewId).isEqualTo(REVIEW_ID + 1)
+        assertThatThrownBy {
+            fixture.service.decideReviewReport(
+                DecideReviewReportCommand(ADMIN_ID, REVIEW_REPORT_ID, ReviewReportDecision.EXCLUDE_REVIEW, null),
+            )
+        }.isInstanceOf(StateConflictException::class.java)
+        assertThat(fixture.targets.current.active).isFalse()
     }
 
     @Test
@@ -506,18 +500,18 @@ class ReportingServiceTest {
 
     private fun reviewTarget(
         commentStatus: ReviewCommentStatus = ReviewCommentStatus.NONE,
-        currentReviewId: Long? = REVIEW_ID,
-        lastSubmittedAt: Instant = LAST_SUBMITTED_AT,
-        lastSequence: Long = 1,
+        active: Boolean = true,
+        submittedAt: Instant = LAST_SUBMITTED_AT,
+        deletedAt: Instant? = null,
     ) = StoredReviewReportTarget(
         reviewId = REVIEW_ID,
         authorUserId = AUTHOR_ID,
         restaurantId = RESTAURANT_ID,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
         commentStatus = commentStatus,
-        currentReviewId = currentReviewId,
-        lastSubmittedAt = lastSubmittedAt,
-        lastSequence = lastSequence,
+        active = active,
+        submittedAt = submittedAt,
+        deletedAt = deletedAt,
     )
 
     private fun assertAudit(command: ModerationAuditPersistenceCommand, action: ModerationAuditAction) {
@@ -668,19 +662,14 @@ class ReportingServiceTest {
             current = current.copy(
                 visibilityStatus = command.nextVisibilityStatus,
                 commentStatus = command.nextCommentStatus,
-                currentReviewId = if (command.clearCurrentPointerIfTarget && current.currentReviewId == current.reviewId) {
-                    null
-                } else {
-                    current.currentReviewId
-                },
+                active = current.active && !command.clearCurrentPointerIfTarget,
             )
             return current
         }
 
         fun currentAggregateReviewIds(): List<Long> =
             if (
-                current.visibilityStatus == ReviewVisibilityStatus.ACTIVE &&
-                current.currentReviewId == current.reviewId
+                current.visibilityStatus == ReviewVisibilityStatus.ACTIVE && current.active
             ) {
                 listOf(current.reviewId)
             } else {

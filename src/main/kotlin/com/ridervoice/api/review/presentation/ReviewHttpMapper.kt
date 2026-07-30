@@ -82,8 +82,6 @@ class ReviewHttpMapper {
         comment = result.comment,
         commentModerationStatus = result.commentModerationStatus,
         visibilityStatus = result.visibilityStatus,
-        historyStatus = result.historyStatus,
-        sequence = result.sequence,
         createdAt = result.createdAt,
         updatedAt = result.updatedAt,
     )
@@ -98,7 +96,6 @@ class ReviewHttpMapper {
             PublicReviewListItemResponse(
                 reviewId = item.reviewId,
                 visitMonth = item.visitMonth.toString(),
-                current = item.current,
                 ratings = item.ratings.toResponse(),
                 comment = item.comment,
                 authorActivity = PublicReviewAuthorActivityResponse(

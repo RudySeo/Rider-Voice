@@ -8,13 +8,11 @@ import com.ridervoice.api.review.application.model.PublicReviewListItemInput
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.model.ReviewRestaurantSummary
 import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
 import com.ridervoice.api.review.application.port.out.PublicReviewQuery
 import com.ridervoice.api.review.application.port.out.ReviewRepository
+import com.ridervoice.api.review.application.port.out.ReviewSubmissionSnapshot
 import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -25,13 +23,13 @@ import java.time.Instant
 
 @Component
 internal class AggregateReviewQueryPersistenceAdapter(
-    private val states: SpringDataAuthorRestaurantReviewStateRepository,
+    private val reviews: SpringDataReviewRepository,
 ) : AggregateReviewQuery {
 
     override fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput> {
         require(restaurantId > 0) { "Restaurant ID must be positive" }
         return latestByAuthor(
-            states.findCurrentAggregateRowsByRestaurantId(restaurantId, ReviewVisibilityStatus.ACTIVE),
+            reviews.findCurrentAggregateRowsByRestaurantId(restaurantId, ReviewVisibilityStatus.ACTIVE),
         )
     }
 
@@ -40,7 +38,7 @@ internal class AggregateReviewQueryPersistenceAdapter(
     ): List<AggregateReviewInput> {
         require(pickupLocationId > 0) { "Pickup location ID must be positive" }
         return latestByAuthor(
-            states.findCurrentAggregateRowsByPickupLocationId(
+            reviews.findCurrentAggregateRowsByPickupLocationId(
                 pickupLocationId,
                 ReviewVisibilityStatus.ACTIVE,
             ),
@@ -126,7 +124,6 @@ internal class PublicReviewQueryPersistenceAdapter(
         ),
         comment = comment,
         commentModerationStatus = commentModerationStatus,
-        currentReviewId = currentReviewId,
         createdAt = createdAt,
     )
 }
@@ -145,7 +142,6 @@ internal class ReviewPersistenceAdapter(
                 visitMonth = command.visitMonth,
                 ratings = command.ratings,
                 comment = command.comment,
-                sequence = command.sequence,
             ),
         )
         return SavedReviewSnapshot(
@@ -160,7 +156,6 @@ internal class ReviewPersistenceAdapter(
             comment = saved.comment,
             commentModerationStatus = saved.commentModerationStatus,
             visibilityStatus = saved.visibilityStatus,
-            sequence = saved.sequence,
             createdAt = saved.createdAt,
             updatedAt = saved.updatedAt,
         )
@@ -168,12 +163,25 @@ internal class ReviewPersistenceAdapter(
 
     override fun save(review: Review): Review = reviews.saveAndFlush(review)
 
-    override fun findOwnedCurrentForUpdate(authorUserId: Long, reviewId: Long): Review? =
-        reviews.findOwnedCurrentForUpdate(authorUserId, reviewId).orElse(null)
-
-    override fun delete(review: Review) {
-        reviews.delete(review)
+    override fun findLatestSubmissionForUpdate(
+        authorUserId: Long,
+        restaurantId: Long,
+    ): ReviewSubmissionSnapshot? = reviews.findLatestSubmissionForUpdate(
+        authorUserId,
+        restaurantId,
+        PageRequest.of(0, 1),
+    ).firstOrNull()?.let { review ->
+        ReviewSubmissionSnapshot(
+            reviewId = review.id,
+            authorUserId = review.author.id,
+            restaurantId = review.restaurant.id,
+            submittedAt = review.createdAt,
+            active = review.isActive,
+        )
     }
+
+    override fun findOwnedActiveForUpdate(authorUserId: Long, reviewId: Long): Review? =
+        reviews.findOwnedActiveForUpdate(authorUserId, reviewId, ReviewVisibilityStatus.ACTIVE).orElse(null)
 
     override fun countByAuthorUserIdSince(authorUserId: Long, since: Instant): Long =
         reviews.countByAuthorIdAndCreatedAtGreaterThanEqual(authorUserId, since)
@@ -185,68 +193,15 @@ internal class ReviewPersistenceAdapter(
     ): List<Review> {
         val pageable = PageRequest.of(0, limit)
         return if (cursor == null) {
-            reviews.findAllByAuthorId(authorUserId, pageable)
+            reviews.findAllByAuthorId(authorUserId, ReviewVisibilityStatus.ACTIVE, pageable)
         } else {
             reviews.findAllByAuthorIdBeforeCursor(
                 authorUserId,
+                ReviewVisibilityStatus.ACTIVE,
                 cursor.createdAt,
                 cursor.reviewId,
                 pageable,
             )
         }
     }
-}
-
-@Component
-internal class AuthorRestaurantReviewStatePersistenceAdapter(
-    private val states: SpringDataAuthorRestaurantReviewStateRepository,
-    private val entityManager: EntityManager,
-) : AuthorRestaurantReviewStateRepository {
-
-    override fun findForUpdate(
-        authorUserId: Long,
-        restaurantId: Long,
-    ): AuthorRestaurantReviewStateSnapshot? = states.findForUpdate(authorUserId, restaurantId)
-        .orElse(null)
-        ?.toSnapshot()
-
-    override fun findByAuthorUserIdAndRestaurantIds(
-        authorUserId: Long,
-        restaurantIds: Set<Long>,
-    ): List<AuthorRestaurantReviewStateSnapshot> {
-        if (restaurantIds.isEmpty()) return emptyList()
-        return states.findAllByAuthorIdAndRestaurantIds(authorUserId, restaurantIds).map { it.toSnapshot() }
-    }
-
-    override fun save(state: AuthorRestaurantReviewStateSnapshot): AuthorRestaurantReviewStateSnapshot {
-        val currentReview = state.currentReviewId?.let { entityManager.getReference(Review::class.java, it) }
-        val entity = if (state.stateId == null) {
-            AuthorRestaurantReviewState(
-                author = entityManager.getReference(User::class.java, state.authorUserId),
-                restaurant = entityManager.getReference(Restaurant::class.java, state.restaurantId),
-                lastSubmittedAt = state.lastSubmittedAt,
-                lastSequence = state.lastSequence,
-                currentReview = currentReview,
-            )
-        } else {
-            states.findById(state.stateId).orElseThrow {
-                IllegalStateException("Review state ${state.stateId} does not exist")
-            }.also { existing ->
-                require(existing.author.id == state.authorUserId) { "Review state author cannot change" }
-                require(existing.restaurant.id == state.restaurantId) { "Review state restaurant cannot change" }
-                existing.synchronize(state.lastSubmittedAt, state.lastSequence, currentReview)
-            }
-        }
-
-        return states.saveAndFlush(entity).toSnapshot()
-    }
-
-    private fun AuthorRestaurantReviewState.toSnapshot() = AuthorRestaurantReviewStateSnapshot(
-        stateId = id,
-        authorUserId = author.id,
-        restaurantId = restaurant.id,
-        lastSubmittedAt = lastSubmittedAt,
-        lastSequence = lastSequence,
-        currentReviewId = currentReview?.id,
-    )
 }

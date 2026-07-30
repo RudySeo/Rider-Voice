@@ -28,14 +28,15 @@ class ReviewPolicyTest {
     }
 
     @Test
-    fun `review can be submitted for the first time or exactly ninety days after last submission`() {
+    fun `active review blocks creation and inactive review permits creation at the ninety day boundary`() {
         val lastSubmittedAt = Instant.parse("2026-01-01T00:00:00Z")
         val boundary = Instant.parse("2026-04-01T00:00:00Z")
 
-        assertThat(ReviewSubmissionPolicy.canSubmit(null, lastSubmittedAt)).isTrue()
-        assertThat(ReviewSubmissionPolicy.canSubmit(lastSubmittedAt, boundary.minusNanos(1))).isFalse()
-        assertThat(ReviewSubmissionPolicy.canSubmit(lastSubmittedAt, boundary)).isTrue()
-        assertThat(ReviewSubmissionPolicy.canSubmit(lastSubmittedAt, boundary.plusSeconds(1))).isTrue()
+        assertThat(ReviewSubmissionPolicy.canSubmit(false, null, lastSubmittedAt)).isTrue()
+        assertThat(ReviewSubmissionPolicy.canSubmit(true, lastSubmittedAt, boundary.plusSeconds(1))).isFalse()
+        assertThat(ReviewSubmissionPolicy.canSubmit(false, lastSubmittedAt, boundary.minusNanos(1))).isFalse()
+        assertThat(ReviewSubmissionPolicy.canSubmit(false, lastSubmittedAt, boundary)).isTrue()
+        assertThat(ReviewSubmissionPolicy.canSubmit(false, lastSubmittedAt, boundary.plusSeconds(1))).isTrue()
         assertThat(ReviewSubmissionPolicy.nextEligibleAt(lastSubmittedAt)).isEqualTo(boundary)
     }
 }

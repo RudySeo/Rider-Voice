@@ -73,7 +73,7 @@ class PublicReviewApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.items[0].reviewId") { value(100) }
             jsonPath("$.items[0].visitMonth") { value("2026-07") }
-            jsonPath("$.items[0].current") { value(false) }
+            jsonPath("$.items[0].current") { doesNotExist() }
             jsonPath("$.items[0].ratings.packagingStability") { value("VERY_GOOD") }
             jsonPath("$.items[0].comment") { value("공개 의견") }
             jsonPath("$.items[0].authorActivity.activityMonths") { value(3) }
@@ -129,7 +129,6 @@ class PublicReviewApiContractMockMvcTest {
     private fun item() = PublicReviewListItemResult(
         reviewId = 100L,
         visitMonth = VisitMonth.parse("2026-07"),
-        current = false,
         ratings = ReviewRatings(
             pickupSpaceCleanliness = ReviewRating.GOOD,
             packagingStability = ReviewRating.VERY_GOOD,

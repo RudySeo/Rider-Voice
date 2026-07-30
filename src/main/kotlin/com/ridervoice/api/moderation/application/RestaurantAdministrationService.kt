@@ -18,8 +18,7 @@ import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPicku
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationUseCase
-import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
-import com.ridervoice.api.moderation.application.port.out.MergedAuthorReviewState
+import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReview
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
@@ -36,7 +35,6 @@ import com.ridervoice.api.moderation.domain.RestaurantAdminAction
 import com.ridervoice.api.moderation.application.port.`in`.RestaurantStatusAction
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -62,13 +60,13 @@ internal class RestaurantAdministrationService(
         requireActive(duplicate, "Duplicate restaurant")
         requireActive(canonical, "Canonical restaurant")
 
-        val mergedStates = mergeAuthorStates(restaurants.findReviewStatesForUpdate(restaurantIds))
+        val activeReviewIds = selectActiveReviews(restaurants.findReviewsForUpdate(restaurantIds))
         val completedAt = clock.instant()
         val saved = restaurants.merge(
             RestaurantMergePersistenceCommand(
                 duplicateRestaurantId = duplicate.restaurantId,
                 canonicalRestaurantId = canonical.restaurantId,
-                authorStates = mergedStates,
+                activeReviewIds = activeReviewIds,
             ),
         )
         audits.append(
@@ -81,7 +79,7 @@ internal class RestaurantAdministrationService(
                 beforeState = "duplicate={${restaurantState(duplicate)}}," +
                     "canonical={${restaurantState(canonical)}}",
                 afterState = "duplicate={${restaurantState(saved)}}," +
-                    "mergedAuthorStates=${mergedStateSummary(mergedStates)}," +
+                    "activeReviewIds=${activeReviewIds.sorted()}," +
                     "reviewsTransferred=true,externalReferencesTransferred=true,platformsTransferred=true",
                 occurredAt = completedAt,
             ),
@@ -275,26 +273,16 @@ internal class RestaurantAdministrationService(
         )
     }
 
-    private fun mergeAuthorStates(states: List<AdminRestaurantReviewState>): List<MergedAuthorReviewState> =
-        states.groupBy { it.authorUserId }
-            .map { (authorUserId, authorStates) ->
-                val currentReviewId = authorStates
-                    .asSequence()
-                    .filter { it.currentReviewVisibilityStatus == ReviewVisibilityStatus.ACTIVE }
-                    .filter { it.currentReviewId != null && it.currentReviewCreatedAt != null }
-                    .maxWithOrNull(
-                        compareBy<AdminRestaurantReviewState> { it.currentReviewCreatedAt }
-                            .thenBy { it.currentReviewId },
-                    )
-                    ?.currentReviewId
-                MergedAuthorReviewState(
-                    authorUserId = authorUserId,
-                    lastSubmittedAt = authorStates.maxOf { it.lastSubmittedAt },
-                    lastSequence = authorStates.maxOf { it.lastSequence },
-                    currentReviewId = currentReviewId,
-                )
-            }
-            .sortedBy { it.authorUserId }
+    private fun selectActiveReviews(reviews: List<AdminRestaurantReview>): Set<Long> = reviews
+        .filter(AdminRestaurantReview::active)
+        .groupBy(AdminRestaurantReview::authorUserId)
+        .values
+        .mapTo(linkedSetOf()) { authorReviews ->
+            authorReviews.maxWith(
+                compareBy<AdminRestaurantReview>(AdminRestaurantReview::submittedAt)
+                    .thenBy(AdminRestaurantReview::reviewId),
+            ).reviewId
+        }
 
     private fun requireActive(restaurant: StoredAdminRestaurant, label: String) {
         if (restaurant.status != RestaurantStatus.ACTIVE) {
@@ -313,12 +301,4 @@ internal class RestaurantAdministrationService(
             "pickupLocationId=${restaurant.pickupLocationId}," +
             "canonicalRestaurantId=${restaurant.canonicalRestaurantId}"
 
-    private fun mergedStateSummary(states: List<MergedAuthorReviewState>): String = states.joinToString(
-        prefix = "[",
-        postfix = "]",
-        separator = ";",
-    ) {
-        "authorUserId=${it.authorUserId},lastSubmittedAt=${it.lastSubmittedAt}," +
-            "lastSequence=${it.lastSequence},currentReviewId=${it.currentReviewId}"
-    }
 }

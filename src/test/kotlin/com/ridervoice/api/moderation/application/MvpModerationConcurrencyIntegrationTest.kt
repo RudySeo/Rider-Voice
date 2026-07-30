@@ -19,8 +19,6 @@ import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.application.port.out.ReviewRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -47,7 +45,6 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
     @Autowired private lateinit var pickupLocations: PickupLocationRepository
     @Autowired private lateinit var restaurants: RestaurantRepository
     @Autowired private lateinit var reviews: ReviewRepository
-    @Autowired private lateinit var reviewStates: AuthorRestaurantReviewStateRepository
     @Autowired private lateinit var createReviewReport: CreateReviewReportUseCase
     @Autowired private lateinit var createRestaurantReport: CreateRestaurantInfoReportUseCase
     @Autowired private lateinit var mergeRestaurant: MergeRestaurantUseCase
@@ -66,7 +63,6 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
             jdbc.update("delete from moderation_audits where actor_user_id = ?", userId)
             jdbc.update("delete from review_reports where reporter_user_id = ?", userId)
             jdbc.update("delete from restaurant_info_reports where reporter_user_id = ?", userId)
-            jdbc.update("delete from author_restaurant_review_states where author_user_id = ?", userId)
         }
         reviewIds.forEach { reviewId ->
             jdbc.update("delete from review_reports where review_id = ?", reviewId)
@@ -184,19 +180,8 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
                 visitMonth = VisitMonth.parse("2026-07"),
                 ratings = ratings(),
                 comment = null,
-                sequence = 1L,
             ),
         ).also { reviewIds += it.id }
-        reviewStates.save(
-            AuthorRestaurantReviewStateSnapshot(
-                stateId = null,
-                authorUserId = user.id,
-                restaurantId = restaurant.id,
-                lastSubmittedAt = review.createdAt,
-                lastSequence = review.sequence,
-                currentReviewId = review.id,
-            ),
-        )
         return ReportFixture(user, review)
     }
 

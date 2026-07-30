@@ -24,7 +24,7 @@ const currentReview = {
   reviewId: 101,
   restaurant: {
     restaurantId: 17,
-    name: '현재 리뷰 음식점',
+    name: '활성 리뷰 음식점',
     address: '서울 강남구 테헤란로 1',
   },
   visitMonth: '2026-07',
@@ -39,26 +39,22 @@ const currentReview = {
   comment: '기존 공개 의견',
   commentModerationStatus: 'PUBLISHED',
   visibilityStatus: 'ACTIVE',
-  historyStatus: 'CURRENT',
-  sequence: 2,
   createdAt: '2026-07-25T03:00:00Z',
   updatedAt: '2026-07-26T04:30:00Z',
 } as const
 
-const historyReview = {
+const anotherReview = {
   ...currentReview,
   reviewId: 100,
   restaurant: {
     restaurantId: 18,
-    name: '과거 리뷰 음식점',
+    name: '다른 리뷰 음식점',
     address: '서울 강남구 역삼로 2',
   },
   visitMonth: '2026-04',
   comment: null,
   commentModerationStatus: 'REJECTED',
-  visibilityStatus: 'EXCLUDED',
-  historyStatus: 'HISTORY',
-  sequence: 1,
+  visibilityStatus: 'ACTIVE',
   createdAt: '2026-04-20T01:00:00Z',
   updatedAt: '2026-04-21T01:00:00Z',
 } as const
@@ -95,15 +91,15 @@ const renderEdit = (
   )
 
 describe('my review list', () => {
-  it('loads cursor pages and exposes actions only for the current review', async () => {
+  it('loads cursor pages and exposes actions for every active review', async () => {
     const fetchFn = vi.fn<typeof fetch>(async (input) => {
       const url = String(input)
       if (url === '/api/v1/users/me/reviews?size=20') {
-        return jsonResponse({ items: [currentReview, historyReview], nextCursor: 'next' })
+        return jsonResponse({ items: [currentReview, anotherReview], nextCursor: 'next' })
       }
       if (url === '/api/v1/users/me/reviews?cursor=next&size=20') {
         return jsonResponse({
-          items: [{ ...historyReview, reviewId: 99, restaurant: { ...historyReview.restaurant, name: '두 번째 페이지 음식점' } }],
+          items: [{ ...anotherReview, reviewId: 99, restaurant: { ...anotherReview.restaurant, name: '두 번째 페이지 음식점' } }],
           nextCursor: null,
         })
       }
@@ -113,12 +109,11 @@ describe('my review list', () => {
     renderWithProviders(<MyReviews client={createClient(fetchFn)} />)
 
     expect(screen.getByRole('status')).toHaveTextContent('내 리뷰를 불러오는 중')
-    const currentCard = await screen.findByRole('article', { name: '현재 리뷰 음식점 리뷰' })
-    const historyCard = screen.getByRole('article', { name: '과거 리뷰 음식점 리뷰' })
+    const currentCard = await screen.findByRole('article', { name: '활성 리뷰 음식점 리뷰' })
+    const anotherCard = screen.getByRole('article', { name: '다른 리뷰 음식점 리뷰' })
 
     expect(within(currentCard).getByText('2026년 7월 방문')).toBeInTheDocument()
     expect(within(currentCard).getByText('공개됨')).toBeInTheDocument()
-    expect(within(currentCard).getByText('현재 리뷰')).toBeInTheDocument()
     expect(within(currentCard).getByText('의견 공개')).toBeInTheDocument()
     expect(within(currentCard).getByText(/수정 2026\. 7\. 26\./)).toBeInTheDocument()
     expect(within(currentCard).getByText('관찰하지 못함')).toBeInTheDocument()
@@ -128,11 +123,10 @@ describe('my review list', () => {
     )
     expect(within(currentCard).getByRole('button', { name: '삭제' })).toBeInTheDocument()
 
-    expect(within(historyCard).getByText('공개 제외')).toBeInTheDocument()
-    expect(within(historyCard).getByText('이전 리뷰')).toBeInTheDocument()
-    expect(within(historyCard).getByText('의견 반려')).toBeInTheDocument()
-    expect(within(historyCard).queryByRole('link', { name: '수정' })).not.toBeInTheDocument()
-    expect(within(historyCard).queryByRole('button', { name: '삭제' })).not.toBeInTheDocument()
+    expect(within(anotherCard).getByText('공개됨')).toBeInTheDocument()
+    expect(within(anotherCard).getByText('의견 반려')).toBeInTheDocument()
+    expect(within(anotherCard).getByRole('link', { name: '수정' })).toBeInTheDocument()
+    expect(within(anotherCard).getByRole('button', { name: '삭제' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '리뷰 더 보기' }))
     expect(await screen.findByText('두 번째 페이지 음식점')).toBeInTheDocument()
@@ -189,7 +183,7 @@ describe('review edit', () => {
     renderEdit(fetchFn)
 
     expect(await screen.findByRole('heading', { name: '리뷰 수정' })).toBeInTheDocument()
-    expect(screen.getByText('현재 리뷰 음식점')).toBeInTheDocument()
+    expect(screen.getByText('활성 리뷰 음식점')).toBeInTheDocument()
     expect(screen.getByText('2026년 7월')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: '음식점' })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: '방문 연월' })).not.toBeInTheDocument()
@@ -224,7 +218,7 @@ describe('review edit', () => {
   })
 
   it.each([
-    [404, 'REVIEW_NOT_FOUND', '소유하지 않았거나 더 이상 수정 가능한 최신 리뷰가 아닙니다.'],
+    [404, 'REVIEW_NOT_FOUND', '소유하지 않았거나 더 이상 활성 상태인 리뷰가 아닙니다.'],
     [409, 'REVIEW_CONFLICT', '리뷰 상태가 변경되어 수정할 수 없습니다. 내 리뷰 목록을 다시 확인해 주세요.'],
     [401, 'INVALID_ACCESS_TOKEN', '로그인이 만료되었습니다. 다시 로그인해 주세요.'],
     [500, 'PROVIDER_TOKEN_LEAK', '리뷰를 수정하지 못했습니다. 잠시 후 다시 시도해 주세요.'],
@@ -267,12 +261,12 @@ describe('review delete', () => {
       queryClient,
     )
 
-    await screen.findByRole('article', { name: '현재 리뷰 음식점 리뷰' })
+    await screen.findByRole('article', { name: '활성 리뷰 음식점 리뷰' })
     await userEvent.click(screen.getByRole('button', { name: '삭제' }))
 
     const confirmation = screen.getByRole('alertdialog', { name: '리뷰 삭제 확인' })
     expect(within(confirmation).getByText(
-      '삭제해도 마지막 제출 후 90일 작성 제한은 유지됩니다.',
+      '삭제하면 작성 시각부터 90일이 지난 뒤 같은 음식점에 다시 작성할 수 있습니다.',
     )).toBeInTheDocument()
     expect(fetchFn).toHaveBeenCalledTimes(1)
 
@@ -291,12 +285,12 @@ describe('review delete', () => {
     )
     renderWithProviders(<MyReviews client={createClient(fetchFn)} />)
 
-    await screen.findByRole('article', { name: '현재 리뷰 음식점 리뷰' })
+    await screen.findByRole('article', { name: '활성 리뷰 음식점 리뷰' })
     await userEvent.click(screen.getByRole('button', { name: '삭제' }))
     await userEvent.click(screen.getByRole('button', { name: '리뷰 삭제 확정' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '소유하지 않았거나 더 이상 수정 가능한 최신 리뷰가 아닙니다.',
+      '소유하지 않았거나 더 이상 활성 상태인 리뷰가 아닙니다.',
     )
     expect(document.body).not.toHaveTextContent('provider-secret-token')
   })

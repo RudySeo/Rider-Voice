@@ -26,11 +26,6 @@ enum class ReviewVisibilityStatus {
     EXCLUDED,
 }
 
-enum class ReviewHistoryStatus {
-    CURRENT,
-    HISTORY,
-}
-
 @Embeddable
 data class ReviewRatings(
     @field:Enumerated(EnumType.STRING)

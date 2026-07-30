@@ -28,7 +28,6 @@ import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -161,7 +160,8 @@ class ReviewApiContractMockMvcTest {
                 jsonPath("$.visitMonth") { value("2026-07") }
                 jsonPath("$.ratings.pickupSpaceCleanliness") { value("GOOD") }
                 jsonPath("$.commentModerationStatus") { value("PENDING") }
-                jsonPath("$.historyStatus") { value("CURRENT") }
+                jsonPath("$.historyStatus") { doesNotExist() }
+                jsonPath("$.sequence") { doesNotExist() }
                 jsonPath("$.createdAt") { value("2026-07-25T03:00:00Z") }
             }
 
@@ -404,8 +404,6 @@ class ReviewApiContractMockMvcTest {
         comment = "검수할 의견",
         commentModerationStatus = ReviewCommentStatus.PENDING,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
-        historyStatus = ReviewHistoryStatus.CURRENT,
-        sequence = 1L,
         createdAt = Instant.parse("2026-07-25T03:00:00Z"),
         updatedAt = Instant.parse("2026-07-25T03:00:00Z"),
     )

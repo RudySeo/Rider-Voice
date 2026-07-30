@@ -1,7 +1,6 @@
 package com.ridervoice.api.review.presentation.dto
 
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import io.swagger.v3.oas.annotations.media.Schema
@@ -18,9 +17,6 @@ data class ReviewResponse(
     val comment: String?,
     val commentModerationStatus: ReviewCommentStatus,
     val visibilityStatus: ReviewVisibilityStatus,
-    val historyStatus: ReviewHistoryStatus,
-    @field:Schema(format = "int64")
-    val sequence: Long,
     val createdAt: Instant,
     val updatedAt: Instant,
 )
@@ -58,7 +54,6 @@ data class PublicReviewListItemResponse(
     val reviewId: Long,
     @field:Schema(pattern = VISIT_MONTH_PATTERN, example = "2026-07")
     val visitMonth: String,
-    val current: Boolean,
     val ratings: ReviewRatingsResponse,
     @field:Schema(nullable = true, description = "관리자 승인된 의견만 노출됩니다.")
     val comment: String?,

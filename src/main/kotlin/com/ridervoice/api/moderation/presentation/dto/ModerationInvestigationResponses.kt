@@ -7,7 +7,6 @@ import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import io.swagger.v3.oas.annotations.media.Schema
@@ -23,8 +22,8 @@ data class AdminReviewDetailResponse(
     @field:Schema(nullable = true) val comment: String?,
     val commentStatus: ReviewCommentStatus,
     val visibilityStatus: ReviewVisibilityStatus,
-    val historyStatus: ReviewHistoryStatus,
-    val sequence: Long,
+    val active: Boolean,
+    @field:Schema(nullable = true) val deletedAt: Instant?,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

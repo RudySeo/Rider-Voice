@@ -122,8 +122,8 @@ internal class ModerationInvestigationService(
         comment,
         commentStatus,
         visibilityStatus,
-        historyStatus,
-        sequence,
+        active,
+        deletedAt,
         createdAt,
         updatedAt,
     )

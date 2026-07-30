@@ -137,7 +137,6 @@ class ModerationPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
                     riderRespect = ReviewRating.GOOD,
                 ),
                 comment = null,
-                sequence = 1L,
             ),
         )
         return Fixture(user, review)

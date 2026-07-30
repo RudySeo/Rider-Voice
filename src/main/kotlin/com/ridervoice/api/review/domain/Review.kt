@@ -15,18 +15,26 @@ import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
+import java.time.Instant
 
 @Entity
 @Table(
     name = "reviews",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_reviews_author_restaurant_current_slot",
+            columnNames = ["author_user_id", "restaurant_id", "current_slot"],
+        ),
+    ],
     indexes = [
         Index(
-            name = "idx_reviews_author_restaurant_sequence",
-            columnList = "author_user_id, restaurant_id, submission_sequence",
+            name = "idx_reviews_author_restaurant_created",
+            columnList = "author_user_id, restaurant_id, created_at, id",
         ),
         Index(
             name = "idx_reviews_restaurant_visibility_created",
-            columnList = "restaurant_id, visibility_status, created_at, id",
+            columnList = "restaurant_id, current_slot, visibility_status, deleted_at, created_at, id",
         ),
     ],
 )
@@ -45,8 +53,6 @@ class Review(
     val visitMonth: VisitMonth,
     ratings: ReviewRatings,
     comment: String?,
-    @field:Column(name = "submission_sequence", nullable = false, updatable = false)
-    val sequence: Long,
 ) : BaseEntity() {
 
     @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -76,9 +82,16 @@ class Review(
     final var visibilityStatus: ReviewVisibilityStatus = ReviewVisibilityStatus.ACTIVE
         private set
 
-    init {
-        require(sequence > 0) { "Review sequence must be positive" }
-    }
+    @field:Column(name = "deleted_at")
+    final var deletedAt: Instant? = null
+        private set
+
+    @field:Column(name = "current_slot")
+    final var currentSlot: Int? = ACTIVE_SLOT
+        private set
+
+    val isActive: Boolean
+        get() = currentSlot == ACTIVE_SLOT && deletedAt == null && visibilityStatus == ReviewVisibilityStatus.ACTIVE
 
     fun update(ratings: ReviewRatings, comment: String?) {
         val normalizedComment = ReviewCommentPolicy.normalize(comment)
@@ -125,10 +138,22 @@ class Review(
     }
 
     fun exclude() {
-        check(visibilityStatus == ReviewVisibilityStatus.ACTIVE) {
+        check(isActive) {
             "Only an active review can be excluded"
         }
         visibilityStatus = ReviewVisibilityStatus.EXCLUDED
+        currentSlot = null
+    }
+
+    fun softDelete(deletedAt: Instant) {
+        check(isActive) { "Only an active review can be deleted" }
+        this.deletedAt = deletedAt
+        currentSlot = null
+    }
+
+    fun supersede() {
+        check(isActive) { "Only an active review can be superseded" }
+        currentSlot = null
     }
 
     fun relinkToRestaurant(restaurant: Restaurant) {
@@ -136,6 +161,8 @@ class Review(
     }
 
     private companion object {
+        const val ACTIVE_SLOT = 1
+
         fun initialCommentStatus(comment: String?): ReviewCommentStatus =
             if (comment == null) ReviewCommentStatus.NONE else ReviewCommentStatus.PENDING
     }

@@ -412,7 +412,7 @@ function PublicReviewCard({ review }: { review: PublicReview }) {
     <article className={styles.reviewCard}>
       <header className={styles.reviewHeader}>
         <h3>{review.visitMonth ?? '방문 연월 미상'} 방문</h3>
-        <span>{review.current ? '현재 리뷰' : '이전 리뷰'}</span>
+        <span>공개 리뷰</span>
       </header>
       <dl className={styles.ratings}>
         {REVIEW_RATING_FIELDS.map(([key, label]) => (
