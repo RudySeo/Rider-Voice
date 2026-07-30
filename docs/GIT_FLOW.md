@@ -38,6 +38,21 @@ PR 필수 조건:
 - 기존 테스트 삭제·약화 금지
 - 리뷰 승인 후 merge
 
+## 자동 Draft PR, CI와 Codex 리뷰
+
+`feature/*`와 기존 `feat/*` 브랜치에 `develop`보다 앞선 변경 커밋을 처음 push하면 `.github/workflows/feature-pr.yml`이 `develop` 대상 Draft PR을 생성한다. 로컬 브랜치 생성이나 변경 커밋이 없는 최초 push만으로는 PR을 만들 수 없으며, 다음 변경 push에서 다시 시도한다. 같은 브랜치에 열린 PR이 있으면 새 PR을 만들지 않는다.
+
+workflow는 push마다 다음 검증을 병렬 실행한다.
+
+- backend: JDK 21에서 `./gradlew build`
+- frontend: Node 24에서 `npm ci`, `npm run lint`, `npm test`, `npm run build`
+
+로컬 MySQL이 필요한 `integrationTest`는 이 GitHub-hosted CI에 포함하지 않는다. 현재 자동화는 CI 실패나 리뷰 결과로 merge를 강제 차단하지 않으며 결과를 PR 판단 자료로 제공한다.
+
+Codex 리뷰를 사용하려면 Codex Cloud에 저장소를 연결하고 해당 저장소의 Code review와 Automatic reviews를 활성화한다. Draft PR의 변경이 검토 가능한 상태가 되면 Ready for review로 전환해 자동 리뷰를 요청하며, 재검토가 필요하면 PR 댓글에 `@codex review`를 작성한다. Codex는 루트와 변경 파일에 적용되는 `AGENTS.md`의 `Code Review Rules`를 따른다.
+
+자동 PR 생성에는 GitHub 저장소의 `Settings > Actions > General > Workflow permissions`에서 `Allow GitHub Actions to create and approve pull requests` 설정이 필요하다. workflow 자체는 `contents: read`와 PR 생성 job의 `pull-requests: write`만 사용한다.
+
 ## 릴리스 (후속 단계)
 
 ```text

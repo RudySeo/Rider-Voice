@@ -171,6 +171,20 @@ com.ridervoice.api
 - 기존 테스트를 삭제하거나 약화해 빌드를 통과시키지 않는다.
 - 커밋 메시지는 Conventional Commits 형식을 따른다.
 
+## Code Review Rules
+
+### 제품 신뢰와 공개 데이터
+
+- 공개 API·UI에서 `UNVERIFIED` 안내를 누락하거나 카카오 로그인을 라이더·방문 인증으로 표현하거나 같은 픽업 장소의 다른 브랜드를 노출하는 변경을 지적한다. 기존 미인증 안내와 공개 범위를 유지하는 방향을 제안한다.
+
+### 애플리케이션 경계
+
+- Controller·OAuth handler의 비즈니스 로직이나 JPA query, API의 Entity 직접 사용, application의 presentation·infrastructure 구현 의존, infrastructure 밖의 provider 호출을 지적한다. command/result와 input/output port 경계를 유지하는 방향을 제안한다.
+
+### 리뷰 생명주기와 집계 무결성
+
+- 음식점별 활성 리뷰 하나, 삭제·전체 제외 후 최초 제출 기준 90일, 삭제·제외 기록을 포함한 24시간 제한, 의견 사전 검수, 작성자 5명 집계와 `NOT_OBSERVED` 분모 규칙을 우회하는 변경을 지적하고 해당 경계 테스트를 요구한다.
+
 ## 기본 명령어
 
 ```bash
