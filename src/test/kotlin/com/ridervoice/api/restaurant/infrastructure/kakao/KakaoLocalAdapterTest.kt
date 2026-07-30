@@ -82,11 +82,29 @@ class KakaoLocalAdapterTest {
     }
 
     @Test
+    fun `keyword search caps the provider request size at Kakao maximum`() {
+        val requestQuery = AtomicReference<String>()
+        stub("/v2/local/search/keyword.json") { exchange ->
+            requestQuery.set(exchange.requestURI.query)
+            respond(exchange, 200, """{"documents":[],"meta":{"total_count":0}}""")
+        }
+
+        val result = keywordAdapter().search("강남 분식", 20)
+
+        assertThat(result)
+            .isEqualTo(ProviderSearchResult.Available<ExternalRestaurantCandidate>(emptyList()))
+        assertThat(requestQuery.get()).contains("size=15")
+    }
+
+    @Test
     fun `address search maps road and lot number addresses and falls back when road address is absent`() {
-        stubJson(
-            "/v2/local/search/address.json",
-            200,
-            """
+        val requestQuery = AtomicReference<String>()
+        stub("/v2/local/search/address.json") { exchange ->
+            requestQuery.set(exchange.requestURI.query)
+            respond(
+                exchange,
+                200,
+                """
             {
               "documents": [
                 {
@@ -106,8 +124,9 @@ class KakaoLocalAdapterTest {
               ],
               "meta": {"total_count": 2}
             }
-            """.trimIndent(),
-        )
+                """.trimIndent(),
+            )
+        }
 
         val result = addressAdapter().search("서울 강남구 테헤란로 1", 20)
 
@@ -129,6 +148,7 @@ class KakaoLocalAdapterTest {
                 ),
             ),
         )
+        assertThat(requestQuery.get()).contains("size=20")
     }
 
     @Test

@@ -58,7 +58,7 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
     ): ProviderSearchResult<ExternalRestaurantCandidate> = execute(
         path = KEYWORD_SEARCH_PATH,
         query = query,
-        limit = limit,
+        limit = limit.coerceAtMost(KEYWORD_SEARCH_MAX_SIZE),
         responseType = KakaoKeywordSearchResponse::class.java,
     ) { response -> response.documents.map(KakaoKeywordDocument::toCandidate) }
 
@@ -119,6 +119,7 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
         }
 
     private companion object {
+        const val KEYWORD_SEARCH_MAX_SIZE = 15
         const val KEYWORD_SEARCH_PATH = "/v2/local/search/keyword.json"
         const val ADDRESS_SEARCH_PATH = "/v2/local/search/address.json"
     }
