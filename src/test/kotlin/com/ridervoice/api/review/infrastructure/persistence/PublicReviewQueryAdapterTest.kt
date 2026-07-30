@@ -16,7 +16,7 @@ import java.time.Instant
 class PublicReviewQueryAdapterTest {
 
     @Test
-    fun `adapter delegates reverse cursor and maps current pointer and author activity`() {
+    fun `adapter delegates reverse cursor and maps review and author activity`() {
         val row = TestPublicReviewProjection()
         val activity = TestPublicAuthorActivityProjection()
         val calls = mutableListOf<String>()
@@ -54,7 +54,6 @@ class PublicReviewQueryAdapterTest {
         val author = adapter.findAuthorActivities(setOf(7L)).single()
 
         assertThat(first.reviewId).isEqualTo(100L)
-        assertThat(first.currentReviewId).isEqualTo(100L)
         assertThat(after).isEqualTo(first)
         assertThat(author.publicReviewCount).isEqualTo(8L)
         assertThat(adapter.findAuthorActivities(emptySet())).isEmpty()
@@ -74,12 +73,15 @@ class PublicReviewQueryAdapterTest {
         assertThat(listQuery).contains("review.restaurant.id = :restaurantId")
         assertThat(listQuery).contains("review.visibilityStatus = :visibilityStatus")
         assertThat(listQuery).contains("order by review.createdAt desc, review.id desc")
-        assertThat(listQuery).contains("state.currentReview.id as currentReviewId")
+        assertThat(listQuery).contains("review.currentSlot is not null")
+        assertThat(listQuery).contains("review.deletedAt is null")
         assertThat(cursorQuery).contains("review.createdAt < :cursorCreatedAt")
         assertThat(cursorQuery).contains("review.id < :cursorReviewId")
         assertThat(activityQuery).contains("min(review.createdAt)")
         assertThat(activityQuery).contains("count(review.id)")
         assertThat(activityQuery).contains("review.visibilityStatus = :visibilityStatus")
+        assertThat(activityQuery).contains("review.currentSlot is not null")
+        assertThat(activityQuery).contains("review.deletedAt is null")
     }
 
     private fun queryText(methodName: String): String =
@@ -124,7 +126,6 @@ class PublicReviewQueryAdapterTest {
         override val riderRespect: ReviewRating = ReviewRating.GOOD,
         override val comment: String? = "공개 의견",
         override val commentModerationStatus: ReviewCommentStatus = ReviewCommentStatus.PUBLISHED,
-        override val currentReviewId: Long? = 100L,
         override val createdAt: Instant = Instant.parse("2026-07-25T03:00:00Z"),
     ) : PublicReviewProjection
 

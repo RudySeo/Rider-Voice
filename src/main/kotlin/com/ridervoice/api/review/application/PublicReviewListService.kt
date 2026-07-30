@@ -53,7 +53,6 @@ internal class PublicReviewListService(
     ) = PublicReviewListItemResult(
         reviewId = reviewId,
         visitMonth = visitMonth,
-        current = reviewId == currentReviewId,
         ratings = ratings,
         comment = comment.takeIf { commentModerationStatus == ReviewCommentStatus.PUBLISHED },
         authorActivity = PublicReviewAuthorActivityResult(

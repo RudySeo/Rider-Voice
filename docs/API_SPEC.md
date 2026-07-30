@@ -189,7 +189,6 @@ GET /api/v1/restaurants/{restaurantId}/reviews?cursor={cursor}&size=20
     {
       "reviewId": 100,
       "visitMonth": "2026-07",
-      "current": true,
       "ratings": {
         "pickupSpaceCleanliness": "GOOD",
         "packagingStability": "VERY_GOOD",
@@ -291,7 +290,7 @@ Content-Type: application/json
 }
 ```
 
-음식점 등록과 리뷰 생성은 같은 use case에서 완료한다. provider 검증 실패는 `503`, 90일 이전 재작성은 `409 Conflict`다.
+음식점 등록과 리뷰 생성은 같은 use case에서 완료한다. provider 검증 실패는 `503`이다. 같은 음식점에 활성 리뷰가 있거나 삭제·전체 제외된 마지막 리뷰의 최초 제출 후 90일이 지나지 않았으면 `409 Conflict`다.
 
 ## 7. 내 리뷰 API
 
@@ -301,11 +300,12 @@ PATCH  /api/v1/reviews/{reviewId}
 DELETE /api/v1/reviews/{reviewId}
 ```
 
-- 현재 리뷰만 수정·삭제할 수 있다.
+- 활성 리뷰만 수정·삭제할 수 있다.
 - 방문 연월은 수정할 수 없다.
 - 의견 수정은 다시 `PENDING`으로 전환한다.
-- 타인 리뷰와 과거 리뷰는 `404 Not Found`다.
-- 삭제 후에도 90일 작성 제한은 유지한다.
+- 타인 리뷰와 비활성 리뷰는 `404 Not Found`다.
+- 삭제는 soft delete이며 삭제 리뷰는 공개·내 리뷰 목록에서 제외한다.
+- 삭제·전체 제외 후에는 해당 리뷰의 최초 제출 시각부터 90일이 지나야 다시 작성할 수 있다.
 
 ## 8. 신고 API
 
@@ -346,7 +346,7 @@ GET   /api/v1/admin/moderation-audits
 
 기존 픽업 장소 ID로 정정할 때는 `/pickup-location`, 카카오 주소 검색으로 다시 검증한 새 주소로 정정할 때는 `/pickup-location/verified-address`를 사용한다. 검증된 주소 정정은 원 검색어와 선택 표준 주소를 받고 서버가 같은 검색을 반복해 좌표와 주소를 확정한다.
 
-관리자 리뷰 상세는 구조화 평가, 원문 의견, 의견·공개 상태, 현재 리뷰 여부, 음식점과 작성자 활동을 포함한다. 음식점 상세·검색은 `ACTIVE`, `CLOSED`, `MERGED`, canonical ID, 픽업 장소와 외부 참조를 포함한다. OAuth subject와 service token은 반환하지 않는다.
+관리자 리뷰 상세는 구조화 평가, 원문 의견, 의견·공개·삭제 상태, 활성 리뷰 여부, 음식점과 라이더 활동을 포함한다. 음식점 상세·검색은 `ACTIVE`, `CLOSED`, `MERGED`, canonical ID, 픽업 장소와 외부 참조를 포함한다. OAuth subject와 service token은 반환하지 않는다.
 
 음식점 신고 결정은 다음 규칙을 사용한다.
 
@@ -378,7 +378,7 @@ GET   /api/v1/admin/moderation-audits
 - Spring Security OAuth2 Client 기반 카카오 로그인과 opaque service token
 - 픽업 장소·배달 브랜드·외부 참조 모델과 첫 리뷰 작성 시 지연 등록
 - 로그인 없는 음식점 검색·상세·리뷰 조회
-- 리뷰 이력, 90일 작성 제한, 공개 리뷰와 작성자 5명 집계
+- 음식점별 활성 리뷰 1개, soft delete, 삭제·전체 제외 후 90일 제한과 작성자 5명 집계
 - 의견 검수, 리뷰·음식점 신고와 리뷰 전체 제외
 - 관리자 리뷰 상세, 음식점 검색·상세와 검수·정정 감사 이력 조회
 - 음식점 이름 변경, 기존·검증 주소 픽업 장소 재연결, 폐업·재개장과 canonical 병합

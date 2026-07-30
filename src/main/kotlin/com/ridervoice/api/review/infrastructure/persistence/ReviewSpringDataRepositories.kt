@@ -1,6 +1,5 @@
 package com.ridervoice.api.review.infrastructure.persistence
 
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRating
@@ -21,17 +20,35 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
     @Query(
         """
         select review
-        from AuthorRestaurantReviewState state
-        join state.currentReview review
-        where state.author.id = :authorUserId
-          and review.author.id = :authorUserId
+        from Review review
+        where review.author.id = :authorUserId
           and review.id = :reviewId
+          and review.currentSlot is not null
+          and review.deletedAt is null
+          and review.visibilityStatus = :visibilityStatus
         """,
     )
-    fun findOwnedCurrentForUpdate(
+    fun findOwnedActiveForUpdate(
         @Param("authorUserId") authorUserId: Long,
         @Param("reviewId") reviewId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
     ): Optional<Review>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        """
+        select review
+        from Review review
+        where review.author.id = :authorUserId
+          and review.restaurant.id = :restaurantId
+        order by review.createdAt desc, review.id desc
+        """,
+    )
+    fun findLatestSubmissionForUpdate(
+        @Param("authorUserId") authorUserId: Long,
+        @Param("restaurantId") restaurantId: Long,
+        pageable: Pageable,
+    ): List<Review>
 
     fun countByAuthorIdAndCreatedAtGreaterThanEqual(authorUserId: Long, since: Instant): Long
 
@@ -40,11 +57,15 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
         select review
         from Review review
         where review.author.id = :authorUserId
+          and review.currentSlot is not null
+          and review.deletedAt is null
+          and review.visibilityStatus = :visibilityStatus
         order by review.createdAt desc, review.id desc
         """,
     )
     fun findAllByAuthorId(
         @Param("authorUserId") authorUserId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
         pageable: Pageable,
     ): List<Review>
 
@@ -53,6 +74,9 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
         select review
         from Review review
         where review.author.id = :authorUserId
+          and review.currentSlot is not null
+          and review.deletedAt is null
+          and review.visibilityStatus = :visibilityStatus
           and (
               review.createdAt < :cursorCreatedAt
               or (review.createdAt = :cursorCreatedAt and review.id < :cursorReviewId)
@@ -62,6 +86,7 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
     )
     fun findAllByAuthorIdBeforeCursor(
         @Param("authorUserId") authorUserId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
         @Param("cursorCreatedAt") cursorCreatedAt: Instant,
         @Param("cursorReviewId") cursorReviewId: Long,
         pageable: Pageable,
@@ -80,14 +105,12 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
                review.ratings.riderRespect as riderRespect,
                review.comment as comment,
                review.commentModerationStatus as commentModerationStatus,
-               state.currentReview.id as currentReviewId,
                review.createdAt as createdAt
         from Review review
-        left join AuthorRestaurantReviewState state
-          on state.author.id = review.author.id
-         and state.restaurant.id = review.restaurant.id
         where review.restaurant.id = :restaurantId
           and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
         order by review.createdAt desc, review.id desc
         """,
     )
@@ -110,14 +133,12 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
                review.ratings.riderRespect as riderRespect,
                review.comment as comment,
                review.commentModerationStatus as commentModerationStatus,
-               state.currentReview.id as currentReviewId,
                review.createdAt as createdAt
         from Review review
-        left join AuthorRestaurantReviewState state
-          on state.author.id = review.author.id
-         and state.restaurant.id = review.restaurant.id
         where review.restaurant.id = :restaurantId
           and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
           and (
               review.createdAt < :cursorCreatedAt
               or (review.createdAt = :cursorCreatedAt and review.id < :cursorReviewId)
@@ -141,6 +162,8 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
         from Review review
         where review.author.id in :authorUserIds
           and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
         group by review.author.id
         """,
     )
@@ -148,11 +171,6 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
         @Param("authorUserIds") authorUserIds: Set<Long>,
         @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
     ): List<PublicAuthorActivityProjection>
-}
-
-internal interface SpringDataAuthorRestaurantReviewStateRepository :
-    JpaRepository<AuthorRestaurantReviewState, Long> {
-
     @Query(
         """
         select review.id as reviewId,
@@ -164,12 +182,11 @@ internal interface SpringDataAuthorRestaurantReviewStateRepository :
                review.ratings.handoffAccuracy as handoffAccuracy,
                review.ratings.staffInteraction as staffInteraction,
                review.ratings.riderRespect as riderRespect
-        from AuthorRestaurantReviewState state
-        join state.currentReview review
-        where state.restaurant.id = :restaurantId
-          and review.restaurant.id = :restaurantId
-          and state.author.id = review.author.id
+        from Review review
+        where review.restaurant.id = :restaurantId
           and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
         """,
     )
     fun findCurrentAggregateRowsByRestaurantId(
@@ -188,12 +205,11 @@ internal interface SpringDataAuthorRestaurantReviewStateRepository :
                review.ratings.handoffAccuracy as handoffAccuracy,
                review.ratings.staffInteraction as staffInteraction,
                review.ratings.riderRespect as riderRespect
-        from AuthorRestaurantReviewState state
-        join state.currentReview review
-        where state.restaurant.pickupLocation.id = :pickupLocationId
-          and review.restaurant.pickupLocation.id = :pickupLocationId
-          and state.author.id = review.author.id
+        from Review review
+        where review.restaurant.pickupLocation.id = :pickupLocationId
           and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
         """,
     )
     fun findCurrentAggregateRowsByPickupLocationId(
@@ -201,32 +217,6 @@ internal interface SpringDataAuthorRestaurantReviewStateRepository :
         @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
     ): List<AggregateReviewProjection>
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query(
-        """
-        select state
-        from AuthorRestaurantReviewState state
-        where state.author.id = :authorUserId
-          and state.restaurant.id = :restaurantId
-        """,
-    )
-    fun findForUpdate(
-        @Param("authorUserId") authorUserId: Long,
-        @Param("restaurantId") restaurantId: Long,
-    ): Optional<AuthorRestaurantReviewState>
-
-    @Query(
-        """
-        select state
-        from AuthorRestaurantReviewState state
-        where state.author.id = :authorUserId
-          and state.restaurant.id in :restaurantIds
-        """,
-    )
-    fun findAllByAuthorIdAndRestaurantIds(
-        @Param("authorUserId") authorUserId: Long,
-        @Param("restaurantIds") restaurantIds: Set<Long>,
-    ): List<AuthorRestaurantReviewState>
 }
 
 internal interface AggregateReviewProjection {
@@ -253,7 +243,6 @@ internal interface PublicReviewProjection {
     val riderRespect: ReviewRating
     val comment: String?
     val commentModerationStatus: ReviewCommentStatus
-    val currentReviewId: Long?
     val createdAt: Instant
 }
 

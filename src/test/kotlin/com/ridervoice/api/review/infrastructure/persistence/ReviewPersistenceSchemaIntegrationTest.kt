@@ -7,8 +7,6 @@ import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
@@ -34,11 +32,10 @@ class ReviewPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
     @Autowired private lateinit var pickupLocations: PickupLocationRepository
     @Autowired private lateinit var restaurants: RestaurantRepository
     @Autowired private lateinit var reviews: ReviewRepository
-    @Autowired private lateinit var states: AuthorRestaurantReviewStateRepository
     @Autowired private lateinit var entityManager: EntityManager
 
     @Test
-    fun `schema keeps review history while state owns one author restaurant identity`() {
+    fun `reviews retain inactive history and own one active slot per author restaurant`() {
         val user = users.saveUser(User())
         val location = pickupLocations.save(
             PickupLocation(
@@ -50,28 +47,19 @@ class ReviewPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
             ),
         )
         val restaurant = restaurants.save(Restaurant("브랜드", location))
-        val first = reviews.save(review(user, restaurant, 1L))
-        val second = reviews.save(review(user, restaurant, 2L))
-        val submittedAt = Instant.parse("2026-07-25T03:00:00Z")
-        val state = states.save(
-            AuthorRestaurantReviewStateSnapshot(
-                stateId = null,
-                authorUserId = user.id,
-                restaurantId = restaurant.id,
-                lastSubmittedAt = submittedAt,
-                lastSequence = 2L,
-                currentReviewId = second.id,
-            ),
-        )
+        val first = reviews.save(review(user, restaurant))
+        first.softDelete(Instant.parse("2026-07-25T03:00:00Z"))
+        reviews.save(first)
+        val second = reviews.save(review(user, restaurant))
         entityManager.clear()
 
         assertThat(first.id).isPositive()
         assertThat(second.id).isPositive().isNotEqualTo(first.id)
-        assertThat(states.findForUpdate(user.id, restaurant.id)).isEqualTo(state)
-        assertThat(reviews.findOwnedCurrentForUpdate(user.id, second.id)?.id).isEqualTo(second.id)
-        assertThat(reviews.findOwnedCurrentForUpdate(user.id, first.id)).isNull()
-        assertThat(uniqueConstraintColumns("author_restaurant_review_states"))
-            .containsExactlyInAnyOrder("author_user_id", "restaurant_id")
+        assertThat(reviews.findLatestSubmissionForUpdate(user.id, restaurant.id)?.reviewId).isEqualTo(second.id)
+        assertThat(reviews.findOwnedActiveForUpdate(user.id, second.id)?.id).isEqualTo(second.id)
+        assertThat(reviews.findOwnedActiveForUpdate(user.id, first.id)).isNull()
+        assertThat(uniqueConstraintColumns("reviews"))
+            .containsExactlyInAnyOrder("author_user_id", "restaurant_id", "current_slot")
     }
 
     private fun uniqueConstraintColumns(tableName: String): List<String> = entityManager
@@ -94,19 +82,18 @@ class ReviewPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
         .resultList
         .map { it.toString() }
 
-    private fun review(user: User, restaurant: Restaurant, sequence: Long) = Review(
+    private fun review(user: User, restaurant: Restaurant) = Review(
         author = user,
         restaurant = restaurant,
         visitMonth = VisitMonth.parse("2026-07"),
         ratings = ReviewRatings(
-            pickupSpaceCleanliness = ReviewRating.GOOD,
-            packagingStability = ReviewRating.GOOD,
-            orderReadiness = ReviewRating.GOOD,
-            handoffAccuracy = ReviewRating.GOOD,
-            staffInteraction = ReviewRating.NOT_OBSERVED,
-            riderRespect = ReviewRating.GOOD,
+            ReviewRating.GOOD,
+            ReviewRating.GOOD,
+            ReviewRating.GOOD,
+            ReviewRating.GOOD,
+            ReviewRating.NOT_OBSERVED,
+            ReviewRating.GOOD,
         ),
         comment = null,
-        sequence = sequence,
     )
 }

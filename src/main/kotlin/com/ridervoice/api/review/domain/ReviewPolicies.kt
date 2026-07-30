@@ -55,18 +55,15 @@ object VisitMonthPolicy {
 object ReviewSubmissionPolicy {
     private val RESUBMISSION_INTERVAL: Duration = Duration.ofDays(90)
 
-    fun canSubmit(lastSubmittedAt: Instant?, submittedAt: Instant): Boolean =
+    fun canSubmit(
+        activeReviewExists: Boolean,
+        lastSubmittedAt: Instant?,
+        submittedAt: Instant,
+    ): Boolean = !activeReviewExists && (
         lastSubmittedAt == null || !submittedAt.isBefore(nextEligibleAt(lastSubmittedAt))
+    )
 
     fun nextEligibleAt(lastSubmittedAt: Instant): Instant = lastSubmittedAt.plus(RESUBMISSION_INTERVAL)
-}
-
-object ReviewHistoryPolicy {
-    fun classify(reviewId: Long, currentReviewId: Long?): ReviewHistoryStatus {
-        require(reviewId > 0) { "Review ID must be positive" }
-        require(currentReviewId == null || currentReviewId > 0) { "Current review ID must be positive" }
-        return if (reviewId == currentReviewId) ReviewHistoryStatus.CURRENT else ReviewHistoryStatus.HISTORY
-    }
 }
 
 internal object ReviewCommentPolicy {

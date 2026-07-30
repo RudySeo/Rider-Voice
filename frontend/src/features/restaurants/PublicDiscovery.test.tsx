@@ -277,7 +277,6 @@ describe('public restaurant detail', () => {
             {
               reviewId: 101,
               visitMonth: '2026-07',
-              current: true,
               ratings: {
                 pickupSpaceCleanliness: 'GOOD',
                 packagingStability: 'VERY_GOOD',
@@ -310,7 +309,6 @@ describe('public restaurant detail', () => {
             {
               reviewId: 100,
               visitMonth: '2026-04',
-              current: false,
               ratings: {
                 pickupSpaceCleanliness: 'NOT_OBSERVED',
                 packagingStability: 'GOOD',

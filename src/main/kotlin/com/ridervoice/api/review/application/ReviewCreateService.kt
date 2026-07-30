@@ -7,12 +7,9 @@ import com.ridervoice.api.restaurant.application.port.`in`.ValidatedRestaurantTa
 import com.ridervoice.api.review.application.model.ReviewResult
 import com.ridervoice.api.review.application.port.`in`.CreateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.CreateReviewUseCase
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
 import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.application.port.out.SavedReviewSnapshot
-import com.ridervoice.api.review.domain.ReviewHistoryPolicy
 import com.ridervoice.api.review.domain.ReviewSubmissionPolicy
 import com.ridervoice.api.review.domain.VisitMonthPolicy
 import org.springframework.dao.DataAccessException
@@ -29,7 +26,6 @@ internal class ReviewCreateService(
     private val targetValidator: ValidateRestaurantTargetUseCase,
     private val targetResolver: ResolveValidatedRestaurantTargetUseCase,
     private val reviews: ReviewRepository,
-    private val states: AuthorRestaurantReviewStateRepository,
     transactionManager: PlatformTransactionManager,
     private val clock: Clock,
 ) : CreateReviewUseCase {
@@ -71,12 +67,14 @@ internal class ReviewCreateService(
         }
 
         val resolvedTarget = targetResolver.resolve(validatedTarget)
-        val currentState = states.findForUpdate(command.authorUserId, resolvedTarget.restaurantId)
-        if (!ReviewSubmissionPolicy.canSubmit(currentState?.lastSubmittedAt, submittedAt)) {
-            throw StateConflictException("A new review can be submitted 90 days after the last submission")
+        val latest = reviews.findLatestSubmissionForUpdate(command.authorUserId, resolvedTarget.restaurantId)
+        if (latest?.active == true) {
+            throw StateConflictException("An active review already exists for this restaurant")
+        }
+        if (!ReviewSubmissionPolicy.canSubmit(false, latest?.submittedAt, submittedAt)) {
+            throw StateConflictException("A new review can be submitted 90 days after the previous submission")
         }
 
-        val sequence = currentState?.lastSequence?.let(Math::incrementExact) ?: 1L
         val review = reviews.create(
             NewReviewPersistenceCommand(
                 authorUserId = command.authorUserId,
@@ -84,23 +82,12 @@ internal class ReviewCreateService(
                 visitMonth = command.visitMonth,
                 ratings = command.ratings,
                 comment = command.comment,
-                sequence = sequence,
             ),
         )
-        val savedState = states.save(
-            AuthorRestaurantReviewStateSnapshot(
-                stateId = currentState?.stateId,
-                authorUserId = command.authorUserId,
-                restaurantId = resolvedTarget.restaurantId,
-                lastSubmittedAt = submittedAt,
-                lastSequence = sequence,
-                currentReviewId = review.reviewId,
-            ),
-        )
-        return review.toResult(savedState.currentReviewId)
+        return review.toResult()
     }
 
-    private fun SavedReviewSnapshot.toResult(currentReviewId: Long?): ReviewResult = ReviewResult(
+    private fun SavedReviewSnapshot.toResult(): ReviewResult = ReviewResult(
         reviewId = reviewId,
         restaurant = restaurant,
         visitMonth = visitMonth,
@@ -108,8 +95,6 @@ internal class ReviewCreateService(
         comment = comment,
         commentModerationStatus = commentModerationStatus,
         visibilityStatus = visibilityStatus,
-        historyStatus = ReviewHistoryPolicy.classify(reviewId, currentReviewId),
-        sequence = sequence,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )

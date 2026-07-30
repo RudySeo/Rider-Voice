@@ -43,8 +43,8 @@ class ModerationInvestigationHttpMapper {
         result.comment,
         result.commentStatus,
         result.visibilityStatus,
-        result.historyStatus,
-        result.sequence,
+        result.active,
+        result.deletedAt,
         result.createdAt,
         result.updatedAt,
     )

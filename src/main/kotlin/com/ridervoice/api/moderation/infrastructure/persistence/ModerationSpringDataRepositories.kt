@@ -9,7 +9,6 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReport
 import com.ridervoice.api.moderation.domain.ReviewReport
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -190,23 +189,6 @@ internal interface SpringDataModerationReviewTargetRepository : JpaRepository<Re
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select review from Review review where review.id = :reviewId")
     fun findByIdForUpdate(@Param("reviewId") reviewId: Long): Optional<Review>
-}
-
-internal interface SpringDataModerationReviewStateRepository :
-    JpaRepository<AuthorRestaurantReviewState, Long> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query(
-        """
-        select state
-        from AuthorRestaurantReviewState state
-        where state.author.id = :authorUserId
-          and state.restaurant.id = :restaurantId
-        """,
-    )
-    fun findForUpdate(
-        @Param("authorUserId") authorUserId: Long,
-        @Param("restaurantId") restaurantId: Long,
-    ): Optional<AuthorRestaurantReviewState>
 }
 
 internal interface SpringDataModerationRestaurantTargetRepository : Repository<Restaurant, Long> {

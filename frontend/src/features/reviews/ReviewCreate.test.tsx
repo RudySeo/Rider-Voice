@@ -90,8 +90,6 @@ const createReviewResult = (restaurantId: number) => ({
   comment: null,
   commentModerationStatus: 'PENDING',
   visibilityStatus: 'ACTIVE',
-  historyStatus: 'CURRENT',
-  sequence: 1,
   createdAt: '2026-07-29T03:00:00Z',
   updatedAt: '2026-07-29T03:00:00Z',
 })
@@ -467,7 +465,7 @@ describe('review create validation and failures', () => {
     [
       409,
       'REVIEW_COOLDOWN',
-      '같은 음식점은 마지막 리뷰 제출 후 90일이 지나야 다시 작성할 수 있습니다.',
+      '같은 음식점에 활성 리뷰가 있으면 새로 작성할 수 없으며, 삭제·제외된 경우 최초 작성 시각부터 90일 뒤 다시 작성할 수 있습니다.',
     ],
     [
       503,

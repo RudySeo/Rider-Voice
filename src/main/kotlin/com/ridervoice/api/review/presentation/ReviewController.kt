@@ -64,7 +64,7 @@ class ReviewController(
     }
 
     @Operation(
-        summary = "현재 리뷰 수정",
+        summary = "활성 리뷰 수정",
         security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
     )
     @PatchMapping("/{reviewId}")
@@ -78,7 +78,7 @@ class ReviewController(
     )
 
     @Operation(
-        summary = "현재 리뷰 삭제",
+        summary = "활성 리뷰 삭제",
         security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
     )
     @DeleteMapping("/{reviewId}")

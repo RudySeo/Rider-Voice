@@ -1,13 +1,12 @@
 package com.ridervoice.api.moderation.application.port.out
 
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import java.time.Instant
 
 interface RestaurantAdministrationRepository {
     fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant>
 
-    fun findReviewStatesForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReviewState>
+    fun findReviewsForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReview>
 
     fun pickupLocationExists(pickupLocationId: Long): Boolean
 
@@ -34,27 +33,18 @@ data class StoredAdminRestaurant(
     val canonicalRestaurantId: Long?,
 )
 
-data class AdminRestaurantReviewState(
+data class AdminRestaurantReview(
+    val reviewId: Long,
     val authorUserId: Long,
     val restaurantId: Long,
-    val lastSubmittedAt: Instant,
-    val lastSequence: Long,
-    val currentReviewId: Long?,
-    val currentReviewCreatedAt: Instant?,
-    val currentReviewVisibilityStatus: ReviewVisibilityStatus?,
-)
-
-data class MergedAuthorReviewState(
-    val authorUserId: Long,
-    val lastSubmittedAt: Instant,
-    val lastSequence: Long,
-    val currentReviewId: Long?,
+    val submittedAt: Instant,
+    val active: Boolean,
 )
 
 data class RestaurantMergePersistenceCommand(
     val duplicateRestaurantId: Long,
     val canonicalRestaurantId: Long,
-    val authorStates: List<MergedAuthorReviewState>,
+    val activeReviewIds: Set<Long>,
     val transferReviews: Boolean = true,
     val transferExternalReferences: Boolean = true,
     val transferPlatforms: Boolean = true,

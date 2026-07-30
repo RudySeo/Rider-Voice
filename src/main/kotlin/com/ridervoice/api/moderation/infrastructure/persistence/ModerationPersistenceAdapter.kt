@@ -30,7 +30,6 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReport
 import com.ridervoice.api.moderation.domain.ReviewReport
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -277,14 +276,12 @@ internal class RestaurantInfoReportPersistenceAdapter(
 @Component
 internal class ReviewReportTargetPersistenceAdapter(
     private val reviews: SpringDataModerationReviewTargetRepository,
-    private val states: SpringDataModerationReviewStateRepository,
     private val restaurants: SpringDataModerationRestaurantTargetRepository,
 ) : ReviewReportTargetRepository {
 
     override fun findReviewForUpdate(reviewId: Long): StoredReviewReportTarget? {
         val review = reviews.findByIdForUpdate(reviewId).orElse(null) ?: return null
-        val state = findStateForUpdate(review)
-        return snapshot(review, state)
+        return snapshot(review)
     }
 
     override fun activeRestaurantExists(restaurantId: Long): Boolean =
@@ -294,7 +291,6 @@ internal class ReviewReportTargetPersistenceAdapter(
         val review = reviews.findByIdForUpdate(command.reviewId).orElseThrow {
             IllegalStateException("Review ${command.reviewId} disappeared during report handling")
         }
-        val state = findStateForUpdate(review)
         check(review.visibilityStatus == command.expectedVisibilityStatus) {
             "Review ${command.reviewId} visibility changed during report handling"
         }
@@ -309,16 +305,8 @@ internal class ReviewReportTargetPersistenceAdapter(
             }
             review.exclude()
         }
-        if (command.clearCurrentPointerIfTarget && state.clearCurrentReviewIf(review.id)) {
-            states.saveAndFlush(state)
-        }
-        return snapshot(reviews.saveAndFlush(review), state)
+        return snapshot(reviews.saveAndFlush(review))
     }
-
-    private fun findStateForUpdate(review: Review): AuthorRestaurantReviewState =
-        states.findForUpdate(review.author.id, review.restaurant.id).orElseThrow {
-            IllegalStateException("Review ${review.id} has no author-restaurant cooldown state")
-        }
 
     private fun mutateComment(review: Review, nextStatus: ReviewCommentStatus) {
         if (review.commentModerationStatus == nextStatus) return
@@ -339,18 +327,15 @@ internal class ReviewReportTargetPersistenceAdapter(
         }
     }
 
-    private fun snapshot(
-        review: Review,
-        state: AuthorRestaurantReviewState,
-    ) = StoredReviewReportTarget(
+    private fun snapshot(review: Review) = StoredReviewReportTarget(
         reviewId = review.id,
         authorUserId = review.author.id,
         restaurantId = review.restaurant.id,
         visibilityStatus = review.visibilityStatus,
         commentStatus = review.commentModerationStatus,
-        currentReviewId = state.currentReview?.id,
-        lastSubmittedAt = state.lastSubmittedAt,
-        lastSequence = state.lastSequence,
+        active = review.isActive,
+        submittedAt = review.createdAt,
+        deletedAt = review.deletedAt,
     )
 }
 

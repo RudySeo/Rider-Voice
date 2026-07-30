@@ -12,38 +12,34 @@ import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateRepository
 import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.domain.Review
-import com.ridervoice.api.review.domain.ReviewHistoryPolicy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 
 @Service
 internal class ReviewOwnerService(
     private val reviews: ReviewRepository,
-    private val states: AuthorRestaurantReviewStateRepository,
+    private val clock: Clock,
 ) : UpdateReviewUseCase, DeleteReviewUseCase, ListMyReviewsUseCase {
 
     @Transactional
     override fun update(command: UpdateReviewCommand): ReviewResult {
-        val review = reviews.findOwnedCurrentForUpdate(command.authorUserId, command.reviewId)
+        val review = reviews.findOwnedActiveForUpdate(command.authorUserId, command.reviewId)
             ?: throw reviewNotFound()
 
         review.update(command.ratings, command.comment)
-        return reviews.save(review).toResult(currentReviewId = review.id)
+        return reviews.save(review).toResult()
     }
 
     @Transactional
     override fun delete(command: DeleteReviewCommand): DeleteReviewResult {
-        val review = reviews.findOwnedCurrentForUpdate(command.authorUserId, command.reviewId)
-            ?: throw reviewNotFound()
-        val state = states.findForUpdate(command.authorUserId, review.restaurant.id)
-            ?.takeIf { it.currentReviewId == review.id }
+        val review = reviews.findOwnedActiveForUpdate(command.authorUserId, command.reviewId)
             ?: throw reviewNotFound()
 
-        states.save(state.copy(currentReviewId = null))
-        reviews.delete(review)
+        review.softDelete(clock.instant())
+        reviews.save(review)
         return DeleteReviewResult(review.id)
     }
 
@@ -55,15 +51,8 @@ internal class ReviewOwnerService(
             limit = command.size + 1,
         )
         val visibleItems = page.take(command.size)
-        val currentReviewIdsByRestaurant = states.findByAuthorUserIdAndRestaurantIds(
-            authorUserId = command.authorUserId,
-            restaurantIds = visibleItems.mapTo(linkedSetOf()) { it.restaurant.id },
-        ).associate { it.restaurantId to it.currentReviewId }
-
         return MyReviewListResult(
-            items = visibleItems.map { review ->
-                review.toResult(currentReviewIdsByRestaurant[review.restaurant.id])
-            },
+            items = visibleItems.map { it.toResult() },
             nextCursor = if (page.size > command.size) {
                 visibleItems.last().let { ReviewCursor(it.createdAt, it.id) }
             } else {
@@ -72,7 +61,7 @@ internal class ReviewOwnerService(
         )
     }
 
-    private fun Review.toResult(currentReviewId: Long?): ReviewResult = ReviewResult(
+    private fun Review.toResult(): ReviewResult = ReviewResult(
         reviewId = id,
         restaurant = ReviewRestaurantSummary(
             restaurantId = restaurant.id,
@@ -84,8 +73,6 @@ internal class ReviewOwnerService(
         comment = comment,
         commentModerationStatus = commentModerationStatus,
         visibilityStatus = visibilityStatus,
-        historyStatus = ReviewHistoryPolicy.classify(id, currentReviewId),
-        sequence = sequence,
         createdAt = createdAt,
         updatedAt = updatedAt,
     )

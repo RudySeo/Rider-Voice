@@ -2,7 +2,6 @@ package com.ridervoice.api.review.application.model
 
 import com.ridervoice.api.restaurant.application.model.AggregationStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.ReviewVisibilityStatus
@@ -39,14 +38,11 @@ data class ReviewResult(
     val comment: String?,
     val commentModerationStatus: ReviewCommentStatus,
     val visibilityStatus: ReviewVisibilityStatus,
-    val historyStatus: ReviewHistoryStatus,
-    val sequence: Long,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
     init {
         require(reviewId > 0) { "Review ID must be positive" }
-        require(sequence > 0) { "Review sequence must be positive" }
         require(!updatedAt.isBefore(createdAt)) { "Review update time must not precede creation time" }
     }
 }
@@ -63,13 +59,11 @@ data class PublicReviewListItemInput(
     val ratings: ReviewRatings,
     val comment: String?,
     val commentModerationStatus: ReviewCommentStatus,
-    val currentReviewId: Long?,
     val createdAt: Instant,
 ) {
     init {
         require(reviewId > 0) { "Review ID must be positive" }
         require(authorUserId > 0) { "Author user ID must be positive" }
-        require(currentReviewId == null || currentReviewId > 0) { "Current review ID must be positive" }
     }
 }
 
@@ -97,7 +91,6 @@ data class PublicReviewAuthorActivityResult(
 data class PublicReviewListItemResult(
     val reviewId: Long,
     val visitMonth: VisitMonth,
-    val current: Boolean,
     val ratings: ReviewRatings,
     val comment: String?,
     val authorActivity: PublicReviewAuthorActivityResult,

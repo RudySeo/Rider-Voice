@@ -16,9 +16,7 @@ import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
-import com.ridervoice.api.review.domain.ReviewHistoryStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.VisitMonth
@@ -67,11 +65,7 @@ class ModerationInvestigationPersistenceIntegrationTest : MySqlIntegrationTest()
             visitMonth = VisitMonth.parse("2026-07"),
             ratings = ratings(),
             comment = "관리자 조사 원문",
-            sequence = 1L,
         ).also(entityManager::persist)
-        entityManager.persist(
-            AuthorRestaurantReviewState(user, restaurant, Instant.parse("2026-07-20T00:00:00Z"), 1L, review),
-        )
         entityManager.persist(
             RestaurantInfoReport(user, restaurant, RestaurantInfoReportReason.INCORRECT_NAME, "확인 필요"),
         )
@@ -90,7 +84,8 @@ class ModerationInvestigationPersistenceIntegrationTest : MySqlIntegrationTest()
 
         val storedReview = investigation.findReview(review.id)
         assertThat(storedReview?.comment).isEqualTo("관리자 조사 원문")
-        assertThat(storedReview?.historyStatus).isEqualTo(ReviewHistoryStatus.CURRENT)
+        assertThat(storedReview?.active).isTrue()
+        assertThat(storedReview?.deletedAt).isNull()
         assertThat(storedReview?.publicReviewCount).isEqualTo(1L)
 
         val search = investigation.searchRestaurants("조사 브랜드", RestaurantStatus.ACTIVE, null, 20)

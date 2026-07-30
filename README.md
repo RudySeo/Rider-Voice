@@ -27,7 +27,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 직원 응대
 - 라이더 존중
 
-평가 값은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`입니다. 같은 음식점에는 마지막 제출 후 90일마다 새 리뷰를 작성할 수 있습니다. 구조화 평가는 즉시 공개하고 최대 200자의 선택 의견은 관리자 승인 후 공개합니다.
+평가 값은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`입니다. 같은 음식점에는 활성 리뷰를 하나만 둘 수 있고, 삭제·전체 제외된 경우 최초 작성 시각부터 90일 후 다시 작성할 수 있습니다. 구조화 평가는 즉시 공개하고 최대 200자의 선택 의견은 관리자 승인 후 공개합니다.
 
 배달내역 캡처, 이미지 업로드, OCR와 배달 앱 화면 파싱은 사용하지 않습니다. 종합 별점, 음식점 순위와 인증 배지도 제공하지 않습니다.
 

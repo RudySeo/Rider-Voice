@@ -6,12 +6,11 @@ import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.model.ReviewCursor
-import com.ridervoice.api.review.application.port.out.AuthorRestaurantReviewStateSnapshot
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
+import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import com.ridervoice.api.review.domain.VisitMonth
 import jakarta.persistence.EntityManager
 import jakarta.persistence.FetchType
@@ -31,41 +30,49 @@ import java.util.Optional
 class ReviewPersistenceAdapterTest {
 
     @Test
-    fun `review state mapping owns the only author restaurant uniqueness and lazy parent relations`() {
-        assertThat(AuthorRestaurantReviewState::class.java.superclass).isEqualTo(BaseEntity::class.java)
+    fun `review mapping owns one active slot per author and restaurant with lazy parents`() {
+        assertThat(Review::class.java.superclass).isEqualTo(BaseEntity::class.java)
 
-        val stateTable = AuthorRestaurantReviewState::class.java.getAnnotation(Table::class.java)
-        assertThat(stateTable.uniqueConstraints.single().name)
-            .isEqualTo("uk_author_restaurant_review_states_author_restaurant")
-        assertThat(stateTable.uniqueConstraints.single().columnNames)
-            .containsExactly("author_user_id", "restaurant_id")
-        assertThat(Review::class.java.getAnnotation(Table::class.java).uniqueConstraints).isEmpty()
+        val table = Review::class.java.getAnnotation(Table::class.java)
+        assertThat(table.uniqueConstraints.single().name)
+            .isEqualTo("uk_reviews_author_restaurant_current_slot")
+        assertThat(table.uniqueConstraints.single().columnNames)
+            .containsExactly("author_user_id", "restaurant_id", "current_slot")
 
-        assertLazyManyToOne(AuthorRestaurantReviewState::class.java, "author", optional = false)
-        assertLazyManyToOne(AuthorRestaurantReviewState::class.java, "restaurant", optional = false)
-        assertLazyManyToOne(AuthorRestaurantReviewState::class.java, "currentReview", optional = true)
-        assertThat(AuthorRestaurantReviewState::class.java.declaredFields.map { it.type })
+        assertLazyManyToOne(Review::class.java, "author")
+        assertLazyManyToOne(Review::class.java, "restaurant")
+        assertThat(Review::class.java.declaredFields.map { it.type })
             .noneMatch { Collection::class.java.isAssignableFrom(it) }
     }
 
     @Test
     fun `write lookups declare pessimistic locks`() {
         assertThat(
-            SpringDataAuthorRestaurantReviewStateRepository::class.java
-                .getMethod("findForUpdate", java.lang.Long.TYPE, java.lang.Long.TYPE)
+            SpringDataReviewRepository::class.java
+                .getMethod(
+                    "findLatestSubmissionForUpdate",
+                    java.lang.Long.TYPE,
+                    java.lang.Long.TYPE,
+                    Pageable::class.java,
+                )
                 .getAnnotation(Lock::class.java)
                 .value,
         ).isEqualTo(LockModeType.PESSIMISTIC_WRITE)
         assertThat(
             SpringDataReviewRepository::class.java
-                .getMethod("findOwnedCurrentForUpdate", java.lang.Long.TYPE, java.lang.Long.TYPE)
+                .getMethod(
+                    "findOwnedActiveForUpdate",
+                    java.lang.Long.TYPE,
+                    java.lang.Long.TYPE,
+                    ReviewVisibilityStatus::class.java,
+                )
                 .getAnnotation(Lock::class.java)
                 .value,
         ).isEqualTo(LockModeType.PESSIMISTIC_WRITE)
     }
 
     @Test
-    fun `review adapter delegates current ownership count and both cursor list paths`() {
+    fun `review adapter delegates latest ownership count and active cursor list paths`() {
         val auditTime = Instant.parse("2026-07-25T03:00:00Z")
         val review = review().also {
             it.id = 40L
@@ -76,16 +83,24 @@ class ReviewPersistenceAdapterTest {
             calls += method.name
             when (method.name) {
                 "saveAndFlush" -> review
-                "findOwnedCurrentForUpdate" -> Optional.of(review)
-                "delete" -> null
+                "findLatestSubmissionForUpdate" -> {
+                    assertPageable(arguments.last(), 1)
+                    listOf(review)
+                }
+                "findOwnedActiveForUpdate" -> {
+                    assertThat(arguments.last()).isEqualTo(ReviewVisibilityStatus.ACTIVE)
+                    Optional.of(review)
+                }
                 "countByAuthorIdAndCreatedAtGreaterThanEqual" -> 3L
                 "findAllByAuthorId" -> {
+                    assertThat(arguments[1]).isEqualTo(ReviewVisibilityStatus.ACTIVE)
                     assertPageable(arguments.last(), 5)
                     listOf(review)
                 }
                 "findAllByAuthorIdBeforeCursor" -> {
-                    assertThat(arguments[1]).isEqualTo(Instant.parse("2026-07-25T03:00:00Z"))
-                    assertThat(arguments[2]).isEqualTo(40L)
+                    assertThat(arguments[1]).isEqualTo(ReviewVisibilityStatus.ACTIVE)
+                    assertThat(arguments[2]).isEqualTo(Instant.parse("2026-07-25T03:00:00Z"))
+                    assertThat(arguments[3]).isEqualTo(40L)
                     assertPageable(arguments.last(), 5)
                     listOf(review)
                 }
@@ -94,7 +109,7 @@ class ReviewPersistenceAdapterTest {
         }
         val adapter = ReviewPersistenceAdapter(
             reviews,
-            fakeEntityManager(review.author, review.restaurant, review),
+            fakeEntityManager(review.author, review.restaurant),
         )
 
         assertThat(
@@ -105,13 +120,15 @@ class ReviewPersistenceAdapterTest {
                     visitMonth = review.visitMonth,
                     ratings = review.ratings,
                     comment = null,
-                    sequence = 1L,
                 ),
             ).reviewId,
         ).isEqualTo(40L)
         assertThat(adapter.save(review)).isSameAs(review)
-        assertThat(adapter.findOwnedCurrentForUpdate(7L, 40L)).isSameAs(review)
-        adapter.delete(review)
+        val latest = adapter.findLatestSubmissionForUpdate(7L, 10L)!!
+        assertThat(latest.reviewId).isEqualTo(40L)
+        assertThat(latest.submittedAt).isEqualTo(auditTime)
+        assertThat(latest.active).isTrue()
+        assertThat(adapter.findOwnedActiveForUpdate(7L, 40L)).isSameAs(review)
         assertThat(adapter.countByAuthorUserIdSince(7L, Instant.parse("2026-07-24T03:00:00Z")))
             .isEqualTo(3L)
         assertThat(adapter.findByAuthorUserId(7L, null, 5)).containsExactly(review)
@@ -125,8 +142,8 @@ class ReviewPersistenceAdapterTest {
         assertThat(calls).containsExactly(
             "saveAndFlush",
             "saveAndFlush",
-            "findOwnedCurrentForUpdate",
-            "delete",
+            "findLatestSubmissionForUpdate",
+            "findOwnedActiveForUpdate",
             "countByAuthorIdAndCreatedAtGreaterThanEqual",
             "findAllByAuthorId",
             "findAllByAuthorIdBeforeCursor",
@@ -134,59 +151,29 @@ class ReviewPersistenceAdapterTest {
     }
 
     @Test
-    fun `state adapter maps snapshots without cascading review lifecycle`() {
-        val user = User().also { it.id = 7L }
-        val restaurant = restaurant().also { it.id = 10L }
-        val currentReview = review(user, restaurant).also { it.id = 40L }
-        val storedState = AuthorRestaurantReviewState(
-            author = user,
-            restaurant = restaurant,
-            lastSubmittedAt = Instant.parse("2026-07-25T03:00:00Z"),
-            lastSequence = 2L,
-            currentReview = currentReview,
-        ).also { it.id = 30L }
-        val states = fakeRepository(SpringDataAuthorRestaurantReviewStateRepository::class.java) {
-                method, _ ->
+    fun `soft deleted review remains the latest submission but is inactive`() {
+        val review = review().also {
+            it.id = 40L
+            setAuditTimes(it, Instant.parse("2026-07-25T03:00:00Z"))
+            it.softDelete(Instant.parse("2026-07-26T03:00:00Z"))
+        }
+        val reviews = fakeRepository(SpringDataReviewRepository::class.java) { method, _ ->
             when (method.name) {
-                "findForUpdate" -> Optional.of(storedState)
-                "findAllByAuthorIdAndRestaurantIds" -> listOf(storedState)
-                "findById" -> Optional.of(storedState)
-                "saveAndFlush" -> storedState
+                "findLatestSubmissionForUpdate" -> listOf(review)
                 else -> unexpected(method)
             }
         }
-        val entityManager = fakeEntityManager(user, restaurant, currentReview)
-        val adapter = AuthorRestaurantReviewStatePersistenceAdapter(states, entityManager)
+        val adapter = ReviewPersistenceAdapter(reviews, fakeEntityManager(review.author, review.restaurant))
 
-        assertThat(adapter.findForUpdate(7L, 10L)).isEqualTo(
-            AuthorRestaurantReviewStateSnapshot(30L, 7L, 10L, storedState.lastSubmittedAt, 2L, 40L),
-        )
-        assertThat(adapter.findByAuthorUserIdAndRestaurantIds(7L, setOf(10L))).containsExactly(
-            AuthorRestaurantReviewStateSnapshot(30L, 7L, 10L, storedState.lastSubmittedAt, 2L, 40L),
-        )
-        assertThat(adapter.findByAuthorUserIdAndRestaurantIds(7L, emptySet())).isEmpty()
-        val cleared = adapter.save(
-            AuthorRestaurantReviewStateSnapshot(
-                stateId = 30L,
-                authorUserId = 7L,
-                restaurantId = 10L,
-                lastSubmittedAt = Instant.parse("2026-07-26T03:00:00Z"),
-                lastSequence = 3L,
-                currentReviewId = null,
-            ),
-        )
-
-        assertThat(cleared.currentReviewId).isNull()
-        assertThat(cleared.lastSequence).isEqualTo(3L)
-        assertThat(storedState.currentReview).isNull()
-        assertThat(AuthorRestaurantReviewState::class.java.getDeclaredField("currentReview")
-            .getAnnotation(ManyToOne::class.java).cascade).isEmpty()
+        val latest = adapter.findLatestSubmissionForUpdate(7L, 10L)!!
+        assertThat(latest.submittedAt).isEqualTo(Instant.parse("2026-07-25T03:00:00Z"))
+        assertThat(latest.active).isFalse()
     }
 
-    private fun assertLazyManyToOne(type: Class<*>, fieldName: String, optional: Boolean) {
+    private fun assertLazyManyToOne(type: Class<*>, fieldName: String) {
         val relation = type.getDeclaredField(fieldName).getAnnotation(ManyToOne::class.java)
         assertThat(relation.fetch).isEqualTo(FetchType.LAZY)
-        assertThat(relation.optional).isEqualTo(optional)
+        assertThat(relation.optional).isFalse()
         assertThat(relation.cascade).isEmpty()
     }
 
@@ -204,13 +191,12 @@ class ReviewPersistenceAdapterTest {
         }
     }
 
-    private fun fakeEntityManager(user: User, restaurant: Restaurant, review: Review): EntityManager =
+    private fun fakeEntityManager(user: User, restaurant: Restaurant): EntityManager =
         fakeRepository(EntityManager::class.java) { method, arguments ->
             when (method.name) {
                 "getReference" -> when (arguments[0]) {
                     User::class.java -> user
                     Restaurant::class.java -> restaurant
-                    Review::class.java -> review
                     else -> unexpected(method)
                 }
                 else -> unexpected(method)
@@ -233,7 +219,6 @@ class ReviewPersistenceAdapterTest {
             riderRespect = ReviewRating.GOOD,
         ),
         comment = null,
-        sequence = 1L,
     )
 
     private fun restaurant() = Restaurant(

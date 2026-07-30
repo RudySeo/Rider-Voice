@@ -10,7 +10,7 @@
 - Rider Voice service token과 권한 처리
 - 음식점·주소 검색과 provider 결과 검증
 - 픽업 장소와 배달 브랜드의 중복 방지
-- 리뷰 이력, 90일 작성 제한과 소유권 정책
+- 음식점별 활성 리뷰 1개, soft delete와 90일 재작성 제한
 - 공개 리뷰, 작성자 5명 집계, 의견 검수와 신고
 - 관리자 정정, 제외와 중복 병합
 
@@ -197,31 +197,26 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 - 6개 `ReviewRating`
 - nullable 의견과 의견 검수 상태
 - 공개 상태: `ACTIVE`, `EXCLUDED`
-- 작성자·음식점 기준 제출 순번
+- nullable 삭제 시각
+- 활성 리뷰 unique 제약을 위한 nullable current slot
 - 생성·수정 시각
 
-`AuthorRestaurantReviewState`
-
-- `(author_user_id, restaurant_id)` unique
-- `last_submitted_at`
-- `last_sequence`
-- nullable `current_review_id`
-
-리뷰 반복 작성 때문에 `(author_user_id, restaurant_id)`를 `reviews`의 unique로 두지 않는다. 대신 상태 row를 잠그고 마지막 제출 시각과 순번으로 90일 정책과 현재 리뷰를 직렬화한다.
+`reviews`의 `(author_user_id, restaurant_id, current_slot)`을 unique로 두며 활성 리뷰만 `current_slot=1`을 사용한다. 삭제·전체 제외·병합으로 비활성화된 리뷰는 `current_slot=null`이므로 내부 이력을 여러 row 보존할 수 있다. 마지막 제출은 삭제·전체 제외 row를 포함해 `created_at`, `id` 역순의 첫 row로 계산한다.
 
 ### 6.2 작성·수정·삭제
 
 - 방문 연월은 한국 시간 기준 현재 또는 직전 달만 허용한다.
-- 같은 음식점은 `lastSubmittedAt + 90일` 이후 다시 작성할 수 있다.
-- 새 리뷰가 등록되면 이전 리뷰는 과거 이력이 되고 현재 리뷰만 수정할 수 있다.
+- 같은 음식점에 활성 리뷰가 있으면 경과 시간과 관계없이 새 리뷰를 작성할 수 없다.
+- 활성 리뷰가 없을 때만 마지막 제출 리뷰의 `createdAt + 90일` 이후 다시 작성할 수 있다.
+- 활성 리뷰만 수정하거나 삭제할 수 있다.
 - 방문 연월은 수정할 수 없다.
-- 최신 리뷰를 hard delete하면 `currentReviewId`만 비우고 마지막 제출 시각과 순번은 유지한다.
-- 삭제나 전체 제외 후 과거 리뷰를 현재 상태로 복원하지 않는다.
-- 타인 리뷰와 수정 불가능한 과거 리뷰는 `404 Not Found`로 처리한다.
+- 삭제는 `deletedAt`을 기록하고 `currentSlot`을 비우는 soft delete다.
+- 전체 제외도 `currentSlot`을 비우며 삭제·전체 제외 row는 90일과 24시간 제출 제한 계산에 유지한다.
+- 타인 리뷰와 비활성 리뷰는 `404 Not Found`로 처리한다.
 
 ## 7. 공개 조회와 집계
 
-개별 리뷰는 `ACTIVE`이면 첫 작성부터 공개한다. 의견은 `PUBLISHED` 상태일 때만 포함한다. 공개 작성자 정보는 고정 공개 ID나 닉네임 없이 활동 기간과 공개 리뷰 수만 제공한다.
+개별 리뷰는 `currentSlot=1`, 미삭제, `ACTIVE`이면 작성 직후 공개한다. 의견은 `PUBLISHED` 상태일 때만 포함한다. 공개 라이더 정보는 고정 공개 ID나 닉네임 없이 활동 기간과 공개 리뷰 수만 제공한다.
 
 집계 상태:
 
@@ -229,7 +224,7 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 - `COLLECTING`: 1~4명
 - `PUBLISHED`: 5명 이상
 
-브랜드 집계는 작성자별 해당 브랜드의 현재 리뷰를 사용한다. 장소 집계는 동일 작성자의 여러 브랜드 현재 리뷰 중 생성 시각과 ID가 가장 최신인 하나만 사용한다.
+브랜드 집계는 라이더별 해당 브랜드의 활성 리뷰를 사용한다. 장소 집계는 동일 라이더의 여러 브랜드 활성 리뷰 중 생성 시각과 ID가 가장 최신인 하나만 사용한다.
 
 `NOT_OBSERVED`는 작성자 표본과 값별 개수에는 포함하지만 평가 비율 분모에서는 제외한다. 한 항목의 관찰값이 0개라면 비율 대신 관찰값 없음 상태를 반환한다.
 
@@ -244,8 +239,8 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 - 공개 의견 신고 접수 시 의견을 `HIDDEN_REPORTED`로 전환한다.
 - 신고 기각 시 이전 의견 상태를 복원한다.
 - 의견 위반이면 의견만 비공개 처리한다.
-- 허위·도배이면 리뷰를 `EXCLUDED`로 전환하고 현재 리뷰 포인터를 제거한다.
-- 전체 제외 후에도 90일 작성 제한 상태를 유지한다.
+- 허위·도배이면 리뷰를 `EXCLUDED`로 전환하고 활성 slot을 비운다.
+- 전체 제외 시 `currentSlot`을 비우고 최초 제출 시각 기준 90일 작성 제한을 유지한다.
 
 `ReviewReport`, `RestaurantInfoReport`, `ModerationAudit`을 두고 신고자·대상·사유·처리 상태와 관리자 결정을 저장한다. 한 사용자는 같은 대상에 한 번만 신고할 수 있다.
 

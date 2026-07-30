@@ -1,7 +1,6 @@
 package com.ridervoice.api.moderation.infrastructure.persistence
 
-import com.ridervoice.api.auth.domain.User
-import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReviewState
+import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReview
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
 import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
@@ -14,7 +13,6 @@ import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
-import com.ridervoice.api.review.domain.AuthorRestaurantReviewState
 import com.ridervoice.api.review.domain.Review
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
@@ -30,19 +28,17 @@ internal class RestaurantAdministrationPersistenceAdapter(
         return lockedRestaurants(restaurantIds).map { it.toSnapshot() }
     }
 
-    override fun findReviewStatesForUpdate(
+    override fun findReviewsForUpdate(
         restaurantIds: Set<Long>,
-    ): List<AdminRestaurantReviewState> {
+    ): List<AdminRestaurantReview> {
         if (restaurantIds.isEmpty()) return emptyList()
-        return lockedStates(restaurantIds).map { state ->
-            AdminRestaurantReviewState(
-                authorUserId = state.author.id,
-                restaurantId = state.restaurant.id,
-                lastSubmittedAt = state.lastSubmittedAt,
-                lastSequence = state.lastSequence,
-                currentReviewId = state.currentReview?.id,
-                currentReviewCreatedAt = state.currentReview?.createdAt,
-                currentReviewVisibilityStatus = state.currentReview?.visibilityStatus,
+        return lockedReviews(restaurantIds).map { review ->
+            AdminRestaurantReview(
+                reviewId = review.id,
+                authorUserId = review.author.id,
+                restaurantId = review.restaurant.id,
+                submittedAt = review.createdAt,
+                active = review.isActive,
             )
         }
     }
@@ -80,17 +76,12 @@ internal class RestaurantAdministrationPersistenceAdapter(
             "Locked canonical restaurant disappeared"
         }
         val restaurantIds = restaurants.keys
-        val states = lockedStates(restaurantIds)
+        val reviews = lockedReviews(restaurantIds)
 
         if (command.transferReviews) {
-            entityManager.createQuery(
-                "select review from Review review where review.restaurant.id = :restaurantId",
-                Review::class.java,
-            )
-                .setParameter("restaurantId", duplicate.id)
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .resultList
-                .forEach { it.relinkToRestaurant(canonical) }
+            reviews.filter { it.isActive && it.id !in command.activeReviewIds }.forEach(Review::supersede)
+            entityManager.flush()
+            reviews.filter { it.restaurant.id == duplicate.id }.forEach { it.relinkToRestaurant(canonical) }
         }
         if (command.transferExternalReferences) {
             entityManager.createQuery(
@@ -107,7 +98,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
             transferPlatforms(duplicate, canonical)
         }
 
-        replaceReviewStates(states, canonical, command)
         duplicate.mergeInto(canonical)
         entityManager.flush()
         return duplicate.toSnapshot()
@@ -177,16 +167,16 @@ internal class RestaurantAdministrationPersistenceAdapter(
             .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .resultList
 
-    private fun lockedStates(restaurantIds: Set<Long>): List<AuthorRestaurantReviewState> =
+    private fun lockedReviews(restaurantIds: Set<Long>): List<Review> =
         entityManager.createQuery(
             """
-            select state
-            from AuthorRestaurantReviewState state
-            left join fetch state.currentReview
-            where state.restaurant.id in :restaurantIds
-            order by state.author.id, state.restaurant.id
+            select review
+            from Review review
+            join fetch review.author
+            where review.restaurant.id in :restaurantIds
+            order by review.author.id, review.createdAt, review.id
             """.trimIndent(),
-            AuthorRestaurantReviewState::class.java,
+            Review::class.java,
         )
             .setParameter("restaurantIds", restaurantIds)
             .setLockMode(LockModeType.PESSIMISTIC_WRITE)
@@ -214,46 +204,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
                 entityManager.remove(link)
             } else {
                 link.relinkToRestaurant(canonical)
-            }
-        }
-    }
-
-    private fun replaceReviewStates(
-        existingStates: List<AuthorRestaurantReviewState>,
-        canonical: Restaurant,
-        command: RestaurantMergePersistenceCommand,
-    ) {
-        val desiredByAuthor = command.authorStates.associateBy { it.authorUserId }
-        val statesByAuthor = existingStates.groupBy { it.author.id }
-        check(statesByAuthor.keys == desiredByAuthor.keys) {
-            "Merge review state plan does not match locked database state"
-        }
-
-        statesByAuthor.forEach { (authorUserId, authorStates) ->
-            val desired = requireNotNull(desiredByAuthor[authorUserId])
-            val canonicalState = authorStates.firstOrNull { it.restaurant.id == canonical.id }
-            val duplicateStates = authorStates.filterNot { it === canonicalState }
-            val currentReview = desired.currentReviewId?.let {
-                entityManager.getReference(Review::class.java, it)
-            }
-            if (canonicalState != null) {
-                canonicalState.synchronize(
-                    desired.lastSubmittedAt,
-                    desired.lastSequence,
-                    currentReview,
-                )
-                duplicateStates.forEach(entityManager::remove)
-            } else {
-                authorStates.forEach(entityManager::remove)
-                entityManager.persist(
-                    AuthorRestaurantReviewState(
-                        author = entityManager.getReference(User::class.java, authorUserId),
-                        restaurant = canonical,
-                        lastSubmittedAt = desired.lastSubmittedAt,
-                        lastSequence = desired.lastSequence,
-                        currentReview = currentReview,
-                    ),
-                )
             }
         }
     }

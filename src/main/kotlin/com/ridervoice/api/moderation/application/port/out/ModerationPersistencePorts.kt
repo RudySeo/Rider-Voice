@@ -176,16 +176,14 @@ data class StoredReviewReportTarget(
     val restaurantId: Long,
     val visibilityStatus: ReviewVisibilityStatus,
     val commentStatus: ReviewCommentStatus,
-    val currentReviewId: Long?,
-    val lastSubmittedAt: Instant,
-    val lastSequence: Long,
+    val active: Boolean,
+    val submittedAt: Instant,
+    val deletedAt: Instant?,
 ) {
     init {
         require(reviewId > 0) { "Review ID must be positive" }
         require(authorUserId > 0) { "Review author user ID must be positive" }
         require(restaurantId > 0) { "Restaurant ID must be positive" }
-        require(currentReviewId == null || currentReviewId > 0) { "Current review ID must be positive" }
-        require(lastSequence > 0) { "Last review sequence must be positive" }
     }
 }
 

@@ -10,7 +10,7 @@
 - 운영 profile schema 자동 생성: 비활성화
 - 확인 기준일: 2026-07-28
 
-공개 집계는 별도 집계 테이블에 저장하지 않는다. 초기 MVP에서는 유효한 현재 리뷰를 조회한 뒤 application 계층에서 브랜드 집계와 픽업 장소 집계를 계산한다.
+공개 집계는 별도 집계 테이블에 저장하지 않는다. 초기 MVP에서는 유효한 활성 리뷰를 조회한 뒤 application 계층에서 브랜드 집계와 픽업 장소 집계를 계산한다.
 
 ## 2. 공통 스키마와 연관관계 원칙
 
@@ -28,7 +28,7 @@ JPA 연관관계는 필요한 자식에서 부모로 향하는 단방향 관계�
 - Entity에 편의 목적의 `@OneToMany` 또는 `@ManyToMany` 컬렉션을 두지 않는다.
 - 부모에서 자식이 필요하면 repository query로 조회한다.
 - FK 삭제 규칙은 `NO ACTION` 또는 `RESTRICT`이며 cascade delete를 사용하지 않는다.
-- hard delete가 필요한 경우 application service가 소유권, 상태와 참조 관계를 먼저 검증한다.
+- 리뷰는 soft delete하며 다른 hard delete가 필요한 경우 application service가 소유권, 상태와 참조 관계를 먼저 검증한다.
 
 이 방식은 큰 객체 그래프의 암묵적 로딩, 의도하지 않은 cascade 변경과 기능 경계 사이의 강한 결합을 줄인다.
 
@@ -124,7 +124,8 @@ erDiagram
         bigint author_user_id FK
         bigint restaurant_id FK
         varchar visit_month
-        bigint submission_sequence
+        tinyint current_slot
+        datetime deleted_at
         enum pickup_space_cleanliness
         enum packaging_stability
         enum order_readiness
@@ -134,17 +135,6 @@ erDiagram
         varchar comment
         enum comment_moderation_status
         enum visibility_status
-        datetime created_at
-        datetime updated_at
-    }
-
-    AUTHOR_RESTAURANT_REVIEW_STATES {
-        bigint id PK
-        bigint author_user_id FK
-        bigint restaurant_id FK
-        bigint current_review_id FK
-        bigint last_sequence
-        datetime last_submitted_at
         datetime created_at
         datetime updated_at
     }
@@ -203,10 +193,6 @@ erDiagram
 
     USERS ||--o{ REVIEWS : writes
     RESTAURANTS ||--o{ REVIEWS : receives
-    USERS ||--o{ AUTHOR_RESTAURANT_REVIEW_STATES : owns
-    RESTAURANTS ||--o{ AUTHOR_RESTAURANT_REVIEW_STATES : tracks
-    REVIEWS o|--o{ AUTHOR_RESTAURANT_REVIEW_STATES : current_review
-
     USERS ||--o{ REVIEW_REPORTS : reports
     REVIEWS ||--o{ REVIEW_REPORTS : target
     USERS o|--o{ REVIEW_REPORTS : decides
@@ -386,14 +372,15 @@ provider 식별자를 `restaurants`에 직접 넣으면 provider가 늘어날 �
 
 #### 역할
 
-사용자가 제출한 리뷰 내용을 시간순 이력으로 저장한다. 같은 작성자가 같은 음식점에 다시 리뷰를 작성해도 이전 row를 덮어쓰지 않는다.
+라이더가 제출한 리뷰 내용과 활성·삭제 상태를 시간순으로 저장한다. 삭제·전체 제외 후 90일이 지나 다시 작성해도 이전 row를 덮어쓰지 않는다.
 
 #### 주요 컬럼
 
 - `author_user_id` → `users.id`
 - `restaurant_id` → `restaurants.id`
 - `visit_month`: `Asia/Seoul` 기준 현재 또는 직전 방문 연월
-- `submission_sequence`: 작성자·음식점 기준 제출 순번
+- `current_slot`: 활성 리뷰는 `1`, 삭제·전체 제외·병합 이력은 `null`
+- `deleted_at`: 사용자 삭제 시각, 활성 리뷰는 `null`
 - 6개 평가: 픽업 공간 청결, 포장 안정성, 주문 준비 상태, 전달 정확성, 직원 응대, 라이더 존중
 - 각 평가 값: `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`
 - `comment`: trim 후 최대 200자의 선택 의견
@@ -402,47 +389,20 @@ provider 식별자를 `restaurants`에 직접 넣으면 provider가 늘어날 �
 
 #### 주요 인덱스
 
-- `(author_user_id, restaurant_id, submission_sequence)`: 작성자·음식점별 이력 조회
-- `(restaurant_id, visibility_status, created_at, id)`: 공개 리뷰 cursor 조회
+- `(author_user_id, restaurant_id, current_slot)` unique: 라이더·음식점별 활성 리뷰 하나
+- `(author_user_id, restaurant_id, created_at, id)`: 마지막 제출 조회
+- `(restaurant_id, current_slot, visibility_status, deleted_at, created_at, id)`: 공개 리뷰 cursor 조회
 
 #### 관계
 
 - 한 사용자는 여러 리뷰를 작성할 수 있다.
 - 한 음식점은 여러 리뷰를 받을 수 있다.
 - 한 리뷰는 여러 신고의 대상이 될 수 있다.
-- 작성자·음식점 상태 row가 nullable `current_review_id`로 현재 리뷰를 가리킨다.
+- 활성 리뷰는 `current_slot=1`, 미삭제, `ACTIVE` 조건을 모두 만족한다.
 
 #### 설계 이유
 
-운영 환경은 시간에 따라 바뀔 수 있으므로 90일마다 새 리뷰를 허용하면서 과거 기록을 보존한다. 리뷰 row 자체에 작성자·음식점 unique를 두지 않는 이유도 반복 작성 이력을 유지하기 위해서다. 구조화 평가는 즉시 공개할 수 있지만 자유 의견은 별도 검수 상태를 가져 공개 범위를 독립적으로 통제한다.
-
-### 6.2 `author_restaurant_review_states`
-
-#### 역할
-
-작성자와 음식점 조합별 마지막 제출 상태와 현재 리뷰 포인터를 관리한다.
-
-#### 주요 컬럼과 제약
-
-- `author_user_id` → `users.id`
-- `restaurant_id` → `restaurants.id`
-- `current_review_id` → `reviews.id`, nullable
-- `last_submitted_at`: 90일 재작성 제한의 기준 시각
-- `last_sequence`: 마지막 제출 순번
-- `(author_user_id, restaurant_id)` unique: 조합별 상태 row 하나 보장
-
-#### 설계 이유
-
-리뷰 이력과 현재 상태를 분리해야 다음 규칙을 동시에 만족할 수 있다.
-
-- 새 리뷰가 생겨도 과거 리뷰를 보존한다.
-- 최신 리뷰만 수정·삭제할 수 있다.
-- 최신 리뷰를 삭제하거나 관리자가 제외해도 `last_submitted_at`을 유지한다.
-- 삭제를 이용한 90일 제한 우회를 막는다.
-- 현재 리뷰가 사라져도 과거 리뷰를 자동으로 현재 상태로 복원하지 않는다.
-- 상태 row locking과 unique 제약으로 동시 제출을 직렬화한다.
-
-`current_review_id`는 DB에서 nullable 다대일 FK지만 application 정책상 해당 작성자와 음식점의 현재 리뷰 하나만 가리켜야 한다.
+활성 리뷰가 있으면 경과 시간과 관계없이 추가 작성을 막는다. 삭제·전체 제외 후에는 모든 상태를 `reviews`에서 조회해 마지막 제출의 `created_at + 90일`을 적용한다. nullable `current_slot` unique 제약은 내부 이력을 보존하면서 동시 요청에도 활성 리뷰 하나를 보장한다. 구조화 평가는 즉시 공개할 수 있지만 자유 의견은 별도 검수 상태를 가져 공개 범위를 독립적으로 통제한다.
 
 ## 7. 신고와 관리자 처리 테이블
 
@@ -531,7 +491,6 @@ provider 식별자를 `restaurants`에 직접 넣으면 provider가 늘어날 �
   → restaurants 조회 또는 생성
   → external reference / platform metadata 저장
   → reviews 생성
-  → author_restaurant_review_states 생성 또는 갱신
 ```
 
 provider 검증은 DB 트랜잭션 전에 수행한다. 검증된 픽업 장소·브랜드 등록과 첫 리뷰 저장은 같은 application use case와 트랜잭션에서 함께 성공하거나 실패한다.
@@ -539,15 +498,14 @@ provider 검증은 DB 트랜잭션 전에 수행한다. 검증된 픽업 장소�
 ### 8.3 재작성과 공개 집계
 
 ```text
-author_restaurant_review_states.last_submitted_at 확인
-  → 90일 경과 여부 검증
-  → 새 reviews row 생성
-  → submission_sequence 증가
-  → current_review_id를 새 리뷰로 변경
-  → 현재 유효 리뷰를 조회해 공개 집계 계산
+reviews에서 활성 리뷰와 마지막 제출 조회
+  → 활성 리뷰가 있으면 새 작성 거부
+  → 활성 리뷰가 없으면 마지막 created_at 기준 90일 검증
+  → current_slot=1인 새 reviews row 생성
+  → 활성 리뷰를 조회해 공개 집계 계산
 ```
 
-브랜드 집계는 작성자별 해당 브랜드의 현재 리뷰 하나를 사용한다. 픽업 장소 집계는 같은 작성자가 한 장소의 여러 브랜드에 리뷰를 남겼더라도 가장 최근 현재 리뷰 하나만 사용한다. 집계는 서로 다른 유효 작성자 5명부터 공개한다.
+브랜드 집계는 라이더별 해당 브랜드의 활성 리뷰 하나를 사용한다. 픽업 장소 집계는 같은 라이더가 한 장소의 여러 브랜드에 활성 리뷰를 남겼더라도 가장 최근 리뷰 하나만 사용한다. 집계는 서로 다른 유효 라이더 5명부터 공개한다.
 
 ### 8.4 신고와 관리자 처리
 
@@ -569,14 +527,14 @@ author_restaurant_review_states.last_submitted_at 확인
 | 동일 장소 중복 방지 | `pickup_locations.location_key` unique |
 | 같은 장소의 같은 브랜드 중복 방지 | `restaurants(pickup_location_id, normalized_name)` unique |
 | 같은 외부 장소 중복 연결 방지 | `restaurant_external_references(provider, external_place_id)` unique |
-| 작성자·음식점 상태 row 하나 | `author_restaurant_review_states(author_user_id, restaurant_id)` unique |
+| 라이더·음식점별 활성 리뷰 하나 | `reviews(author_user_id, restaurant_id, current_slot)` unique |
 | 동일 사용자의 같은 리뷰 중복 신고 방지 | `review_reports(reporter_user_id, review_id)` unique |
 | 동일 사용자의 같은 음식점 중복 신고 방지 | `restaurant_info_reports(reporter_user_id, restaurant_id)` unique |
 | refresh token 원문 비저장과 중복 방지 | `user_sessions.refresh_token_hash` unique |
 | 부모 삭제에 따른 이력 유실 방지 | 모든 FK `NO ACTION`/`RESTRICT` |
-| 90일 제한과 현재 리뷰 직렬화 | 상태 row locking과 application transaction |
+| 활성 리뷰와 90일 제한 직렬화 | nullable current slot unique와 application transaction retry |
 
-DB unique와 FK는 동시 요청에서도 최소 무결성을 보장한다. 방문 연월, 90일 제한, 최신 리뷰 소유권, 상태 전이와 관리자 결정 같은 비즈니스 규칙은 application service와 domain policy에서 검증한다.
+DB unique와 FK는 동시 요청에서도 최소 무결성을 보장한다. 방문 연월, 활성 리뷰 존재, 90일 제한, 리뷰 소유권, 상태 전이와 관리자 결정 같은 비즈니스 규칙은 application service와 domain policy에서 검증한다.
 
 ## 10. 최종 정리
 
@@ -585,9 +543,9 @@ Rider Voice의 데이터 모델은 서로 다른 책임을 하나의 테이블�
 1. `users`와 `oauth_accounts`를 분리해 외부 카카오 식별자와 내부 권한·상태를 독립적으로 관리한다.
 2. `pickup_locations`와 `restaurants`를 분리해 실제 픽업 장소와 소비자에게 보이는 배달 브랜드를 구분한다.
 3. `restaurant_external_references`와 `restaurant_platforms`를 분리해 외부 provider와 플랫폼 메타데이터가 핵심 음식점 모델을 오염시키지 않게 한다.
-4. `reviews`와 `author_restaurant_review_states`를 분리해 리뷰 이력을 보존하면서 90일 제한, 현재 리뷰와 동시 제출을 관리한다.
+4. `reviews`의 soft delete와 nullable current slot으로 활성 리뷰 하나, 90일 제한과 동시 제출을 관리한다.
 5. 신고 테이블과 `moderation_audits`를 분리해 사용자 제보, 관리자 결정, 실제 데이터 변경과 감사 이력을 추적한다.
-6. 모든 공개 집계는 별도 점수 테이블 없이 현재 유효 리뷰로 계산하며, 종합 점수·평균 별점·순위·인증 배지를 만들지 않는다.
+6. 모든 공개 집계는 별도 점수 테이블 없이 활성 유효 리뷰로 계산하며, 종합 점수·평균 별점·순위·인증 배지를 만들지 않는다.
 
 이 구조에서 카카오 로그인은 계정 식별 수단일 뿐 라이더 신분이나 실제 방문을 증명하지 않는다. 리뷰와 집계의 저장 구조도 이 신뢰 경계를 바꾸지 않으며 모든 공개 리뷰와 리포트는 미인증 정보임을 명시해야 한다.
 
