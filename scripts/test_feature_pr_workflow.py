@@ -35,13 +35,19 @@ class FeaturePrWorkflowTest(unittest.TestCase):
         self.assertIn("pulls.create", self.content)
         self.assertIn("compareCommits", self.content)
 
-    def test_backend_and_frontend_ci_commands_are_present(self) -> None:
+    def test_backend_only_ci_commands_are_present(self) -> None:
         self.assertIn("./gradlew build", self.content)
-        self.assertIn("npm ci", self.content)
-        self.assertIn("npm run lint", self.content)
-        self.assertIn("npm test", self.content)
-        self.assertIn("npm run build", self.content)
         self.assertNotIn("integrationTest", self.content)
+        self.assertNotIn("setup-node", self.content)
+        self.assertNotIn("npm ", self.content)
+        self.assertNotRegex(self.content, r"(?m)^\s{2}frontend:")
+
+    def test_generated_pr_body_is_written_in_korean(self) -> None:
+        self.assertIn("## 변경 요약", self.content)
+        self.assertIn("## 확인 사항", self.content)
+        self.assertIn("Backend CI가 통과했습니다", self.content)
+        self.assertNotIn("## Summary", self.content)
+        self.assertNotIn("## Checklist", self.content)
 
     def test_native_codex_review_does_not_embed_an_api_key(self) -> None:
         self.assertNotIn("OPENAI_API_KEY", self.content)
