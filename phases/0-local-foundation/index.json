@@ -7,7 +7,7 @@
       "name": "baseline-alignment",
       "status": "completed",
       "started_at": "2026-07-22T23:50:38+0900",
-      "summary": "MySQL 9.3·Flyway V1~V3·Hibernate validate 기반과 Docker 없는 로컬 테스트, Swagger/OpenAPI 계약 baseline을 정렬했다.",
+      "summary": "MySQL 9.3·Hibernate schema update 기반과 Docker 없는 로컬 테스트, Swagger/OpenAPI 계약 baseline을 정렬했다.",
       "completed_at": "2026-07-22T23:55:19+0900"
     },
     {

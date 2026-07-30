@@ -1,36 +1,39 @@
 package com.ridervoice.api.auth.application
 
+import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
+import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
+import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
+import com.ridervoice.api.auth.application.port.out.OnboardingTokenStore
+import com.ridervoice.api.auth.application.port.out.UserSessionStore
+import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
-import com.ridervoice.api.auth.domain.OAuthLoginState
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
+import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
 import com.ridervoice.api.auth.domain.UserStatus
-import com.ridervoice.api.auth.infrastructure.persistence.OAuthAccountRepository
-import com.ridervoice.api.auth.infrastructure.persistence.OAuthLoginStateRepository
-import com.ridervoice.api.auth.infrastructure.persistence.OnboardingTokenRepository
-import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
-import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
 import com.ridervoice.api.common.error.AuthenticationRequiredException
+import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OnboardingPrincipal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.mockingDetails
 import org.mockito.Mockito.never
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
+import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.Optional
-import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -39,68 +42,151 @@ class AuthServiceTest {
 
     private val now = Instant.parse("2026-07-23T01:02:03Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
-    private val kakao = mock(KakaoOAuthPort::class.java)
-    private val users = mock(UserRepository::class.java)
-    private val accounts = mock(OAuthAccountRepository::class.java)
-    private val states = mock(OAuthLoginStateRepository::class.java)
-    private val sessions = mock(UserSessionRepository::class.java)
-    private val onboardingTokens = mock(OnboardingTokenRepository::class.java)
-    private val auth = AuthService(kakao, users, accounts, states, sessions, onboardingTokens, clock)
+    private val users = mock(UserStore::class.java)
+    private val accounts = mock(OAuthAccountStore::class.java)
+    private val sessions = mock(UserSessionStore::class.java)
+    private val onboardingTokens = mock(OnboardingTokenStore::class.java)
+    private val exchangeGrants = mock(OAuthExchangeGrantStore::class.java)
+    private val auth = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, clock)
 
     @Test
-    fun `new user callback returns only a five minute onboarding token and stores only its hash`() {
-        prepareCallback("new-subject")
-        `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "new-subject"))
-            .thenReturn(Optional.empty())
-        `when`(users.save(org.mockito.ArgumentMatchers.any(User::class.java)))
-            .thenAnswer { it.arguments[0] as User }
+    fun `provider login creates a new social account and returns only a hashed exchange grant`() {
+        val command = CompleteSocialLoginCommand(OAuthProvider.KAKAO, "provider-subject")
+        `when`(accounts.findOAuthAccount(command.provider, command.providerSubject)).thenReturn(null)
+        `when`(users.saveUser(anyValue())).thenAnswer {
+            (it.arguments[0] as User).apply { id = 10L }
+        }
+        `when`(accounts.saveOAuthAccount(anyValue()))
+            .thenAnswer { it.arguments[0] as OAuthAccount }
 
-        val result = auth.callback("code", "state")
-        val onboardingToken = requireNotNull(result.onboardingToken)
+        val result = auth.complete(command)
 
-        assertThat(result.tokens).isNull()
-        assertThat(onboardingToken).isNotBlank()
-        assertThat(result.user.status).isEqualTo("PENDING_TERMS")
-        val captor = ArgumentCaptor.forClass(OnboardingToken::class.java)
-        verify(onboardingTokens).save(captor.capture())
-        assertThat(captor.value.tokenHash).isEqualTo(sha256(onboardingToken))
-        assertThat(captor.value.tokenHash).doesNotContain(onboardingToken)
-        assertThat(captor.value.expiresAt).isEqualTo(now.plusSeconds(5 * 60L))
-        verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
-        `when`(onboardingTokens.findByTokenHash(captor.value.tokenHash)).thenReturn(Optional.of(captor.value))
-        assertThat(auth.authenticate(onboardingToken))
-            .isEqualTo(OnboardingPrincipal(captor.value.userId, captor.value.tokenHash))
+        assertThat(result.code).isNotBlank()
+        val savedAccount = savedArgument<OAuthAccount>(accounts, "saveOAuthAccount")
+        assertThat(savedAccount.user.id).isEqualTo(10L)
+        assertThat(savedAccount.provider).isEqualTo(OAuthProvider.KAKAO)
+        assertThat(savedAccount.providerSubject).isEqualTo("provider-subject")
+        val savedHash = savedArguments(exchangeGrants, "save").first() as String
+        val savedGrant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
+        assertThat(savedHash).isEqualTo(sha256(result.code))
+        assertThat(savedHash).isNotEqualTo(result.code)
+        assertThat(savedGrant.userId).isEqualTo(10L)
+        assertThat(savedGrant.expiresAt).isEqualTo(now.plusSeconds(60))
+        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
+        verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
-    fun `active user callback returns only regular access and refresh tokens`() {
-        prepareCallback("existing-subject")
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
-        `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, "existing-subject"))
-            .thenReturn(Optional.of(OAuthAccount(user.id, OAuthProvider.KAKAO, "existing-subject")))
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
-        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+    fun `valid exchange code for an active account issues opaque service tokens`() {
+        val user = activeUser()
+        val account = OAuthAccount(user, OAuthProvider.KAKAO, "active-subject")
+        `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "active-subject")).thenReturn(account)
+        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
 
-        val result = auth.callback("code", "state")
+        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject")).code
+        val grant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
+        `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
+        val result = auth.exchange(ExchangeSocialLoginCodeCommand(code))
 
+        assertThat(result.termsAgreed).isTrue()
+        assertThat(result.onboardingToken).isNull()
         assertThat(result.tokens?.accessToken).isNotBlank()
         assertThat(result.tokens?.refreshToken).isNotBlank()
-        assertThat(result.onboardingToken).isNull()
-        assertThat(result.user.status).isEqualTo("ACTIVE")
-        val sessionCaptor = ArgumentCaptor.forClass(UserSession::class.java)
-        verify(sessions).save(sessionCaptor.capture())
-        assertThat(sessionCaptor.value.expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
-        verify(onboardingTokens, never()).save(org.mockito.ArgumentMatchers.any(OnboardingToken::class.java))
+        val savedSession = savedArgument<UserSession>(sessions, "saveSession")
+        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.tokens!!.refreshToken))
+        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.tokens.refreshToken)
+    }
+
+    @Test
+    fun `valid exchange code for a pending account issues only an onboarding token`() {
+        val user = User().apply { id = 8L }
+        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(exchangeGrants.consume(sha256("pending-code"), now))
+            .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
+        `when`(onboardingTokens.saveOnboardingToken(anyValue()))
+            .thenAnswer { it.arguments[0] as OnboardingToken }
+
+        val result = auth.exchange(ExchangeSocialLoginCodeCommand("pending-code"))
+
+        assertThat(result.user.id).isEqualTo(user.id)
+        assertThat(result.termsAgreed).isFalse()
+        assertThat(result.onboardingToken).isNotBlank()
+        assertThat(result.tokens).isNull()
+        val savedToken = savedArgument<OnboardingToken>(onboardingTokens, "saveOnboardingToken")
+        assertThat(savedToken.tokenHash).isEqualTo(sha256(result.onboardingToken!!))
+        verify(sessions, never()).saveSession(anyValue())
+    }
+
+    @Test
+    fun `invalid expired or reused exchange code is rejected with the same authentication error`() {
+        listOf("invalid-code", "expired-code", "reused-code").forEach { code ->
+            `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(null)
+
+            assertThrows<InvalidOAuthExchangeCodeException> {
+                auth.exchange(ExchangeSocialLoginCodeCommand(code))
+            }
+        }
+
+        verify(users, never()).findUser(org.mockito.ArgumentMatchers.anyLong())
+        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
+        verify(sessions, never()).saveSession(anyValue())
+    }
+
+    @Test
+    fun `suspended social account cannot exchange for onboarding or service tokens`() {
+        val user = activeUser()
+        setStatus(user, UserStatus.SUSPENDED)
+        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(exchangeGrants.consume(sha256("suspended-code"), now))
+            .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
+
+        assertThrows<AuthenticationRequiredException> {
+            auth.exchange(ExchangeSocialLoginCodeCommand("suspended-code"))
+        }
+
+        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
+        verify(sessions, never()).saveSession(anyValue())
+    }
+
+    @Test
+    fun `access token authentication reflects the current database role`() {
+        val original = activeUser(UserRole.USER)
+        `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "role-subject"))
+            .thenReturn(OAuthAccount(original, OAuthProvider.KAKAO, "role-subject"))
+        `when`(users.findUser(original.id)).thenReturn(original)
+        `when`(sessions.saveSession(anyValue()))
+            .thenAnswer { it.arguments[0] as UserSession }
+        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "role-subject")).code
+        val grant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
+        `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
+        val accessToken = auth.exchange(ExchangeSocialLoginCodeCommand(code)).tokens!!.accessToken
+        val promoted = activeUser(UserRole.ADMIN)
+        `when`(users.findUser(original.id)).thenReturn(promoted)
+
+        assertThat(auth.authenticate(accessToken))
+            .isEqualTo(AuthenticatedUserPrincipal(original.id, "ROLE_ADMIN"))
+    }
+
+    @Test
+    fun `social login completion is transactional`() {
+        val method = AuthService::class.java.getMethod(
+            "complete",
+            CompleteSocialLoginCommand::class.java,
+        )
+
+        assertThat(method.getAnnotation(Transactional::class.java)).isNotNull()
     }
 
     @Test
     fun `access token expires after fifteen minutes`() {
         val mutableClock = MutableClock(now)
-        val service = AuthService(kakao, users, accounts, states, sessions, onboardingTokens, mutableClock)
-        val user = prepareActiveCallback("expiring-access-subject")
+        val service = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, mutableClock)
+        val user = activeUser()
+        `when`(users.findUser(user.id)).thenReturn(user)
 
-        val accessToken = requireNotNull(service.callback("code", "state").tokens).accessToken
+        val accessToken = issueTokens(service, user).accessToken
 
         mutableClock.advance(Duration.ofMinutes(15).minusMillis(1))
         assertThat(service.authenticate(accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
@@ -111,8 +197,9 @@ class AuthServiceTest {
 
     @Test
     fun `access token is rejected when current user is suspended or withdrawn`() {
-        val user = prepareActiveCallback("inactive-access-subject")
-        val accessToken = requireNotNull(auth.callback("code", "state").tokens).accessToken
+        val user = activeUser()
+        `when`(users.findUser(user.id)).thenReturn(user)
+        val accessToken = issueTokens(auth, user).accessToken
 
         setStatus(user, UserStatus.SUSPENDED)
         assertThat(auth.authenticate(accessToken)).isNull()
@@ -123,22 +210,19 @@ class AuthServiceTest {
 
     @Test
     fun `access token is invalid after service restart`() {
-        prepareActiveCallback("restart-access-subject")
-        val accessToken = requireNotNull(auth.callback("code", "state").tokens).accessToken
-        val restarted = AuthService(kakao, users, accounts, states, sessions, onboardingTokens, clock)
+        val accessToken = issueTokens(auth, activeUser()).accessToken
+        val restarted = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, clock)
 
         assertThat(restarted.authenticate(accessToken)).isNull()
     }
 
     @Test
     fun `logout locks and revokes refresh session and removes its access token`() {
-        val user = prepareActiveCallback("logout-subject")
-        val tokens = requireNotNull(auth.callback("code", "state").tokens)
-        val sessionCaptor = ArgumentCaptor.forClass(UserSession::class.java)
-        verify(sessions).save(sessionCaptor.capture())
-        val session = sessionCaptor.value
-        `when`(sessions.findByRefreshTokenHashForUpdate(sha256(tokens.refreshToken)))
-            .thenReturn(Optional.of(session))
+        val user = activeUser()
+        `when`(users.findUser(user.id)).thenReturn(user)
+        val tokens = issueTokens(auth, user)
+        val session = savedArgument<UserSession>(sessions, "saveSession")
+        `when`(sessions.findSessionForUpdate(sha256(tokens.refreshToken))).thenReturn(session)
 
         assertThat(auth.authenticate(tokens.accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
 
@@ -146,57 +230,60 @@ class AuthServiceTest {
 
         assertThat(session.revokedAt).isEqualTo(now)
         assertThat(auth.authenticate(tokens.accessToken)).isNull()
-        verify(sessions).findByRefreshTokenHashForUpdate(sha256(tokens.refreshToken))
+        verify(sessions).findSessionForUpdate(sha256(tokens.refreshToken))
     }
 
     @Test
     fun `refresh rotates a thirty day session and rejects reuse of the previous refresh token`() {
-        val user = prepareActiveCallback("refresh-subject")
+        val user = activeUser()
+        `when`(users.findUser(user.id)).thenReturn(user)
+        val rawRefreshToken = "initial-refresh-token"
+        val initialSession = UserSession(
+            user = user,
+            refreshTokenHash = sha256(rawRefreshToken),
+            expiresAt = now.plus(Duration.ofDays(30)),
+        )
         val savedSessions = mutableListOf<UserSession>()
-        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+        `when`(sessions.saveSession(anyValue()))
             .thenAnswer { (it.arguments[0] as UserSession).also(savedSessions::add) }
-        val initialTokens = requireNotNull(auth.callback("code", "state").tokens)
-        val initialSession = savedSessions.single()
-        `when`(sessions.findByRefreshTokenHashForUpdate(sha256(initialTokens.refreshToken)))
-            .thenReturn(Optional.of(initialSession))
+        `when`(sessions.findSessionForUpdate(sha256(rawRefreshToken))).thenReturn(initialSession)
 
-        val refreshedTokens = auth.refresh(initialTokens.refreshToken)
+        val refreshedTokens = auth.refresh(rawRefreshToken)
 
         assertThat(initialSession.revokedAt).isEqualTo(now)
-        assertThat(initialSession.rotatedToSessionId).isEqualTo(savedSessions.last().id)
+        assertThat(initialSession.rotatedToSession).isSameAs(savedSessions.last())
         assertThat(savedSessions.last().expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         assertThat(auth.authenticate(refreshedTokens.accessToken))
             .isEqualTo(AuthenticatedUserPrincipal(user.id))
-        assertThrows<IllegalStateException> { auth.refresh(initialTokens.refreshToken) }
-        assertThat(savedSessions).hasSize(2)
+        assertThrows<IllegalStateException> { auth.refresh(rawRefreshToken) }
+        assertThat(savedSessions).hasSize(1)
     }
 
     @Test
     fun `expired refresh token cannot create a successor session`() {
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val user = User().apply { id = 3L }.also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
         val rawRefreshToken = "expired-refresh-token"
         val expiredSession = UserSession(
-            userId = user.id,
+            user = user,
             refreshTokenHash = sha256(rawRefreshToken),
             expiresAt = now,
         )
-        `when`(sessions.findByRefreshTokenHashForUpdate(expiredSession.refreshTokenHash))
-            .thenReturn(Optional.of(expiredSession))
+        `when`(sessions.findSessionForUpdate(expiredSession.refreshTokenHash)).thenReturn(expiredSession)
 
         assertThrows<IllegalStateException> { auth.refresh(rawRefreshToken) }
 
-        verify(users, never()).findById(user.id)
-        verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
+        verify(users, never()).findUser(user.id)
+        verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
     fun `valid locked onboarding token is consumed with terms agreement and formal token issuance`() {
-        val user = User()
+        val user = User().apply { id = 4L }
         val rawToken = "raw-onboarding-token"
-        val token = onboardingToken(user.id, rawToken)
-        `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
-        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+        val token = onboardingToken(user, rawToken)
+        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
+        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
 
         val result = auth.agree(OnboardingPrincipal(user.id, token.tokenHash), "2026-07-01")
@@ -211,44 +298,44 @@ class AuthServiceTest {
 
     @Test
     fun `expired or consumed onboarding token cannot issue a session`() {
-        val user = User()
-        val expired = OnboardingToken(user.id, sha256("expired"), now.minusSeconds(301), now.minusSeconds(1))
-        val consumed = onboardingToken(user.id, "consumed").also { it.consume(now.minusSeconds(1)) }
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
+        val user = User().apply { id = 5L }
+        val expired = OnboardingToken(user, sha256("expired"), now.minusSeconds(301), now.minusSeconds(1))
+        val consumed = onboardingToken(user, "consumed").also { it.consume(now.minusSeconds(1)) }
+        `when`(users.findUser(user.id)).thenReturn(user)
 
         listOf(expired, consumed).forEach { token ->
-            `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
+            `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
             assertThrows<AuthenticationRequiredException> {
                 auth.agree(OnboardingPrincipal(user.id, token.tokenHash), "2026-07-01")
             }
         }
 
-        verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
+        verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
     fun `onboarding token cannot be used by a different user`() {
-        val owner = User()
-        val otherUserId = UUID.randomUUID()
-        val token = onboardingToken(owner.id, "owner-token")
-        `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
+        val owner = User().apply { id = 6L }
+        val otherUserId = 7L
+        val token = onboardingToken(owner, "owner-token")
+        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
 
         assertThrows<AuthenticationRequiredException> {
             auth.agree(OnboardingPrincipal(otherUserId, token.tokenHash), "2026-07-01")
         }
 
         assertThat(token.consumedAt).isNull()
-        verify(users, never()).findById(org.mockito.ArgumentMatchers.any(UUID::class.java))
-        verify(sessions, never()).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
+        verify(users, never()).findUser(org.mockito.ArgumentMatchers.anyLong())
+        verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
     fun `simultaneous duplicate consent consumes one onboarding token only once`() {
-        val user = User()
-        val token = onboardingToken(user.id, "one-use-token")
-        `when`(onboardingTokens.findByTokenHashForUpdate(token.tokenHash)).thenReturn(Optional.of(token))
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
-        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+        val user = User().apply { id = 8L }
+        val token = onboardingToken(user, "one-use-token")
+        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
+        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
         val ready = CountDownLatch(2)
         val start = CountDownLatch(1)
@@ -269,26 +356,24 @@ class AuthServiceTest {
         assertThat(results.count { it.isSuccess }).isEqualTo(1)
         assertThat(results.count { it.isFailure }).isEqualTo(1)
         assertThat(token.consumedAt).isEqualTo(now)
-        verify(sessions, times(1)).save(org.mockito.ArgumentMatchers.any(UserSession::class.java))
+        verify(sessions, times(1)).saveSession(anyValue())
     }
 
-    private fun prepareCallback(providerSubject: String) {
-        val loginState = OAuthLoginState(sha256("state"), now.plusSeconds(300))
-        `when`(states.findByStateHash(sha256("state"))).thenReturn(Optional.of(loginState))
-        val oauthToken = OAuthAccessToken("kakao-access-token")
-        `when`(kakao.exchangeCode("code")).thenReturn(oauthToken)
-        `when`(kakao.getUser(oauthToken)).thenReturn(KakaoUserProfile(providerSubject, null))
-    }
-
-    private fun prepareActiveCallback(providerSubject: String): User {
-        prepareCallback(providerSubject)
-        val user = User().also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
-        `when`(accounts.findByProviderAndProviderSubject(OAuthProvider.KAKAO, providerSubject))
-            .thenReturn(Optional.of(OAuthAccount(user.id, OAuthProvider.KAKAO, providerSubject)))
-        `when`(users.findById(user.id)).thenReturn(Optional.of(user))
-        `when`(sessions.save(org.mockito.ArgumentMatchers.any(UserSession::class.java)))
+    private fun issueTokens(service: AuthService, user: User): AuthTokens {
+        val rawRefreshToken = "initial-refresh-token"
+        val initialSession = UserSession(
+            user = user,
+            refreshTokenHash = sha256(rawRefreshToken),
+            expiresAt = now.plus(Duration.ofDays(30)),
+        )
+        `when`(sessions.findSessionForUpdate(initialSession.refreshTokenHash)).thenReturn(initialSession)
+        `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
-        return user
+        return service.refresh(rawRefreshToken)
+    }
+
+    private fun activeUser(role: UserRole = UserRole.USER) = User(role).apply { id = 9L }.also {
+        it.agreeToTerms("2026-07-01", now.minusSeconds(60))
     }
 
     private fun setStatus(user: User, status: UserStatus) {
@@ -298,8 +383,8 @@ class AuthServiceTest {
         }
     }
 
-    private fun onboardingToken(userId: UUID, rawToken: String) = OnboardingToken(
-        userId = userId,
+    private fun onboardingToken(user: User, rawToken: String) = OnboardingToken(
+        user = user,
         tokenHash = sha256(rawToken),
         issuedAt = now,
         expiresAt = now.plusSeconds(5 * 60L),
@@ -308,6 +393,25 @@ class AuthServiceTest {
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray())
         .joinToString("") { "%02x".format(it) }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> anyValue(): T {
+        org.mockito.ArgumentMatchers.any<T>()
+        return null as T
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> savedArgument(mock: Any, methodName: String): T = mockingDetails(mock)
+        .invocations
+        .single { it.method.name == methodName }
+        .arguments
+        .single() as T
+
+    private fun savedArguments(mock: Any, methodName: String): List<Any?> = mockingDetails(mock)
+        .invocations
+        .single { it.method.name == methodName }
+        .arguments
+        .toList()
 }
 
 private class MutableClock(

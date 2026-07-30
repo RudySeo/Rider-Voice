@@ -5,18 +5,21 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.Id
 import jakarta.persistence.Table
+import org.hibernate.annotations.ColumnDefault
 import java.time.Instant
-import java.util.UUID
 
 @Entity
 @Table(name = "users")
 class User(
-    @field:Id
-    @field:Column(nullable = false, updatable = false)
-    val id: UUID = UUID.randomUUID(),
+    role: UserRole = UserRole.USER,
 ) : BaseEntity() {
+
+    @field:Enumerated(EnumType.STRING)
+    @field:Column(nullable = false, length = 20)
+    @field:ColumnDefault("'USER'")
+    final var role: UserRole = role
+        private set
 
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, length = 32)

@@ -1,0 +1,64 @@
+{
+  "project": "Rider Voice",
+  "phase": "7-review-core",
+  "steps": [
+    {
+      "step": 0,
+      "name": "review-domain",
+      "status": "completed",
+      "summary": "Review 엔티티와 5개 rating·6개 필수 평가, 의견 검수/공개 상태, Asia/Seoul 방문 연월 및 90일·current/history 도메인 정책과 단위 테스트를 추가했다.",
+      "started_at": "2026-07-26T01:11:20+0900",
+      "completed_at": "2026-07-26T01:16:43+0900"
+    },
+    {
+      "step": 1,
+      "name": "review-application-contracts",
+      "status": "completed",
+      "summary": "create/update/delete/my-review-list input port, phase 6 sealed restaurant target를 사용하는 command, Entity 비노출 result·createdAt+ID cursor 및 review/state repository output port와 dependency contract test를 추가했다.",
+      "started_at": "2026-07-26T01:16:43+0900",
+      "completed_at": "2026-07-26T01:21:59+0900"
+    },
+    {
+      "step": 2,
+      "name": "review-persistence",
+      "status": "completed",
+      "summary": "AuthorRestaurantReviewState Entity와 review/state Spring Data adapter를 추가해 state 유일성·비관적 잠금·현재 리뷰 소유권·createdAt+ID cursor 조회를 구현하고 contract 및 MySQL schema test를 작성했다.",
+      "started_at": "2026-07-26T01:21:59+0900",
+      "completed_at": "2026-07-26T01:26:25+0900"
+    },
+    {
+      "step": 3,
+      "name": "review-create-service",
+      "status": "completed",
+      "summary": "ReviewCreateService와 target validate/resolveValidated 경계를 추가해 외부 검증 분리, restaurant·review 원자 저장, 90일·24시간·sequence·state race 재시도를 구현하고 서비스 테스트로 검증했다.",
+      "started_at": "2026-07-26T01:26:25+0900",
+      "completed_at": "2026-07-26T01:35:05+0900"
+    },
+    {
+      "step": 4,
+      "name": "review-owner-service",
+      "status": "completed",
+      "summary": "ReviewOwnerService를 추가해 소유자 current 리뷰의 검증 기반 수정·hard delete, cooldown 상태 보존과 current/history·검수 상태 cursor 목록을 구현하고 테스트했다.",
+      "started_at": "2026-07-26T01:35:06+0900",
+      "completed_at": "2026-07-26T01:40:12+0900"
+    },
+    {
+      "step": 5,
+      "name": "review-api",
+      "status": "completed",
+      "summary": "USER 리뷰 create/update/delete/my-list Controller와 discriminator 기반 4종 target DTO, validation·presentation mapper·cursor·OpenAPI 및 권한/404/409 MockMvc 계약 테스트를 추가했다.",
+      "started_at": "2026-07-26T01:40:12+0900",
+      "completed_at": "2026-07-26T01:48:37+0900"
+    },
+    {
+      "step": 6,
+      "name": "review-integration",
+      "status": "completed",
+      "summary": "4종 restaurant target 리뷰 생성, concurrent state 생성·90일 잠금·sequence와 latest/history 수정·삭제·state retention을 검증하는 MySQL integration-tag 회귀 테스트를 추가했다.",
+      "started_at": "2026-07-26T01:48:37+0900",
+      "completed_at": "2026-07-26T01:54:00+0900"
+    }
+  ],
+  "created_at": "2026-07-26T01:11:20+0900",
+  "completed_at": "2026-07-26T01:54:00+0900"
+}

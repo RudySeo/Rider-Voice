@@ -1,23 +1,29 @@
 package com.ridervoice.api.common.security
 
-import java.util.UUID
-
 sealed interface BearerPrincipal {
-    val userId: UUID
+    val userId: Long
     val authority: String
 }
 
-data class AuthenticatedUserPrincipal(override val userId: UUID) : BearerPrincipal {
-    override val authority: String
-        get() = AUTHORITY
+data class AuthenticatedUserPrincipal(
+    override val userId: Long,
+    override val authority: String = USER_AUTHORITY,
+) : BearerPrincipal {
+
+    init {
+        require(authority == USER_AUTHORITY || authority == ADMIN_AUTHORITY) {
+            "Unsupported authenticated user authority"
+        }
+    }
 
     companion object {
-        const val AUTHORITY = "ROLE_USER"
+        const val USER_AUTHORITY = "ROLE_USER"
+        const val ADMIN_AUTHORITY = "ROLE_ADMIN"
     }
 }
 
 data class OnboardingPrincipal(
-    override val userId: UUID,
+    override val userId: Long,
     val tokenHash: String = "",
 ) : BearerPrincipal {
     override val authority: String

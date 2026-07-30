@@ -37,7 +37,7 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
         val rawRefreshToken = "refresh-${UUID.randomUUID()}"
         val original = sessions.saveAndFlush(
             UserSession(
-                userId = user.id,
+                user = user,
                 refreshTokenHash = sha256(rawRefreshToken),
                 expiresAt = now.plus(30, ChronoUnit.DAYS),
             ),
@@ -61,10 +61,10 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
         assertThat(results.count { it.isSuccess }).isEqualTo(1)
         assertThat(results.count { it.isFailure }).isEqualTo(1)
         val persistedOriginal = sessions.findById(original.id).orElseThrow()
-        val persistedForUser = sessions.findAll().filter { it.userId == user.id }
+        val persistedForUser = sessions.findAll().filter { it.user.id == user.id }
         assertThat(persistedForUser).hasSize(2)
         assertThat(persistedOriginal.revokedAt).isNotNull()
-        assertThat(persistedOriginal.rotatedToSessionId)
+        assertThat(persistedOriginal.rotatedToSession?.id)
             .isEqualTo(persistedForUser.single { it.id != original.id }.id)
     }
 

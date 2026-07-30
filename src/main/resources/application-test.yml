@@ -9,3 +9,15 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 4
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+ridervoice:
+  auth:
+    oauth2:
+      kakao:
+        client-id: integration-test-client
+  restaurant:
+    kakao-local:
+      api-key: integration-test-key

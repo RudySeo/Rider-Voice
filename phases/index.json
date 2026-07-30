@@ -21,16 +21,44 @@
       "completed_at": "2026-07-23T15:01:57+0900"
     },
     {
-      "dir": "4-private-review-crud",
-      "status": "pending"
+      "dir": "4-legacy-cleanup",
+      "status": "completed",
+      "completed_at": "2026-07-25T23:45:22+0900"
     },
     {
-      "dir": "5-auth-hexagonal-refactor",
-      "status": "pending"
+      "dir": "5-oauth2-login",
+      "status": "completed",
+      "completed_at": "2026-07-26T00:25:25+0900"
     },
     {
-      "dir": "6-mvp-verification",
-      "status": "pending"
+      "dir": "6-restaurant-core",
+      "status": "completed",
+      "completed_at": "2026-07-26T01:11:08+0900"
+    },
+    {
+      "dir": "7-review-core",
+      "status": "completed",
+      "completed_at": "2026-07-26T01:54:00+0900"
+    },
+    {
+      "dir": "8-public-reporting",
+      "status": "completed",
+      "completed_at": "2026-07-26T02:29:42+0900"
+    },
+    {
+      "dir": "9-moderation-admin",
+      "status": "completed",
+      "completed_at": "2026-07-26T03:22:26+0900"
+    },
+    {
+      "dir": "10-mvp-verification",
+      "status": "completed",
+      "completed_at": "2026-07-26T16:16:11+0900"
+    },
+    {
+      "dir": "11-frontend-prototype",
+      "status": "completed",
+      "completed_at": "2026-07-29T01:30:33+0900"
     }
   ]
 }

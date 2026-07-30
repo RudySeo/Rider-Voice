@@ -2,6 +2,8 @@ package com.ridervoice.api.common.config
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.presentation.AuthController
+import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
+import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
 import com.ridervoice.api.common.security.SecurityConfig
@@ -12,7 +14,6 @@ import org.mockito.Mockito.mock
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
-import org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
 import org.springframework.boot.test.context.SpringBootTest
@@ -43,7 +44,7 @@ class FoundationVerificationTest {
     fun `OpenAPI publishes API v1 endpoints and the opaque bearer scheme`() {
         mockMvc.get("/v3/api-docs").andExpect {
             status { isOk() }
-            jsonPath("$.paths['/api/v1/auth/kakao/authorize'].get") { exists() }
+            jsonPath("$.paths['/api/v1/auth/consents'].post") { exists() }
             jsonPath("$.paths['/api/v1/users/me'].get") { exists() }
             jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth") { isArray() }
             jsonPath("$.components.securitySchemes.bearerAuth.type") { value("http") }
@@ -65,12 +66,13 @@ class FoundationVerificationTest {
         exclude = [
             DataSourceAutoConfiguration::class,
             HibernateJpaAutoConfiguration::class,
-            FlywayAutoConfiguration::class,
         ],
     )
     @Import(
         AuthController::class,
         UserController::class,
+        AuthResponseMapper::class,
+        AuthOpenApiConfiguration::class,
         OpenApiConfiguration::class,
         SecurityConfig::class,
         OpaqueAccessTokenAuthenticationFilter::class,

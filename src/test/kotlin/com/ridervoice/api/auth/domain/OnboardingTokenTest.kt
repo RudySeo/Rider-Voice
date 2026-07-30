@@ -5,17 +5,16 @@ import org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import org.assertj.core.api.Assertions.assertThatIllegalStateException
 import org.junit.jupiter.api.Test
 import java.time.Instant
-import java.util.UUID
 
 class OnboardingTokenTest {
 
-    private val userId = UUID.randomUUID()
+    private val user = User().apply { id = 1L }
     private val issuedAt = Instant.parse("2026-07-23T12:00:00Z")
     private val expiresAt = issuedAt.plusSeconds(5 * 60)
 
     @Test
     fun `token is usable before expiry but not at the expiry boundary`() {
-        val token = OnboardingToken(userId, "sha256:token-hash", issuedAt, expiresAt)
+        val token = OnboardingToken(user, "sha256:token-hash", issuedAt, expiresAt)
 
         assertThat(token.issuedAt).isEqualTo(issuedAt)
         assertThat(token.isUsableAt(expiresAt.minusNanos(1))).isTrue()
@@ -24,7 +23,7 @@ class OnboardingTokenTest {
 
     @Test
     fun `token can be consumed only once`() {
-        val token = OnboardingToken(userId, "sha256:token-hash", issuedAt, expiresAt)
+        val token = OnboardingToken(user, "sha256:token-hash", issuedAt, expiresAt)
         val consumedAt = expiresAt.minusSeconds(1)
 
         token.consume(consumedAt)
@@ -37,7 +36,7 @@ class OnboardingTokenTest {
 
     @Test
     fun `token cannot be consumed at or after expiry`() {
-        val token = OnboardingToken(userId, "sha256:token-hash", issuedAt, expiresAt)
+        val token = OnboardingToken(user, "sha256:token-hash", issuedAt, expiresAt)
 
         assertThatIllegalStateException()
             .isThrownBy { token.consume(expiresAt) }
@@ -49,7 +48,7 @@ class OnboardingTokenTest {
     @Test
     fun `token hash must not be blank`() {
         assertThatIllegalArgumentException()
-            .isThrownBy { OnboardingToken(userId, " ", issuedAt, expiresAt) }
+            .isThrownBy { OnboardingToken(user, " ", issuedAt, expiresAt) }
     }
 
     @Test
@@ -57,7 +56,7 @@ class OnboardingTokenTest {
         assertThatIllegalArgumentException()
             .isThrownBy {
                 OnboardingToken(
-                    userId,
+                    user,
                     "sha256:token-hash",
                     issuedAt,
                     expiresAt.plusNanos(1),

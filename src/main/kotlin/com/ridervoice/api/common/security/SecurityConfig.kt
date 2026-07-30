@@ -2,11 +2,14 @@ package com.ridervoice.api.common.security
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.context.NullSecurityContextRepository
+import org.springframework.security.web.savedrequest.NullRequestCache
 
 @Configuration
 class SecurityConfig(
@@ -14,8 +17,11 @@ class SecurityConfig(
     private val problemHandler: SecurityProblemHandler,
 ) {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
+    @Order(2)
+    fun apiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain = http
         .csrf { it.disable() }
+        .requestCache { it.requestCache(NullRequestCache()) }
+        .securityContext { it.securityContextRepository(NullSecurityContextRepository()) }
         .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
         .exceptionHandling {
             it.authenticationEntryPoint(problemHandler)
@@ -31,19 +37,36 @@ class SecurityConfig(
                 "/swagger-ui/**",
                 "/swagger-ui.html",
             ).permitAll()
-            it.requestMatchers(
-                HttpMethod.GET,
-                "/api/v1/auth/kakao/authorize",
-                "/api/v1/auth/kakao/callback",
-            ).permitAll()
+            it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/search").permitAll()
+            it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/reviews").permitAll()
+            it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*").permitAll()
+            it.requestMatchers(HttpMethod.POST, "/api/v1/auth/oauth2/exchange").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/consents").hasRole("ONBOARDING")
             it.requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").hasRole("USER")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/reviews").hasRole("USER")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/reports").hasRole("USER")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/restaurants/*/reports").hasRole("USER")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/reviews/*").hasRole("USER")
+            it.requestMatchers(HttpMethod.DELETE, "/api/v1/reviews/*").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasRole("USER")
-            it.requestMatchers(HttpMethod.GET, "/api/v1/restaurants/search").hasRole("USER")
-            it.requestMatchers(HttpMethod.POST, "/api/v1/restaurants").hasRole("USER")
-            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me/review-drafts").hasRole("USER")
-            it.requestMatchers("/api/v1/review-drafts", "/api/v1/review-drafts/**").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/users/me/reviews").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/addresses/search").hasRole("USER")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/review-comments").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/review-comments/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/review-reports").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/review-reports/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurant-reports").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurant-reports/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.POST, "/api/v1/admin/restaurants/*/merge").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/pickup-location").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/name").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/status").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/restaurants/*/pickup-location/verified-address").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/reviews/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurants/search").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurants/*").hasRole("ADMIN")
+            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/moderation-audits").hasRole("ADMIN")
             it.anyRequest().denyAll()
         }
         .addFilterBefore(accessTokenFilter, AnonymousAuthenticationFilter::class.java)

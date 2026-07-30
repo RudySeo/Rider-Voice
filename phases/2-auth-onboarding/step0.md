@@ -27,5 +27,5 @@
 ## 하지 말 것
 
 - onboarding token 원문을 DB나 로그에 저장하지 말 것. 이유: 탈취 시 약관 동의 흐름을 위조할 수 있다.
-- repository, migration, Controller 또는 security filter를 이 step에 추가하지 말 것. 이유: domain step의 범위를 유지해야 한다.
+- repository, schema 설정, Controller 또는 security filter를 이 step에 추가하지 말 것. 이유: domain step의 범위를 유지해야 한다.
 - 기존 test를 깨뜨리지 말 것.

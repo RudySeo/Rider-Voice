@@ -3,52 +3,109 @@ package com.ridervoice.api.restaurant.domain
 import com.ridervoice.api.common.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.Id
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.FetchType
+import jakarta.persistence.ForeignKey
+import jakarta.persistence.Index
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import java.math.BigDecimal
-import java.util.UUID
 
 @Entity
 @Table(
     name = "restaurants",
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uk_restaurants_kakao_place_id",
-            columnNames = ["kakao_place_id"],
+            name = "uk_restaurants_pickup_location_normalized_name",
+            columnNames = ["pickup_location_id", "normalized_name"],
+        ),
+    ],
+    indexes = [
+        Index(
+            name = "idx_restaurants_status_normalized_name",
+            columnList = "status, normalized_name",
+        ),
+        Index(
+            name = "idx_restaurants_canonical",
+            columnList = "canonical_restaurant_id",
         ),
     ],
 )
 class Restaurant(
-    @field:Column(name = "kakao_place_id", nullable = false, updatable = false, length = 100)
-    val kakaoPlaceId: String,
-    @field:Column(nullable = false, length = 255)
-    val name: String,
-    @field:Column(nullable = false, length = 500)
-    val address: String,
-    @field:Column(nullable = false, precision = 10, scale = 7)
-    val latitude: BigDecimal,
-    @field:Column(nullable = false, precision = 11, scale = 7)
-    val longitude: BigDecimal,
-    @field:Id
-    @field:Column(nullable = false, updatable = false)
-    val id: UUID = UUID.randomUUID(),
+    brandName: String,
+    pickupLocation: PickupLocation,
 ) : BaseEntity() {
 
+    @field:Column(name = "brand_name", nullable = false, length = 255)
+    final var brandName: String = RestaurantNormalization.displayText(brandName)
+        private set
+
+    @field:Column(name = "normalized_name", nullable = false, length = 255)
+    final var normalizedName: String = RestaurantNormalization.normalizedText(brandName)
+        private set
+
+    @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @field:JoinColumn(
+        name = "pickup_location_id",
+        nullable = false,
+        foreignKey = ForeignKey(name = "fk_restaurants_pickup_location"),
+    )
+    final var pickupLocation: PickupLocation = pickupLocation
+        private set
+
+    @field:Enumerated(EnumType.STRING)
+    @field:Column(nullable = false, length = 20)
+    final var status: RestaurantStatus = RestaurantStatus.ACTIVE
+        private set
+
+    @field:ManyToOne(fetch = FetchType.LAZY)
+    @field:JoinColumn(
+        name = "canonical_restaurant_id",
+        foreignKey = ForeignKey(name = "fk_restaurants_canonical_restaurant"),
+    )
+    final var canonicalRestaurant: Restaurant? = null
+        private set
+
     init {
-        require(kakaoPlaceId.isNotBlank()) { "Kakao place id must not be blank" }
-        require(name.isNotBlank()) { "Restaurant name must not be blank" }
-        require(address.isNotBlank()) { "Restaurant address must not be blank" }
-        require(latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE) { "Latitude must be between -90 and 90" }
-        require(longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE) {
-            "Longitude must be between -180 and 180"
-        }
+        require(this.brandName.isNotEmpty()) { "Restaurant brand name must not be blank" }
     }
 
-    private companion object {
-        val MIN_LATITUDE = BigDecimal("-90")
-        val MAX_LATITUDE = BigDecimal("90")
-        val MIN_LONGITUDE = BigDecimal("-180")
-        val MAX_LONGITUDE = BigDecimal("180")
+    fun mergeInto(canonicalRestaurant: Restaurant) {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be merged" }
+        require(canonicalRestaurant !== this) { "Restaurant cannot be merged into itself" }
+        require(canonicalRestaurant.status == RestaurantStatus.ACTIVE) {
+            "Canonical restaurant must be active"
+        }
+
+        this.canonicalRestaurant = canonicalRestaurant
+        status = RestaurantStatus.MERGED
+    }
+
+    fun rename(brandName: String) {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be renamed" }
+        val displayName = RestaurantNormalization.displayText(brandName)
+        require(displayName.isNotEmpty()) { "Restaurant brand name must not be blank" }
+        this.brandName = displayName
+        normalizedName = RestaurantNormalization.normalizedText(displayName)
+    }
+
+    fun close() {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be closed" }
+        status = RestaurantStatus.CLOSED
+    }
+
+    fun reopen() {
+        check(status == RestaurantStatus.CLOSED) { "Only a closed restaurant can be reopened" }
+        status = RestaurantStatus.ACTIVE
+    }
+
+    fun relinkPickupLocation(pickupLocation: PickupLocation) {
+        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be relinked" }
+        require(this.pickupLocation !== pickupLocation) {
+            "Restaurant is already linked to the pickup location"
+        }
+        this.pickupLocation = pickupLocation
     }
 }

@@ -1,0 +1,56 @@
+{
+  "project": "Rider Voice",
+  "phase": "8-public-reporting",
+  "steps": [
+    {
+      "step": 0,
+      "name": "aggregate-query-contracts",
+      "status": "completed",
+      "started_at": "2026-07-26T01:54:13+0900",
+      "summary": "Entity 비노출 AggregateReviewInput·query port와 current ACTIVE projection adapter를 추가해 브랜드 및 장소 author별 최신(createdAt, reviewId) 리뷰 조회 계약을 정의했다.",
+      "completed_at": "2026-07-26T01:59:42+0900"
+    },
+    {
+      "step": 1,
+      "name": "aggregate-policy-service",
+      "status": "completed",
+      "started_at": "2026-07-26T01:59:42+0900",
+      "summary": "distinct author 5명 공개 경계와 브랜드·장소별 metric, NOT_OBSERVED 제외 및 합계 100.0의 한 자리 distribution을 계산하는 ReviewAggregateService를 추가했다.",
+      "completed_at": "2026-07-26T02:05:12+0900"
+    },
+    {
+      "step": 2,
+      "name": "public-restaurant-detail",
+      "status": "completed",
+      "started_at": "2026-07-26T02:05:12+0900",
+      "summary": "canonical 음식점·중첩 픽업 장소와 브랜드/장소 집계 및 고정 UNVERIFIED 안내를 반환하는 공개 상세 API와 OpenAPI·보안·404 검증을 추가했다.",
+      "completed_at": "2026-07-26T02:12:42+0900"
+    },
+    {
+      "step": 3,
+      "name": "public-review-list",
+      "status": "completed",
+      "started_at": "2026-07-26T02:12:43+0900",
+      "summary": "ACTIVE 공개 리뷰 이력을 createdAt+ID cursor로 조회하고 current pointer, PUBLISHED 의견, 익명 작성자 활동 정보와 UNVERIFIED 안내를 제공하는 공개 목록 API·OpenAPI·보안 테스트를 추가했다.",
+      "completed_at": "2026-07-26T02:19:57+0900"
+    },
+    {
+      "step": 4,
+      "name": "search-cache-rate-limit",
+      "status": "completed",
+      "started_at": "2026-07-26T02:19:57+0900",
+      "summary": "공개 검색 전용 port에 normalized query 기준 5분 Caffeine 성공 캐시를 적용하고, remoteAddr/사용자 기준 단일 인스턴스 token bucket과 stable 429 ProblemDetail을 추가했다.",
+      "completed_at": "2026-07-26T02:25:57+0900"
+    },
+    {
+      "step": 5,
+      "name": "public-reporting-regression",
+      "status": "completed",
+      "started_at": "2026-07-26T02:25:57+0900",
+      "summary": "브랜드·장소 distinct author 4명/5명 경계, 장소 다중 브랜드 de-dup, NOT_OBSERVED 및 current 삭제·제외 하향 전환과 공개 API·OpenAPI·보안 회귀를 검증했다.",
+      "completed_at": "2026-07-26T02:29:41+0900"
+    }
+  ],
+  "created_at": "2026-07-26T01:54:13+0900",
+  "completed_at": "2026-07-26T02:29:42+0900"
+}

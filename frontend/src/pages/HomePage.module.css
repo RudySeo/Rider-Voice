@@ -1,0 +1,42 @@
+.page {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.hero {
+  max-width: 46rem;
+  display: grid;
+  gap: var(--space-5);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-strong);
+  font-size: var(--font-size-sm);
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-display);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.description {
+  max-width: 40rem;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.notice {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-4);
+  border-inline-start: 0.25rem solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}

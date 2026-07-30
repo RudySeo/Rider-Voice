@@ -1,0 +1,56 @@
+{
+  "project": "Rider Voice",
+  "phase": "5-oauth2-login",
+  "steps": [
+    {
+      "step": 0,
+      "name": "oauth2-dependencies-config",
+      "status": "completed",
+      "summary": "OAuth2 Client starter와 KakaoOAuth2Properties·KakaoClientRegistrationFactory를 추가해 secret 유무에 따라 none/client_secret_post 등록을 생성한다.",
+      "started_at": "2026-07-25T23:45:41+0900",
+      "completed_at": "2026-07-25T23:50:18+0900"
+    },
+    {
+      "step": 1,
+      "name": "auth-application-boundary",
+      "status": "completed",
+      "summary": "CompleteSocialLoginUseCase와 auth persistence port를 추가하고 USER/ADMIN role 기반 신규·기존 계정 토큰 발급 및 현재 DB role 인증을 구현했다.",
+      "started_at": "2026-07-25T23:50:18+0900",
+      "completed_at": "2026-07-26T00:01:24+0900"
+    },
+    {
+      "step": 2,
+      "name": "oauth2-provider-adapter",
+      "status": "completed",
+      "summary": "KakaoOAuth2UserService와 local HTTP stub 테스트를 추가해 top-level id만 subject로 축소하고 손상·4xx/5xx 응답을 안전한 OAuth failure로 변환한다.",
+      "started_at": "2026-07-26T00:01:24+0900",
+      "completed_at": "2026-07-26T00:06:56+0900"
+    },
+    {
+      "step": 3,
+      "name": "oauth2-security-flow",
+      "status": "completed",
+      "summary": "OAuth2SecurityConfig와 OAuth2LoginHandlers를 추가해 state 기반 임시 세션 OAuth 흐름과 세션을 무시하는 stateless opaque bearer API 체인을 분리했다.",
+      "started_at": "2026-07-26T00:06:57+0900",
+      "completed_at": "2026-07-26T00:13:41+0900"
+    },
+    {
+      "step": 4,
+      "name": "oauth2-api-contract",
+      "status": "completed",
+      "summary": "Auth presentation DTO·mapper와 OAuth2 OpenAPI customizer를 추가해 nullable 로그인 응답 및 public/onboarding/USER/ADMIN 계약을 검증했다.",
+      "started_at": "2026-07-26T00:13:41+0900",
+      "completed_at": "2026-07-26T00:22:45+0900"
+    },
+    {
+      "step": 5,
+      "name": "oauth2-regression",
+      "status": "completed",
+      "summary": "OAuth2 로그인·온보딩·refresh 회전·logout·현재 DB role 회귀와 legacy 직접 OAuth 참조 및 공개 미인증 OpenAPI metadata를 검증했다.",
+      "started_at": "2026-07-26T00:22:45+0900",
+      "completed_at": "2026-07-26T00:25:25+0900"
+    }
+  ],
+  "created_at": "2026-07-25T23:45:41+0900",
+  "completed_at": "2026-07-26T00:25:25+0900"
+}

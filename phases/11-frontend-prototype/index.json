@@ -1,0 +1,80 @@
+{
+  "project": "Rider Voice",
+  "phase": "11-frontend-prototype",
+  "steps": [
+    {
+      "step": 0,
+      "name": "docs-client-contract",
+      "status": "completed",
+      "started_at": "2026-07-29T00:11:25+0900",
+      "summary": "README와 PRD·ARCHITECTURE·ADR·API_SPEC에 로컬 React frontend 범위와 60초 단일 사용 OAuth 교환 코드 계약을 기록했다.",
+      "completed_at": "2026-07-29T00:14:58+0900"
+    },
+    {
+      "step": 1,
+      "name": "oauth-login-exchange",
+      "status": "completed",
+      "started_at": "2026-07-29T00:14:58+0900",
+      "summary": "provider 로그인과 token 교환 input port를 분리하고 SHA-256/Caffeine 단일 사용 grant adapter, 공개 exchange endpoint, 고정 frontend redirect와 application·MockMvc 회귀 테스트를 추가했다.",
+      "completed_at": "2026-07-29T00:24:18+0900"
+    },
+    {
+      "step": 2,
+      "name": "frontend-foundation",
+      "status": "completed",
+      "started_at": "2026-07-29T00:24:18+0900",
+      "summary": "/frontend에 Node 24·npm, React 19·Vite 8·TypeScript SPA scaffold와 app/pages/features/shared/test 구조, Query·Router·Form·Zod 의존성, CSS Modules 기반 shell·404 smoke test를 구성했고 npm ci·npm run lint·npm test·npm run build가 통과했다.",
+      "completed_at": "2026-07-29T00:36:21+0900"
+    },
+    {
+      "step": 3,
+      "name": "api-session-layer",
+      "status": "completed",
+      "summary": "실행 중인 backend OpenAPI로 generated types를 생성하고 native fetch typed client와 memory·sessionStorage 기반 단일 refresh·회전·실패 정리 session 정책을 구현했다.",
+      "started_at": "2026-07-29T00:36:21+0900",
+      "completed_at": "2026-07-29T00:44:24+0900"
+    },
+    {
+      "step": 4,
+      "name": "auth-user-flow",
+      "status": "completed",
+      "started_at": "2026-07-29T00:44:24+0900",
+      "summary": "OAuth callback·약관 동의·보호 경로 auth routes와 상태별 header/logout UI를 구현하고 안전한 내부 복귀 경로 및 mock API Testing Library 회귀 테스트를 추가했다.",
+      "completed_at": "2026-07-29T00:54:17+0900"
+    },
+    {
+      "step": 5,
+      "name": "public-discovery",
+      "status": "completed",
+      "started_at": "2026-07-29T00:54:17+0900",
+      "summary": "홈 검색과 음식점 상세 route에 공개 검색·단일 픽업 장소·독립 집계·미인증 리뷰 cursor UI components를 연결하고 validation·장애·집계 경계·금지 정보 비노출 Testing Library 회귀 테스트를 추가했다.",
+      "completed_at": "2026-07-29T01:03:29+0900"
+    },
+    {
+      "step": 6,
+      "name": "review-create",
+      "status": "completed",
+      "summary": "/reviews/new 단계형 review wizard와 검증 주소 기반 네 restaurant target mapper를 구현하고 payload·validation·409/503 회귀 테스트를 추가했다.",
+      "started_at": "2026-07-29T01:03:29+0900",
+      "completed_at": "2026-07-29T01:13:00+0900"
+    },
+    {
+      "step": 7,
+      "name": "review-management",
+      "status": "completed",
+      "summary": "/me/reviews와 /reviews/:reviewId/edit 보호 route, cursor 내 리뷰 목록·공유 평가/의견 form·확인 삭제 및 cache 무효화와 안전한 오류 회귀 테스트를 추가했다.",
+      "started_at": "2026-07-29T01:13:00+0900",
+      "completed_at": "2026-07-29T01:23:40+0900"
+    },
+    {
+      "step": 8,
+      "name": "frontend-regression-docs",
+      "status": "completed",
+      "summary": "OAuth 교환부터 공개 조회·네 target 리뷰 작성·내 리뷰 관리까지 frontend 구현 상태와 로컬 실행·OpenAPI 생성 절차를 문서화하고 ./gradlew test, integrationTest, check build 및 npm ci, api:generate, lint, test(72개), build와 git diff --check를 통과했다.",
+      "started_at": "2026-07-29T01:23:40+0900",
+      "completed_at": "2026-07-29T01:30:33+0900"
+    }
+  ],
+  "created_at": "2026-07-29T00:11:25+0900",
+  "completed_at": "2026-07-29T01:30:33+0900"
+}

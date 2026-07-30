@@ -1,0 +1,64 @@
+{
+  "project": "Rider Voice",
+  "phase": "9-moderation-admin",
+  "steps": [
+    {
+      "step": 0,
+      "name": "moderation-domain",
+      "status": "completed",
+      "started_at": "2026-07-26T02:29:57+0900",
+      "summary": "Provider·HTTP 비종속 신고 상태·사유·결정 enum과 comment/report 전이, full exclusion pointer·cooldown 지시 및 merge·pickup relink audit 정책·도메인 테스트를 추가했다.",
+      "completed_at": "2026-07-26T02:34:54+0900"
+    },
+    {
+      "step": 1,
+      "name": "moderation-persistence",
+      "status": "completed",
+      "started_at": "2026-07-26T02:34:54+0900",
+      "summary": "ReviewReport·RestaurantInfoReport·ModerationAudit Entity와 unique·FK·queue index, cursor·row lock·decision·audit repository adapter 및 contract·integration-tag 테스트를 추가했다.",
+      "completed_at": "2026-07-26T02:41:57+0900"
+    },
+    {
+      "step": 2,
+      "name": "comment-moderation-service",
+      "status": "completed",
+      "started_at": "2026-07-26T02:41:57+0900",
+      "summary": "CommentModerationService·input/output port와 ADMIN DB 재검증, ACTIVE PENDING cursor queue, 비관적 잠금 approve/reject 및 동일 transaction audit service test를 추가했다.",
+      "completed_at": "2026-07-26T02:47:25+0900"
+    },
+    {
+      "step": 3,
+      "name": "reporting-service",
+      "status": "completed",
+      "started_at": "2026-07-26T02:47:25+0900",
+      "summary": "USER 리뷰·음식점 신고와 통합 24시간 20건 제한, 공개 의견 임시 숨김·복원, ADMIN 기각·의견 숨김·리뷰 제외 및 restaurant report audit를 원자적 서비스로 추가했다.",
+      "completed_at": "2026-07-26T02:55:58+0900"
+    },
+    {
+      "step": 4,
+      "name": "admin-security-api",
+      "status": "completed",
+      "started_at": "2026-07-26T02:55:58+0900",
+      "summary": "USER 리뷰·음식점 신고와 ADMIN 의견·리뷰 신고·음식점 신고 queue/decision API, 분리 DTO·mapper, opaque cursor·ProblemDetail OpenAPI 및 정확한 ROLE matcher 테스트를 추가했다.",
+      "completed_at": "2026-07-26T03:04:45+0900"
+    },
+    {
+      "step": 5,
+      "name": "restaurant-canonical-merge",
+      "status": "completed",
+      "started_at": "2026-07-26T03:04:45+0900",
+      "summary": "ADMIN canonical 병합·pickup relink API와 원자적 review state 충돌 해소, cooldown 유지, review·external reference·platform 이전 및 audit을 구현했다.",
+      "completed_at": "2026-07-26T03:18:15+0900"
+    },
+    {
+      "step": 6,
+      "name": "moderation-regression",
+      "status": "completed",
+      "started_at": "2026-07-26T03:18:15+0900",
+      "summary": "의견 승인·수정·재검수와 신고 full exclusion의 5명→4명 집계 비공개 전환 회귀 테스트를 보강하고 moderation 권한·unique·audit·canonical merge·OpenAPI 및 전체 빌드를 검증했다.",
+      "completed_at": "2026-07-26T03:22:26+0900"
+    }
+  ],
+  "created_at": "2026-07-26T02:29:57+0900",
+  "completed_at": "2026-07-26T03:22:26+0900"
+}

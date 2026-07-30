@@ -23,7 +23,7 @@
       "name": "restaurant-persistence-adapter",
       "status": "completed",
       "started_at": "2026-07-23T14:36:42+0900",
-      "summary": "application RestaurantRepository port를 구현하는 internal Spring Data persistence adapter와 included_in_pilot 제거 V5 migration을 추가하고 조회·검색·저장·unique 충돌을 통합 검증했다.",
+      "summary": "Long IDENTITY Restaurant를 저장하는 internal Spring Data persistence adapter와 application port를 구현하고 조회·검색·unique 충돌을 통합 검증했다.",
       "completed_at": "2026-07-23T14:41:15+0900"
     },
     {
