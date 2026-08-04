@@ -2,15 +2,17 @@
 
 ## 1. 문서 목적과 기준
 
-이 문서는 Rider Voice의 현재 JPA Entity와 로컬 MySQL 스키마를 기준으로 각 테이블의 역할, 관계, 제약과 설계 이유를 설명한다. 목표 설계나 향후 계획이 아니라 현재 애플리케이션에서 사용하는 13개 테이블을 대상으로 한다.
+이 문서는 Rider Voice의 현재 JPA Entity와 로컬 MySQL 스키마를 기준으로 각 테이블의 역할, 관계, 제약과 설계 이유를 설명한다. 목표 설계나 향후 계획이 아니라 현재 애플리케이션에서 사용하는 12개 테이블을 대상으로 한다.
 
 - 기준 DB: MySQL 9.3 `rider`
 - 기준 ORM: Spring Data JPA와 Hibernate
 - 로컬·통합 테스트 schema 반영: `ddl-auto=update`
 - 운영 profile schema 자동 생성: 비활성화
-- 확인 기준일: 2026-07-28
+- 확인 기준일: 2026-08-04
 
 공개 집계는 별도 집계 테이블에 저장하지 않는다. 초기 MVP에서는 유효한 활성 리뷰를 조회한 뒤 application 계층에서 브랜드 집계와 픽업 장소 집계를 계산한다.
+
+현재 모델에서는 기존 `author_restaurant_review_states` 테이블과 `reviews.submission_sequence` 컬럼을 사용하지 않는다. 활성 리뷰와 재작성 제한은 `reviews.current_slot`, `reviews.deleted_at`과 리뷰 생성 시각으로 관리한다. Hibernate `ddl-auto=update`는 제거된 테이블·컬럼을 자동으로 삭제하지 않으므로 이전 모델을 사용하던 로컬 `rider` 스키마에는 해당 구조가 남아 있을 수 있다. 이 경우 현재 모델 검증 전에 로컬 스키마를 한 번 초기화해야 한다.
 
 ## 2. 공통 스키마와 연관관계 원칙
 
