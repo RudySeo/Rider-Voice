@@ -222,7 +222,7 @@ application result
 
 ## 12. 기술 스택과 실행 경계
 
-- Kotlin 2.3, JDK 21, Gradle Kotlin DSL
+- Kotlin 2.3, JDK 25, Gradle Kotlin DSL
 - Spring Boot 4.1, Spring MVC, Spring Security OAuth2 Client
 - Bean Validation, Spring Data JPA, Hibernate, MySQL 9.3
 - Spring `RestClient`, Spring Cache, Caffeine

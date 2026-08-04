@@ -33,7 +33,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 ## 기술 스택
 
-- Kotlin, JDK 21, Gradle Kotlin DSL
+- Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
 - Spring Data JPA, Hibernate, MySQL 9.3
 - Spring `RestClient`, Spring Cache, Caffeine
@@ -130,7 +130,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 
 요구사항:
 
-- JDK 21
+- JDK 25
 - MySQL 9.3
 - Gradle Wrapper
 - Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)

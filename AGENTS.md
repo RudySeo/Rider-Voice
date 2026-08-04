@@ -23,7 +23,7 @@
 
 ## 기술 스택
 
-- Kotlin, JDK 21, Gradle Kotlin DSL
+- Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
 - Bean Validation, Spring Data JPA, Hibernate, MySQL 9.3
 - Spring `RestClient`, Spring Cache, Caffeine

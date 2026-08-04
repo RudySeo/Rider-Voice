@@ -4,7 +4,7 @@
 
 ## ADR-001: Spring Boot 서버 API와 OpenAPI 우선
 
-**결정**: Kotlin/JDK 21 기반 Spring Boot 서버와 `/api/v1` JSON REST API를 먼저 구현하고 OpenAPI를 클라이언트 계약의 기준으로 사용한다. 오류는 안정적인 `code`를 포함한 RFC 7807 `ProblemDetail`로 반환한다.
+**결정**: Kotlin/JDK 25 기반 Spring Boot 서버와 `/api/v1` JSON REST API를 먼저 구현하고 OpenAPI를 클라이언트 계약의 기준으로 사용한다. 오류는 안정적인 `code`를 포함한 RFC 7807 `ProblemDetail`로 반환한다.
 
 **이유**: 인증, 음식점 식별, 공개 범위와 집계 정책을 서버에서 일관되게 적용할 수 있다.
 
