@@ -1,5 +1,7 @@
 # Step 1: oauth-login-exchange
 
+> **역사적 기록:** 이 step의 onboarding 응답 분기는 `f76679c`에서 폐기됐다. 현재 frontend는 access/refresh token을 직접 교환한다.
+
 ## 읽을 파일
 
 - `/AGENTS.md`

@@ -1,5 +1,7 @@
 # Step 3: api-session-layer
 
+> **역사적 기록:** 이 step의 onboarding token 저장 방식은 `f76679c`에서 폐기됐다. 현재 frontend는 access/refresh token만 관리한다.
+
 ## 읽을 파일
 
 - `/AGENTS.md`

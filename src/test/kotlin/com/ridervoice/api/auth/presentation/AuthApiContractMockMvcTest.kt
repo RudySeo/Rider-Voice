@@ -1,13 +1,18 @@
 package com.ridervoice.api.auth.presentation
 
-import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.UserSummary
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.error.GlobalExceptionHandler
+import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.SecurityProblemHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.containsString
@@ -50,7 +55,19 @@ class AuthApiContractMockMvcTest {
     private lateinit var mockMvc: MockMvc
 
     @MockitoBean
-    private lateinit var authService: AuthService
+    private lateinit var exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase
+
+    @MockitoBean
+    private lateinit var refreshSession: RefreshSessionUseCase
+
+    @MockitoBean
+    private lateinit var logout: LogoutUseCase
+
+    @MockitoBean
+    private lateinit var getCurrentUser: GetCurrentUserUseCase
+
+    @MockitoBean
+    private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
 
     @Test
     fun `generated OpenAPI exposes redirect callback and public exchange contract`() {
@@ -91,7 +108,7 @@ class AuthApiContractMockMvcTest {
             accessToken = "service-access-token",
             refreshToken = "service-refresh-token",
         )
-        `when`(authService.exchange(ExchangeSocialLoginCodeCommand("valid-code")))
+        `when`(exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand("valid-code")))
             .thenReturn(result)
 
         mockMvc.post("/api/v1/auth/oauth2/exchange") {
@@ -121,7 +138,7 @@ class AuthApiContractMockMvcTest {
 
     @Test
     fun `invalid expired or reused exchange code returns the same unauthorized problem`() {
-        `when`(authService.exchange(ExchangeSocialLoginCodeCommand("invalid-code")))
+        `when`(exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand("invalid-code")))
             .thenThrow(InvalidOAuthExchangeCodeException())
 
         mockMvc.post("/api/v1/auth/oauth2/exchange") {
@@ -182,7 +199,7 @@ class AuthApiContractMockMvcTest {
     @Test
     fun `refresh failure returns stable problem detail without leaking token to response or logs`(output: CapturedOutput) {
         val rawRefreshToken = "refresh-token-should-never-leak"
-        `when`(authService.refresh(rawRefreshToken))
+        `when`(refreshSession.refresh(RefreshSessionCommand(rawRefreshToken)))
             .thenThrow(IllegalArgumentException("Invalid refresh token: $rawRefreshToken"))
 
         mockMvc.post("/api/v1/auth/refresh") {

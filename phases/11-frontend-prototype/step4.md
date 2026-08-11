@@ -1,5 +1,7 @@
 # Step 4: auth-user-flow
 
+> **역사적 기록:** 이 step의 별도 consent 화면은 `f76679c`에서 폐기됐다. 현재 frontend는 로그인 화면 고지 후 access/refresh token을 직접 교환한다.
+
 ## 읽을 파일
 
 - `/AGENTS.md`

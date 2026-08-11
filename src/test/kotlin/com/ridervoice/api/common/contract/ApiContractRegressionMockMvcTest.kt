@@ -1,6 +1,10 @@
 package com.ridervoice.api.common.contract
 
-import com.ridervoice.api.auth.application.AuthService
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.presentation.AuthController
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
@@ -8,6 +12,7 @@ import com.ridervoice.api.auth.presentation.OAuthExchangeController
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.GlobalExceptionHandler
+import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
 import com.ridervoice.api.common.security.SecurityConfig
 import com.ridervoice.api.common.security.SecurityProblemHandler
@@ -138,7 +143,11 @@ class ApiContractRegressionMockMvcTest {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @MockitoBean private lateinit var authService: AuthService
+    @MockitoBean private lateinit var exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase
+    @MockitoBean private lateinit var refreshSession: RefreshSessionUseCase
+    @MockitoBean private lateinit var logout: LogoutUseCase
+    @MockitoBean private lateinit var getCurrentUser: GetCurrentUserUseCase
+    @MockitoBean private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
     @MockitoBean private lateinit var searchRestaurants: SearchRestaurantsUseCase
     @MockitoBean private lateinit var searchAddresses: SearchAddressesUseCase
     @MockitoBean private lateinit var getRestaurantDetail: GetPublicRestaurantDetailUseCase
@@ -308,7 +317,7 @@ class ApiContractRegressionMockMvcTest {
     @Test
     fun `unexpected failures return stable ProblemDetail without provider secret token or stack trace`() {
         val rawToken = "refresh-token-must-not-leak"
-        `when`(authService.refresh(rawToken)).thenThrow(
+        `when`(refreshSession.refresh(RefreshSessionCommand(rawToken))).thenThrow(
             RuntimeException("provider-secret stackTrace $rawToken"),
         )
 

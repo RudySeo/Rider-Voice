@@ -1,8 +1,13 @@
 package com.ridervoice.api.auth.presentation
 
-import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserQuery
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
+import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.presentation.dto.AuthTokensResponse
 import com.ridervoice.api.auth.presentation.dto.OAuthExchangeCodeRequest
 import com.ridervoice.api.auth.presentation.dto.TokenRequest
@@ -46,13 +51,16 @@ class OAuthExchangeController(
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Authentication", description = "로그인과 서비스 세션 API")
 class AuthController(
-    private val auth: AuthService,
+    private val refreshSession: RefreshSessionUseCase,
+    private val logout: LogoutUseCase,
     private val responseMapper: AuthResponseMapper,
 ) {
     @Operation(summary = "서비스 access token 갱신")
     @PostMapping("/refresh")
     fun refresh(@Valid @RequestBody request: TokenRequest): AuthTokensResponse =
-        responseMapper.toAuthTokensResponse(auth.refresh(request.refreshToken))
+        responseMapper.toAuthTokensResponse(
+            refreshSession.refresh(RefreshSessionCommand(request.refreshToken)),
+        )
 
     @Operation(
         summary = "서비스 로그아웃",
@@ -65,7 +73,7 @@ class AuthController(
         @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
         @Valid @RequestBody request: TokenRequest,
     ): ResponseEntity<Void> {
-        auth.logout(principal, request.refreshToken)
+        logout.logout(LogoutCommand(principal.userId, request.refreshToken))
         return ResponseEntity.noContent().build()
     }
 }
@@ -74,7 +82,7 @@ class AuthController(
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users", description = "현재 사용자 API")
 class UserController(
-    private val auth: AuthService,
+    private val getCurrentUser: GetCurrentUserUseCase,
     private val responseMapper: AuthResponseMapper,
 ) {
     @Operation(
@@ -86,5 +94,5 @@ class UserController(
         @Parameter(hidden = true)
         @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
     ) =
-        responseMapper.toUserResponse(auth.me(principal))
+        responseMapper.toUserResponse(getCurrentUser.get(GetCurrentUserQuery(principal.userId)))
 }

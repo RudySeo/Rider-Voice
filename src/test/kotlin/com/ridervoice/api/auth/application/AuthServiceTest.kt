@@ -2,6 +2,8 @@ package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
@@ -217,7 +219,7 @@ class AuthServiceTest {
 
         assertThat(auth.authenticate(tokens.accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
 
-        auth.logout(AuthenticatedUserPrincipal(user.id), tokens.refreshToken)
+        auth.logout(LogoutCommand(user.id, tokens.refreshToken))
 
         assertThat(session.revokedAt).isEqualTo(now)
         assertThat(auth.authenticate(tokens.accessToken)).isNull()
@@ -239,14 +241,14 @@ class AuthServiceTest {
             .thenAnswer { (it.arguments[0] as UserSession).also(savedSessions::add) }
         `when`(sessions.findSessionForUpdate(sha256(rawRefreshToken))).thenReturn(initialSession)
 
-        val refreshedTokens = auth.refresh(rawRefreshToken)
+        val refreshedTokens = auth.refresh(RefreshSessionCommand(rawRefreshToken))
 
         assertThat(initialSession.revokedAt).isEqualTo(now)
         assertThat(initialSession.rotatedToSession).isSameAs(savedSessions.last())
         assertThat(savedSessions.last().expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         assertThat(auth.authenticate(refreshedTokens.accessToken))
             .isEqualTo(AuthenticatedUserPrincipal(user.id))
-        assertThrows<IllegalStateException> { auth.refresh(rawRefreshToken) }
+        assertThrows<IllegalStateException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
         assertThat(savedSessions).hasSize(1)
     }
 
@@ -261,7 +263,7 @@ class AuthServiceTest {
         )
         `when`(sessions.findSessionForUpdate(expiredSession.refreshTokenHash)).thenReturn(expiredSession)
 
-        assertThrows<IllegalStateException> { auth.refresh(rawRefreshToken) }
+        assertThrows<IllegalStateException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
 
         verify(users, never()).findUser(user.id)
         verify(sessions, never()).saveSession(anyValue())
@@ -277,7 +279,7 @@ class AuthServiceTest {
         `when`(sessions.findSessionForUpdate(initialSession.refreshTokenHash)).thenReturn(initialSession)
         `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
-        return service.refresh(rawRefreshToken)
+        return service.refresh(RefreshSessionCommand(rawRefreshToken))
     }
 
     private fun activeUser(role: UserRole = UserRole.USER) = User(role).apply { id = 9L }.also {

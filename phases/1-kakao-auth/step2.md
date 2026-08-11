@@ -1,5 +1,7 @@
 # Step 2: auth-api
 
+> **역사적 기록:** 이 step의 onboarding 동의 API는 `f76679c`에서 폐기됐다. 현재 계약은 루트 `AGENTS.md`와 `docs/API_SPEC.md`를 따른다.
+
 ## 읽을 파일
 - `/AGENTS.md`
 - `/docs/PRD.md`

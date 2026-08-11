@@ -1,14 +1,20 @@
 package com.ridervoice.api.common.config
 
 import com.ridervoice.api.auth.application.AuthService
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.presentation.AuthController
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.OAuthExchangeController
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
+import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.SecurityConfig
 import com.ridervoice.api.common.security.SecurityProblemHandler
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -63,6 +69,14 @@ class FoundationVerificationTest {
         }
     }
 
+    @Test
+    fun `authentication controllers depend on input ports instead of the concrete application service`() {
+        assertThat(AuthController::class.java.declaredConstructors.single().parameterTypes)
+            .doesNotContain(AuthService::class.java)
+        assertThat(UserController::class.java.declaredConstructors.single().parameterTypes)
+            .doesNotContain(AuthService::class.java)
+    }
+
     @SpringBootConfiguration
     @EnableAutoConfiguration(
         exclude = [
@@ -83,6 +97,18 @@ class FoundationVerificationTest {
     )
     class TestApplication {
         @Bean
-        fun authService(): AuthService = mock(AuthService::class.java)
+        fun exchangeSocialLoginCode(): ExchangeSocialLoginCodeUseCase = mock(ExchangeSocialLoginCodeUseCase::class.java)
+
+        @Bean
+        fun refreshSession(): RefreshSessionUseCase = mock(RefreshSessionUseCase::class.java)
+
+        @Bean
+        fun logout(): LogoutUseCase = mock(LogoutUseCase::class.java)
+
+        @Bean
+        fun getCurrentUser(): GetCurrentUserUseCase = mock(GetCurrentUserUseCase::class.java)
+
+        @Bean
+        fun accessTokenAuthenticator(): AccessTokenAuthenticator = mock(AccessTokenAuthenticator::class.java)
     }
 }

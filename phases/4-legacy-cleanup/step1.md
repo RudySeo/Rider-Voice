@@ -1,5 +1,7 @@
 # Step 1: legacy-auth-removal
 
+> **역사적 기록:** 이 step이 보존한 onboarding 흐름은 `f76679c`에서 폐기됐다. 현재 계약은 루트 `AGENTS.md`와 `docs/API_SPEC.md`를 따른다.
+
 ## 읽을 파일
 
 먼저 아래 파일과 step 0 변경을 모두 읽는다:

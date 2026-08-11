@@ -1,5 +1,7 @@
 # Step 4: oauth2-api-contract
 
+> **역사적 기록:** 이 step의 onboarding API 계약은 `f76679c`에서 폐기됐다. 현재 계약은 루트 `AGENTS.md`와 `docs/API_SPEC.md`를 따른다.
+
 ## 읽을 파일
 
 - `/docs/API_SPEC.md`

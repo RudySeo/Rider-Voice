@@ -2,6 +2,7 @@ package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
@@ -71,7 +72,7 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
             executor.submit<Result<AuthTokens>> {
                 ready.countDown()
                 start.await()
-                runCatching { auth.refresh(rawRefreshToken) }
+                runCatching { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
             }
         }
         assertThat(ready.await(2, TimeUnit.SECONDS)).isTrue()

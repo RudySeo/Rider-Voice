@@ -5,7 +5,13 @@ import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
 import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserQuery
+import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
+import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
+import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
@@ -46,7 +52,12 @@ class AuthService(
     private val sessions: UserSessionStore,
     private val exchangeGrants: OAuthExchangeGrantStore,
     private val clock: Clock = Clock.systemUTC(),
-) : CompleteProviderLoginUseCase, ExchangeSocialLoginCodeUseCase, AccessTokenAuthenticator {
+) : CompleteProviderLoginUseCase,
+    ExchangeSocialLoginCodeUseCase,
+    RefreshSessionUseCase,
+    LogoutUseCase,
+    GetCurrentUserUseCase,
+    AccessTokenAuthenticator {
     private val accessTokens = ConcurrentHashMap<String, AccessTokenRecord>()
     private val random = SecureRandom()
 
@@ -88,8 +99,8 @@ class AuthService(
     }
 
     @Transactional
-    fun refresh(refreshToken: String): AuthTokens {
-        val session = sessions.findSessionForUpdate(hash(refreshToken))
+    override fun refresh(command: RefreshSessionCommand): AuthTokens {
+        val session = sessions.findSessionForUpdate(hash(command.refreshToken))
             ?: throw IllegalArgumentException("Invalid refresh token")
         val now = clock.instant()
         check(session.isActiveAt(now)) { "Refresh session is inactive" }
@@ -101,17 +112,17 @@ class AuthService(
     }
 
     @Transactional
-    fun logout(principal: AuthenticatedUserPrincipal, refreshToken: String) {
-        sessions.findSessionForUpdate(hash(refreshToken))
-            ?.takeIf { it.user.id == principal.userId }
+    override fun logout(command: LogoutCommand) {
+        sessions.findSessionForUpdate(hash(command.refreshToken))
+            ?.takeIf { it.user.id == command.userId }
             ?.let { session ->
                 session.revoke(clock.instant())
                 accessTokens.entries.removeIf { it.value.sessionId == session.id }
             }
     }
 
-    fun me(principal: AuthenticatedUserPrincipal): UserSummary =
-        users.findUser(principal.userId)?.let(::userSummary) ?: throw NoSuchElementException("User not found")
+    override fun get(query: GetCurrentUserQuery): UserSummary =
+        users.findUser(query.userId)?.let(::userSummary) ?: throw NoSuchElementException("User not found")
 
     @Transactional(readOnly = true)
     override fun authenticate(accessToken: String): BearerPrincipal? {

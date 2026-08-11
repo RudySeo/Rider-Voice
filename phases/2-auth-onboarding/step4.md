@@ -1,5 +1,7 @@
 # Step 4: session-lifecycle-hardening
 
+> **역사적 기록:** 이 phase의 onboarding token 설계는 `f76679c`에서 폐기됐다. 현재 계약은 루트 `AGENTS.md`와 `docs/API_SPEC.md`를 따른다.
+
 ## 읽을 파일
 
 - `/AGENTS.md`
