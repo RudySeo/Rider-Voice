@@ -150,7 +150,6 @@ erDiagram
     USERS ||--o{ MODERATION_AUDITS : acts
 ```
 
-`moderation_audits.target_id`는 `target_type`에 따라 여러 테이블을 가리키는 논리 참조이므로 물리적 FK 관계선으로 표시하지 않는다.
 
 ## 3. 테이블별 역할과 주요 제약
 
@@ -168,4 +167,3 @@ erDiagram
 | 운영 | `restaurant_info_reports` | 음식점 정보 신고와 처리 결과 | `(reporter_user_id, restaurant_id)` |
 | 운영 | `moderation_audits` | 관리자 변경 전후 감사 기록 | - |
 
-모든 물리적 FK는 cascade delete 없이 `RESTRICT` 또는 `NO ACTION`으로 이력을 보호한다. `current_slot`은 활성 리뷰에서만 `1`이고 삭제·전체 제외 이력에서는 `null`이므로 nullable unique 제약으로 음식점별 활성 리뷰 하나를 보장한다.
