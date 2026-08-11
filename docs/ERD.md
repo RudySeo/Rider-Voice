@@ -2,9 +2,9 @@
 
 ## 1. 기준
 
-이 문서는 현재 JPA Entity와 로컬 MySQL schema를 기준으로 Rider Voice의 11개 테이블 구조를 보여준다. 도식에는 관계와 무결성을 이해하는 데 필요한 핵심 컬럼만 표시하며, 정확한 타입과 전체 index는 JPA Entity와 실제 schema를 기준으로 한다.
+Rider Voice의 현재 JPA Entity와 MySQL 기준 11개 테이블 구조와 주요 관계를 정리합니다
 
-모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다.
+모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 
 | 컬럼 | 타입 | 제약 |
 | --- | --- | --- |
