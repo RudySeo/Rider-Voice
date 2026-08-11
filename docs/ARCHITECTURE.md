@@ -92,7 +92,7 @@ frontend/
 - `/v3/api-docs`에서 TypeScript API 타입을 생성해 `shared` 아래에 두며 생성 파일을 수동 편집하지 않는다. endpoint와 DTO의 기준은 문서 사본이 아니라 실행 중인 OpenAPI다.
 - component style은 CSS Modules로 격리하고 reset, design token과 최소 전역 style만 `shared`에서 관리한다.
 - TanStack Query는 서버 상태와 mutation, React Router는 route, React Hook Form과 Zod는 form 상태와 client-side schema 검증을 담당한다. Zod 검증은 서버 Bean Validation을 대체하지 않는다.
-- access token은 JavaScript module memory에, onboarding token과 refresh token은 탭 단위 `sessionStorage`에 보관한다. `localStorage`, IndexedDB, cookie, URL, console 또는 analytics에는 service token을 기록하지 않는다.
+- access token은 JavaScript module memory에, refresh token은 탭 단위 `sessionStorage`에 보관한다. `localStorage`, IndexedDB, cookie, URL, console 또는 analytics에는 service token을 기록하지 않는다.
 - 새로고침 시 `sessionStorage`의 refresh token으로 access token을 한 번 복구한다. refresh 성공 시 memory의 access token과 저장된 refresh token을 함께 교체하고, logout과 인증 실패 시 모든 token을 제거한다.
 
 ## 4. 인증과 권한
@@ -112,7 +112,8 @@ GET /api/v1/auth/oauth2/callback/kakao
   -> 고정된 frontend callback URL로 교환 코드 redirect
 POST /api/v1/auth/oauth2/exchange
   -> 교환 코드를 원자적으로 소비
-  -> 약관/활성 상태에 따른 Rider Voice token JSON 응답
+  -> 신규·약관 미동의 사용자의 현재 약관 동의 기록
+  -> Rider Voice access/refresh token JSON 응답
 ```
 
 - 사용자 식별에는 카카오 user info의 `id`만 사용한다.
@@ -121,7 +122,8 @@ POST /api/v1/auth/oauth2/exchange
 - `KAKAO_CLIENT_SECRET`이 없으면 client authentication `none`, 있으면 `client_secret_post`를 사용한다.
 - 카카오 access token은 user info 확인 뒤 저장하지 않는다.
 - 성공 handler는 provider 타입을 application에 넘기지 않고 `provider`와 `subject`로 command를 만든다.
-- 성공 redirect에는 opaque 교환 코드만 query parameter로 전달하고 onboarding, access와 refresh token은 URL에 포함하지 않는다.
+- 로그인 화면은 카카오 로그인을 계속하면 현재 필수 약관에 동의한다는 점을 redirect 전에 고지한다.
+- 성공 redirect에는 opaque 교환 코드만 query parameter로 전달하고 access와 refresh token은 URL에 포함하지 않는다.
 - 교환 코드는 발급 후 60초에 만료되고 한 번만 사용할 수 있다. 원문 대신 hash를 저장하며 잘못됨·만료·재사용을 동일한 인증 실패로 처리한다.
 - OAuth 실패는 provider 오류나 내부 예외를 노출하지 않는 일반화된 실패 값으로 같은 고정 frontend callback URL에 redirect한다.
 
@@ -129,7 +131,7 @@ POST /api/v1/auth/oauth2/exchange
 
 - `/api/v1/**` API는 stateless chain으로 처리한다.
 - OAuth 임시 session의 `SecurityContext`로 REST API에 접근할 수 없다.
-- 약관 미동의 사용자는 5분짜리 onboarding token만 발급받는다.
+- 유효한 교환 코드를 제출한 신규·약관 미동의 사용자는 현재 약관 동의를 기록하고 즉시 활성화된다.
 - 활성 사용자는 15분 access token과 30일 rotating refresh token을 사용한다.
 - refresh token은 원문이 아니라 hash로 저장하고 갱신 시 회전시킨다.
 - 로그아웃은 Rider Voice session을 폐기하며 카카오 로그아웃을 호출하지 않는다.
@@ -259,7 +261,6 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 GET    /api/v1/auth/oauth2/authorization/kakao
 GET    /api/v1/auth/oauth2/callback/kakao
 POST   /api/v1/auth/oauth2/exchange
-POST   /api/v1/auth/consents
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
 GET    /api/v1/users/me
@@ -313,7 +314,7 @@ GET       /api/v1/admin/moderation-audits
 - OAuth redirect, state, code 교환, user info와 임시 session 폐기
 - frontend 교환 코드의 60초 만료, 단일 사용, 재사용 거부와 일반화된 실패 redirect
 - OAuth session으로 stateless API 접근 불가
-- onboarding, opaque token 회전, logout과 USER/ADMIN 권한
+- OAuth 교환 시 약관 기록, opaque token 회전, logout과 USER/ADMIN 권한
 - 카카오·주소 adapter의 성공, timeout, rate limit과 손상 응답
 - 같은 장소 여러 브랜드, 같은 브랜드 다른 주소와 수동/카카오 참조 연결
 - 장소·브랜드·외부 참조의 동시 unique 충돌

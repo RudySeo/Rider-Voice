@@ -36,7 +36,7 @@ type SuccessResponse<Value> = Value extends {
     }[keyof Responses]
   : never
 
-export type AuthMode = 'none' | 'access' | 'onboarding'
+export type AuthMode = 'none' | 'access'
 
 export type ApiRequestOptions<
   Path extends ApiPath,
@@ -69,7 +69,6 @@ type ApiClientOptions = {
 const NO_REFRESH_PATHS = new Set<ApiPath>([
   '/api/v1/auth/oauth2/exchange',
   '/api/v1/auth/refresh',
-  '/api/v1/auth/consents',
   '/api/v1/auth/logout',
 ])
 

@@ -32,13 +32,6 @@ class OpenApiConfiguration {
                     .scheme("bearer")
                     .bearerFormat("opaque")
                     .description("ROLE_USER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
-            ).addSecuritySchemes(
-                ONBOARDING_BEARER_AUTH,
-                SecurityScheme()
-                    .type(SecurityScheme.Type.HTTP)
-                    .scheme("bearer")
-                    .bearerFormat("opaque-onboarding")
-                    .description("약관 동의 API에서만 사용하는 5분 유효 일회용 onboarding token"),
             ),
         )
 
@@ -57,9 +50,7 @@ class OpenApiConfiguration {
             referencedSchema = "RestaurantPickupLocationReportMetricsResponse",
         )
         openApi.components?.schemas?.forEach { (name, schema) ->
-            if (name != "OAuth2LoginResponse") {
-                removeNullFromRequiredProperties(schema)
-            }
+            removeNullFromRequiredProperties(schema)
         }
     }
 
@@ -97,6 +88,5 @@ class OpenApiConfiguration {
 
     companion object {
         const val BEARER_AUTH = "bearerAuth"
-        const val ONBOARDING_BEARER_AUTH = "onboardingBearerAuth"
     }
 }

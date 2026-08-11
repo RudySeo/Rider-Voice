@@ -6,15 +6,12 @@ import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCas
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
-import com.ridervoice.api.auth.application.port.`in`.ServiceTokens
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
-import com.ridervoice.api.auth.application.port.out.OnboardingTokenStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
-import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
@@ -24,7 +21,6 @@ import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.BearerPrincipal
-import com.ridervoice.api.common.security.OnboardingPrincipal
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
@@ -48,7 +44,6 @@ class AuthService(
     private val users: UserStore,
     private val accounts: OAuthAccountStore,
     private val sessions: UserSessionStore,
-    private val onboardingTokens: OnboardingTokenStore,
     private val exchangeGrants: OAuthExchangeGrantStore,
     private val clock: Clock = Clock.systemUTC(),
 ) : CompleteProviderLoginUseCase, ExchangeSocialLoginCodeUseCase, AccessTokenAuthenticator {
@@ -76,45 +71,20 @@ class AuthService(
         val now = clock.instant()
         val grant = exchangeGrants.consume(hash(command.code), now)
             ?: throw InvalidOAuthExchangeCodeException()
-        val user = users.findUser(grant.userId)
+        val user = users.findUserForUpdate(grant.userId)
             ?: throw InvalidOAuthExchangeCodeException()
-        return when (user.status) {
-            UserStatus.PENDING_TERMS -> CompleteSocialLoginResult(
-                user = userSummary(user),
-                termsAgreed = false,
-                onboardingToken = issueOnboardingToken(user),
-                tokens = null,
-            )
-
-            UserStatus.ACTIVE -> {
-                val issued = issueTokens(user).tokens
-                CompleteSocialLoginResult(
-                    user = userSummary(user),
-                    termsAgreed = true,
-                    onboardingToken = null,
-                    tokens = ServiceTokens(issued.accessToken, issued.refreshToken),
-                )
-            }
-
-            else -> throw AuthenticationRequiredException("User is not eligible to sign in")
+        if (user.status == UserStatus.PENDING_TERMS) {
+            user.agreeToTerms(CURRENT_TERMS_VERSION, now)
         }
-    }
-
-    @Transactional
-    fun agree(principal: OnboardingPrincipal, version: String): AuthTokens {
-        if (principal.tokenHash.isBlank()) {
-            throw AuthenticationRequiredException("Invalid onboarding token")
+        if (user.status != UserStatus.ACTIVE) {
+            throw AuthenticationRequiredException("User is not eligible to sign in")
         }
-        val token = onboardingTokens.findOnboardingTokenForUpdate(principal.tokenHash)
-            ?: throw AuthenticationRequiredException("Invalid onboarding token")
-        val now = clock.instant()
-        if (token.user.id != principal.userId || !token.isUsableAt(now)) {
-            throw AuthenticationRequiredException("Invalid onboarding token")
-        }
-        val user = users.findUser(principal.userId) ?: throw NoSuchElementException("User not found")
-        token.consume(now)
-        user.agreeToTerms(version, now)
-        return issueTokens(user).tokens
+        val tokens = issueTokens(user).tokens
+        return CompleteSocialLoginResult(
+            user = tokens.user,
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+        )
     }
 
     @Transactional
@@ -145,18 +115,14 @@ class AuthService(
 
     @Transactional(readOnly = true)
     override fun authenticate(accessToken: String): BearerPrincipal? {
-        accessTokens[accessToken]?.let { record ->
-            if (!clock.instant().isBefore(record.expiresAt)) {
-                accessTokens.remove(accessToken, record)
-                return null
-            }
-            return users.findUser(record.userId)
-                ?.takeIf { it.status == UserStatus.ACTIVE }
-                ?.let(::authenticatedPrincipal)
+        val record = accessTokens[accessToken] ?: return null
+        if (!clock.instant().isBefore(record.expiresAt)) {
+            accessTokens.remove(accessToken, record)
+            return null
         }
-        return onboardingTokens.findOnboardingToken(hash(accessToken))
-            ?.takeIf { it.isUsableAt(clock.instant()) }
-            ?.let { OnboardingPrincipal(it.user.id, it.tokenHash) }
+        return users.findUser(record.userId)
+            ?.takeIf { it.status == UserStatus.ACTIVE }
+            ?.let(::authenticatedPrincipal)
     }
 
     private fun createUserWithAccount(command: CompleteSocialLoginCommand): User {
@@ -171,20 +137,6 @@ class AuthService(
             user.id,
             AuthenticatedUserPrincipal.ADMIN_AUTHORITY,
         )
-    }
-
-    private fun issueOnboardingToken(user: User): String {
-        val rawToken = randomToken()
-        val issuedAt = clock.instant()
-        onboardingTokens.saveOnboardingToken(
-            OnboardingToken(
-                user = user,
-                tokenHash = hash(rawToken),
-                issuedAt = issuedAt,
-                expiresAt = issuedAt.plusSeconds(ONBOARDING_EXPIRY_SECONDS),
-            ),
-        )
-        return rawToken
     }
 
     private fun issueTokens(user: User): IssuedSession {
@@ -215,7 +167,7 @@ class AuthService(
     private fun hash(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
-        const val ONBOARDING_EXPIRY_SECONDS = 5 * 60L
+        const val CURRENT_TERMS_VERSION = "2026-07-01"
         const val OAUTH_EXCHANGE_EXPIRY_SECONDS = 60L
         const val ACCESS_TOKEN_EXPIRY_MINUTES = 15L
         const val REFRESH_TOKEN_EXPIRY_DAYS = 30L

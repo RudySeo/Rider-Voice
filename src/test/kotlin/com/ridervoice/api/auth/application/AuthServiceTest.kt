@@ -5,12 +5,10 @@ import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeComm
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
 import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
-import com.ridervoice.api.auth.application.port.out.OnboardingTokenStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
 import com.ridervoice.api.auth.domain.OAuthProvider
-import com.ridervoice.api.auth.domain.OnboardingToken
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
@@ -18,14 +16,12 @@ import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.common.error.AuthenticationRequiredException
 import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
-import com.ridervoice.api.common.security.OnboardingPrincipal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.mockingDetails
 import org.mockito.Mockito.never
-import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.springframework.transaction.annotation.Transactional
@@ -34,9 +30,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class AuthServiceTest {
 
@@ -45,9 +38,8 @@ class AuthServiceTest {
     private val users = mock(UserStore::class.java)
     private val accounts = mock(OAuthAccountStore::class.java)
     private val sessions = mock(UserSessionStore::class.java)
-    private val onboardingTokens = mock(OnboardingTokenStore::class.java)
     private val exchangeGrants = mock(OAuthExchangeGrantStore::class.java)
-    private val auth = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, clock)
+    private val auth = AuthService(users, accounts, sessions, exchangeGrants, clock)
 
     @Test
     fun `provider login creates a new social account and returns only a hashed exchange grant`() {
@@ -72,15 +64,16 @@ class AuthServiceTest {
         assertThat(savedHash).isNotEqualTo(result.code)
         assertThat(savedGrant.userId).isEqualTo(10L)
         assertThat(savedGrant.expiresAt).isEqualTo(now.plusSeconds(60))
-        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
         verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
     fun `valid exchange code for an active account issues opaque service tokens`() {
         val user = activeUser()
+        val originalTermsAgreedAt = user.termsAgreedAt
         val account = OAuthAccount(user, OAuthProvider.KAKAO, "active-subject")
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "active-subject")).thenReturn(account)
+        `when`(users.findUserForUpdate(user.id)).thenReturn(user)
         `when`(users.findUser(user.id)).thenReturn(user)
         `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
@@ -90,33 +83,32 @@ class AuthServiceTest {
         `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
         val result = auth.exchange(ExchangeSocialLoginCodeCommand(code))
 
-        assertThat(result.termsAgreed).isTrue()
-        assertThat(result.onboardingToken).isNull()
-        assertThat(result.tokens?.accessToken).isNotBlank()
-        assertThat(result.tokens?.refreshToken).isNotBlank()
+        assertThat(result.accessToken).isNotBlank()
+        assertThat(result.refreshToken).isNotBlank()
+        assertThat(result.user.termsVersion).isEqualTo("2026-07-01")
+        assertThat(user.termsAgreedAt).isEqualTo(originalTermsAgreedAt)
+        verify(users).findUserForUpdate(user.id)
         val savedSession = savedArgument<UserSession>(sessions, "saveSession")
-        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.tokens!!.refreshToken))
-        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.tokens.refreshToken)
+        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.refreshToken))
+        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.refreshToken)
     }
 
     @Test
-    fun `valid exchange code for a pending account issues only an onboarding token`() {
+    fun `valid exchange code for a pending account records current terms and issues service tokens`() {
         val user = User().apply { id = 8L }
-        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(users.findUserForUpdate(user.id)).thenReturn(user)
         `when`(exchangeGrants.consume(sha256("pending-code"), now))
             .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
-        `when`(onboardingTokens.saveOnboardingToken(anyValue()))
-            .thenAnswer { it.arguments[0] as OnboardingToken }
+        `when`(sessions.saveSession(anyValue()))
+            .thenAnswer { it.arguments[0] as UserSession }
 
         val result = auth.exchange(ExchangeSocialLoginCodeCommand("pending-code"))
 
         assertThat(result.user.id).isEqualTo(user.id)
-        assertThat(result.termsAgreed).isFalse()
-        assertThat(result.onboardingToken).isNotBlank()
-        assertThat(result.tokens).isNull()
-        val savedToken = savedArgument<OnboardingToken>(onboardingTokens, "saveOnboardingToken")
-        assertThat(savedToken.tokenHash).isEqualTo(sha256(result.onboardingToken!!))
-        verify(sessions, never()).saveSession(anyValue())
+        assertThat(result.user.status).isEqualTo("ACTIVE")
+        assertThat(result.user.termsVersion).isEqualTo("2026-07-01")
+        assertThat(result.accessToken).isNotBlank()
+        assertThat(result.refreshToken).isNotBlank()
     }
 
     @Test
@@ -129,16 +121,15 @@ class AuthServiceTest {
             }
         }
 
-        verify(users, never()).findUser(org.mockito.ArgumentMatchers.anyLong())
-        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
+        verify(users, never()).findUserForUpdate(org.mockito.ArgumentMatchers.anyLong())
         verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
-    fun `suspended social account cannot exchange for onboarding or service tokens`() {
+    fun `suspended social account cannot exchange for service tokens`() {
         val user = activeUser()
         setStatus(user, UserStatus.SUSPENDED)
-        `when`(users.findUser(user.id)).thenReturn(user)
+        `when`(users.findUserForUpdate(user.id)).thenReturn(user)
         `when`(exchangeGrants.consume(sha256("suspended-code"), now))
             .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
 
@@ -146,7 +137,6 @@ class AuthServiceTest {
             auth.exchange(ExchangeSocialLoginCodeCommand("suspended-code"))
         }
 
-        verify(onboardingTokens, never()).saveOnboardingToken(anyValue())
         verify(sessions, never()).saveSession(anyValue())
     }
 
@@ -155,13 +145,14 @@ class AuthServiceTest {
         val original = activeUser(UserRole.USER)
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "role-subject"))
             .thenReturn(OAuthAccount(original, OAuthProvider.KAKAO, "role-subject"))
+        `when`(users.findUserForUpdate(original.id)).thenReturn(original)
         `when`(users.findUser(original.id)).thenReturn(original)
         `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
         val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "role-subject")).code
         val grant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
         `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
-        val accessToken = auth.exchange(ExchangeSocialLoginCodeCommand(code)).tokens!!.accessToken
+        val accessToken = auth.exchange(ExchangeSocialLoginCodeCommand(code)).accessToken
         val promoted = activeUser(UserRole.ADMIN)
         `when`(users.findUser(original.id)).thenReturn(promoted)
 
@@ -182,7 +173,7 @@ class AuthServiceTest {
     @Test
     fun `access token expires after fifteen minutes`() {
         val mutableClock = MutableClock(now)
-        val service = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, mutableClock)
+        val service = AuthService(users, accounts, sessions, exchangeGrants, mutableClock)
         val user = activeUser()
         `when`(users.findUser(user.id)).thenReturn(user)
 
@@ -211,7 +202,7 @@ class AuthServiceTest {
     @Test
     fun `access token is invalid after service restart`() {
         val accessToken = issueTokens(auth, activeUser()).accessToken
-        val restarted = AuthService(users, accounts, sessions, onboardingTokens, exchangeGrants, clock)
+        val restarted = AuthService(users, accounts, sessions, exchangeGrants, clock)
 
         assertThat(restarted.authenticate(accessToken)).isNull()
     }
@@ -276,89 +267,6 @@ class AuthServiceTest {
         verify(sessions, never()).saveSession(anyValue())
     }
 
-    @Test
-    fun `valid locked onboarding token is consumed with terms agreement and formal token issuance`() {
-        val user = User().apply { id = 4L }
-        val rawToken = "raw-onboarding-token"
-        val token = onboardingToken(user, rawToken)
-        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
-        `when`(users.findUser(user.id)).thenReturn(user)
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
-
-        val result = auth.agree(OnboardingPrincipal(user.id, token.tokenHash), "2026-07-01")
-
-        assertThat(token.consumedAt).isEqualTo(now)
-        assertThat(user.status.name).isEqualTo("ACTIVE")
-        assertThat(user.termsVersion).isEqualTo("2026-07-01")
-        assertThat(result.accessToken).isNotBlank()
-        assertThat(result.refreshToken).isNotBlank()
-        assertThat(auth.authenticate(result.accessToken)).isNotNull
-    }
-
-    @Test
-    fun `expired or consumed onboarding token cannot issue a session`() {
-        val user = User().apply { id = 5L }
-        val expired = OnboardingToken(user, sha256("expired"), now.minusSeconds(301), now.minusSeconds(1))
-        val consumed = onboardingToken(user, "consumed").also { it.consume(now.minusSeconds(1)) }
-        `when`(users.findUser(user.id)).thenReturn(user)
-
-        listOf(expired, consumed).forEach { token ->
-            `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
-            assertThrows<AuthenticationRequiredException> {
-                auth.agree(OnboardingPrincipal(user.id, token.tokenHash), "2026-07-01")
-            }
-        }
-
-        verify(sessions, never()).saveSession(anyValue())
-    }
-
-    @Test
-    fun `onboarding token cannot be used by a different user`() {
-        val owner = User().apply { id = 6L }
-        val otherUserId = 7L
-        val token = onboardingToken(owner, "owner-token")
-        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
-
-        assertThrows<AuthenticationRequiredException> {
-            auth.agree(OnboardingPrincipal(otherUserId, token.tokenHash), "2026-07-01")
-        }
-
-        assertThat(token.consumedAt).isNull()
-        verify(users, never()).findUser(org.mockito.ArgumentMatchers.anyLong())
-        verify(sessions, never()).saveSession(anyValue())
-    }
-
-    @Test
-    fun `simultaneous duplicate consent consumes one onboarding token only once`() {
-        val user = User().apply { id = 8L }
-        val token = onboardingToken(user, "one-use-token")
-        `when`(onboardingTokens.findOnboardingTokenForUpdate(token.tokenHash)).thenReturn(token)
-        `when`(users.findUser(user.id)).thenReturn(user)
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
-        val ready = CountDownLatch(2)
-        val start = CountDownLatch(1)
-        val executor = Executors.newFixedThreadPool(2)
-
-        val futures = (1..2).map {
-            executor.submit<Result<AuthTokens>> {
-                ready.countDown()
-                start.await()
-                runCatching { auth.agree(OnboardingPrincipal(user.id, token.tokenHash), "2026-07-01") }
-            }
-        }
-        assertThat(ready.await(1, TimeUnit.SECONDS)).isTrue()
-        start.countDown()
-        val results = futures.map { it.get(2, TimeUnit.SECONDS) }
-        executor.shutdownNow()
-
-        assertThat(results.count { it.isSuccess }).isEqualTo(1)
-        assertThat(results.count { it.isFailure }).isEqualTo(1)
-        assertThat(token.consumedAt).isEqualTo(now)
-        verify(sessions, times(1)).saveSession(anyValue())
-    }
-
     private fun issueTokens(service: AuthService, user: User): AuthTokens {
         val rawRefreshToken = "initial-refresh-token"
         val initialSession = UserSession(
@@ -382,13 +290,6 @@ class AuthServiceTest {
             field.set(user, status)
         }
     }
-
-    private fun onboardingToken(user: User, rawToken: String) = OnboardingToken(
-        user = user,
-        tokenHash = sha256(rawToken),
-        issuedAt = now,
-        expiresAt = now.plusSeconds(5 * 60L),
-    )
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray())

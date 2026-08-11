@@ -182,7 +182,6 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
         val EXPECTED_ENTITY_NAMES = setOf(
             "User",
             "OAuthAccount",
-            "OnboardingToken",
             "UserSession",
             "PickupLocation",
             "Restaurant",
@@ -196,7 +195,6 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
 
         val EXPECTED_FOREIGN_KEYS = setOf(
             Triple("oauth_accounts", "user_id", "users"),
-            Triple("onboarding_tokens", "user_id", "users"),
             Triple("user_sessions", "user_id", "users"),
             Triple("user_sessions", "rotated_to_session_id", "user_sessions"),
             Triple("restaurants", "pickup_location_id", "pickup_locations"),
@@ -217,8 +215,6 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
         val EXPECTED_INDEXES = listOf(
             IndexSpec("oauth_accounts", "uk_oauth_accounts_provider_subject", true, listOf("provider", "provider_subject")),
             IndexSpec("oauth_accounts", "uk_oauth_accounts_user_provider", true, listOf("user_id", "provider")),
-            IndexSpec("onboarding_tokens", "uk_onboarding_tokens_token_hash", true, listOf("token_hash")),
-            IndexSpec("onboarding_tokens", "idx_onboarding_tokens_active_expiry", false, listOf("consumed_at", "expires_at")),
             IndexSpec("user_sessions", "uk_user_sessions_refresh_token_hash", true, listOf("refresh_token_hash")),
             IndexSpec("user_sessions", "idx_user_sessions_user", false, listOf("user_id")),
             IndexSpec("user_sessions", "idx_user_sessions_active_expiry", false, listOf("revoked_at", "expires_at")),

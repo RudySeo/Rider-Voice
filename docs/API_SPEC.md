@@ -27,7 +27,6 @@
 | 구분 | 인증 | 용도 |
 | --- | --- | --- |
 | 공개 | 없음 | OAuth 시작·callback·교환, 음식점 검색·상세·리뷰 조회, token 갱신 |
-| 온보딩 | onboarding bearer token | 필수 약관 동의 |
 | 사용자 | opaque access bearer token, `ROLE_USER` | 작성, 내 리뷰, 신고 |
 | 관리자 | opaque access bearer token, `ROLE_ADMIN` | 검수, 신고 처리, 병합·정정 |
 
@@ -39,7 +38,6 @@ OAuth 임시 HTTP session은 authorization과 callback에서만 사용하며 RES
 GET  /api/v1/auth/oauth2/authorization/kakao
 GET  /api/v1/auth/oauth2/callback/kakao
 POST /api/v1/auth/oauth2/exchange
-POST /api/v1/auth/consents
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/users/me
@@ -53,7 +51,7 @@ Location: http://localhost:5173/auth/callback?code={singleUseExchangeCode}
 ```
 
 - frontend callback은 서버 설정으로 고정하며 요청자가 임의의 return URL을 전달할 수 없다.
-- query string에는 교환 코드만 전달한다. onboarding token, access token과 refresh token은 query string이나 fragment에 넣지 않는다.
+- query string에는 교환 코드만 전달한다. access token과 refresh token은 query string이나 fragment에 넣지 않는다.
 - 교환 코드는 원문 대신 hash로 저장하고 발급 후 60초에 만료되며 유효한 교환 요청에서 원자적으로 소비해 단 한 번만 사용할 수 있게 한다.
 
 frontend는 callback에서 받은 코드를 다음 API의 JSON body로 교환한다.
@@ -67,23 +65,17 @@ Content-Type: application/json
 }
 ```
 
-교환 성공 응답은 약관 상태에 따라 구분한다.
+로그인 화면은 카카오 로그인을 계속하면 현재 Rider Voice 필수 약관에 동의한다는 점을 고지한다. 신규·약관 미동의 사용자는 교환 성공 트랜잭션에서 서버가 관리하는 현재 약관 버전과 동의 시각을 기록하고 ACTIVE로 전환한다. 기존 활성 사용자의 약관 기록은 재로그인으로 변경하지 않는다.
 
 ```json
 {
-  "termsAgreed": false,
-  "onboardingToken": "one-time-token",
-  "tokens": null
-}
-```
-
-```json
-{
-  "termsAgreed": true,
-  "onboardingToken": null,
-  "tokens": {
-    "accessToken": "access-token",
-    "refreshToken": "refresh-token"
+  "accessToken": "access-token",
+  "refreshToken": "refresh-token",
+  "user": {
+    "id": 1,
+    "status": "ACTIVE",
+    "role": "USER",
+    "termsVersion": "2026-07-01"
   }
 }
 ```

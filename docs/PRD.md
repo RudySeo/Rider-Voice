@@ -34,10 +34,10 @@ Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카�
 1. 사용자가 Spring Security OAuth2 Client가 제공하는 카카오 로그인 흐름을 시작한다.
 2. 카카오 callback에서 외부 계정의 고유 식별자를 확인한다.
 3. 서버는 service token 대신 60초 동안 한 번만 사용할 수 있는 교환 코드를 고정된 frontend callback URL에 전달한다.
-4. 웹 클라이언트는 교환 코드를 API에 제출해 약관 상태에 따라 onboarding token 또는 Rider Voice access token과 rotating refresh token을 받는다.
-5. 신규 사용자는 onboarding token으로 필수 약관에 동의한다.
+4. 로그인 화면은 카카오 로그인을 계속하면 현재 Rider Voice 필수 약관에 동의한다는 점을 명확히 고지한다.
+5. 웹 클라이언트가 교환 코드를 API에 제출하면 서버는 신규·약관 미동의 사용자의 현재 약관 버전과 동의 시각을 기록하고 Rider Voice access token과 rotating refresh token을 발급한다.
 
-OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 opaque bearer token으로 인증한다. onboarding token, access token과 refresh token은 URL query string이나 fragment에 포함하지 않는다.
+OAuth 과정의 임시 session은 로그인 완료 후 폐기하고 REST API는 opaque bearer token으로 인증한다. access token과 refresh token은 URL query string이나 fragment에 포함하지 않는다.
 
 ### 4.2 음식점 검색
 

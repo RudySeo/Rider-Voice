@@ -102,23 +102,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/consents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 필수 약관 동의 */
-        post: operations["consent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/restaurants/{restaurantId}/merge": {
         parameters: {
             query?: never;
@@ -146,11 +129,11 @@ export type paths = {
         get?: never;
         put?: never;
         post?: never;
-        /** 현재 리뷰 삭제 */
+        /** 활성 리뷰 삭제 */
         delete: operations["delete"];
         options?: never;
         head?: never;
-        /** 현재 리뷰 수정 */
+        /** 활성 리뷰 수정 */
         patch: operations["update"];
         trace?: never;
     };
@@ -795,23 +778,6 @@ export type components = {
              * @example single-use-exchange-code
              */
             code: string;
-        };
-        OAuth2LoginResponse: {
-            termsAgreed: boolean;
-            /** @description 약관 미동의 사용자에게만 발급되는 onboarding token */
-            onboardingToken: string | null;
-            tokens: components["schemas"]["ServiceTokensResponse"] | null;
-        };
-        ServiceTokensResponse: {
-            accessToken: string;
-            refreshToken: string;
-        };
-        ConsentRequest: {
-            /**
-             * @description 사용자가 동의한 약관 버전
-             * @example 2026-07-01
-             */
-            termsVersion: string;
         };
         MergeRestaurantRequest: {
             /** Format: int64 */
@@ -1531,7 +1497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OAuth2LoginResponse"];
+                    "application/json": components["schemas"]["AuthTokensResponse"];
                 };
             };
         };
@@ -1555,30 +1521,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    consent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsentRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthTokensResponse"];
-                };
             };
         };
     };

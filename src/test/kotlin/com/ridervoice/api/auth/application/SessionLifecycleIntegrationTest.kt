@@ -1,7 +1,11 @@
 package com.ridervoice.api.auth.application
 
+import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
+import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
+import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
+import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.auth.infrastructure.persistence.UserRepository
 import com.ridervoice.api.auth.infrastructure.persistence.UserSessionRepository
 import com.ridervoice.api.support.MySqlIntegrationTest
@@ -28,6 +32,23 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
 
     @Autowired
     private lateinit var sessions: UserSessionRepository
+
+    @Test
+    fun `OAuth exchange records current terms activates a pending user and creates a service session`() {
+        val subject = "pending-${UUID.randomUUID()}"
+        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject)).code
+
+        val result = auth.exchange(ExchangeSocialLoginCodeCommand(code))
+
+        val persistedUser = users.findById(result.user.id).orElseThrow()
+        assertThat(persistedUser.status).isEqualTo(UserStatus.ACTIVE)
+        assertThat(persistedUser.termsVersion).isEqualTo("2026-07-01")
+        assertThat(persistedUser.termsAgreedAt).isNotNull()
+        assertThat(result.accessToken).isNotBlank()
+        assertThat(result.refreshToken).isNotBlank()
+        assertThat(sessions.findAll().count { it.user.id == persistedUser.id }).isEqualTo(1)
+        assertThat(auth.authenticate(result.accessToken)).isNotNull()
+    }
 
     @Test
     fun `concurrent refresh creates exactly one successor session`() {

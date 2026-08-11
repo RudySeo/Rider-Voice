@@ -153,7 +153,6 @@ describe('ApiClient', () => {
   it.each([
     '/api/v1/auth/oauth2/exchange',
     '/api/v1/auth/refresh',
-    '/api/v1/auth/consents',
     '/api/v1/auth/logout',
   ] as const)('does not refresh the session for %s', async (path) => {
     const fetchFn = vi
@@ -172,15 +171,9 @@ describe('ApiClient', () => {
         body:
           path === '/api/v1/auth/oauth2/exchange'
             ? { code: 'exchange-code' }
-            : path === '/api/v1/auth/consents'
-              ? { termsVersion: '2026-07-01' }
-              : { refreshToken: 'refresh-token' },
+            : { refreshToken: 'refresh-token' },
         auth:
-          path === '/api/v1/auth/consents'
-            ? 'onboarding'
-            : path === '/api/v1/auth/logout'
-              ? 'access'
-              : 'none',
+          path === '/api/v1/auth/logout' ? 'access' : 'none',
       }),
     ).rejects.toMatchObject({ status: 401 })
 

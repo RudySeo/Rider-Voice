@@ -59,16 +59,6 @@ erDiagram
         datetime updated_at
     }
 
-    ONBOARDING_TOKENS {
-        bigint id PK
-        bigint user_id FK
-        varchar token_hash UK
-        datetime expires_at
-        datetime consumed_at
-        datetime created_at
-        datetime updated_at
-    }
-
     USER_SESSIONS {
         bigint id PK
         bigint user_id FK
@@ -184,7 +174,6 @@ erDiagram
     }
 
     USERS ||--o{ OAUTH_ACCOUNTS : owns
-    USERS ||--o{ ONBOARDING_TOKENS : receives
     USERS ||--o{ USER_SESSIONS : has
     USER_SESSIONS o|--o| USER_SESSIONS : rotates_to
 
@@ -223,13 +212,13 @@ Rider Voice 내부 계정의 기준 테이블이다. 카카오 계정 자체가 
 
 #### 관계
 
-- 하나의 사용자는 여러 OAuth 계정, onboarding token과 service session을 가질 수 있다.
+- 하나의 사용자는 여러 OAuth 계정과 service session을 가질 수 있다.
 - 사용자는 여러 리뷰와 신고를 작성할 수 있다.
 - 관리자는 신고를 결정하고 감사 기록의 행위자가 될 수 있다.
 
 #### 설계 이유
 
-외부 OAuth provider의 계정과 서비스 사용자를 분리해야 사용자 상태, 약관 동의와 `USER`/`ADMIN` 권한을 Rider Voice가 독립적으로 통제할 수 있다. 카카오 로그인이 성공해도 사용자가 활성 상태라는 의미는 아니므로 계정 상태를 별도로 저장한다.
+외부 OAuth provider의 계정과 서비스 사용자를 분리해야 사용자 상태, 약관 동의와 `USER`/`ADMIN` 권한을 Rider Voice가 독립적으로 통제할 수 있다. 신규·약관 미동의 사용자는 로그인 화면의 고지 후 OAuth 교환이 완료될 때 현재 약관 동의를 기록하고 활성화한다.
 
 ### 4.2 `oauth_accounts`
 
@@ -247,25 +236,7 @@ Rider Voice 내부 계정의 기준 테이블이다. 카카오 계정 자체가 
 
 외부 식별자를 `users`에 직접 넣지 않으면 provider별 형식이 내부 사용자 모델에 전파되지 않고 향후 다른 provider를 추가할 때도 사용자 테이블을 변경하지 않아도 된다. 카카오 access token은 사용자 확인 후 저장하지 않는다.
 
-### 4.3 `onboarding_tokens`
-
-#### 역할
-
-카카오 로그인은 완료했지만 필수 약관에 동의하지 않은 사용자에게 발급하는 5분짜리 임시 자격을 관리한다.
-
-#### 주요 컬럼과 관계
-
-- `user_id` → `users.id`
-- `token_hash` unique: 원본 token 대신 hash 저장
-- `expires_at`: 사용 가능 만료 시각
-- `consumed_at`: 약관 동의에 사용된 시각
-- `(consumed_at, expires_at)` index: 사용 가능한 token 조회
-
-#### 설계 이유
-
-약관 미동의 사용자에게 일반 access token을 발급하지 않으면서 OAuth 완료 상태를 짧게 이어갈 수 있다. token 원문을 저장하지 않고 사용 완료 시각을 남겨 재사용을 방지한다.
-
-### 4.4 `user_sessions`
+### 4.3 `user_sessions`
 
 #### 역할
 
@@ -475,14 +446,14 @@ provider 식별자를 `restaurants`에 직접 넣으면 provider가 늘어날 �
 
 ## 8. 핵심 데이터 흐름
 
-### 8.1 카카오 로그인과 약관 동의
+### 8.1 카카오 로그인과 약관 기록
 
 ```text
 카카오 user info의 id
   → oauth_accounts에서 내부 사용자 조회
-  → users의 상태와 약관 동의 확인
-  → 미동의: onboarding_tokens 발급
-  → 동의 완료: user_sessions와 service token 발급
+  → 60초 단일 사용 교환 코드 소비
+  → 신규·약관 미동의 사용자의 현재 약관 동의 기록과 ACTIVE 전환
+  → user_sessions와 service token 발급
 ```
 
 ### 8.2 음식점 등록과 첫 리뷰

@@ -150,8 +150,8 @@ PickupLocation 1 <- N Restaurant 1 <- N RestaurantExternalReference
 - 사용자 식별에는 카카오 user info의 `id`만 사용한다.
 - OAuth handshake 동안만 임시 HTTP session을 사용하고 성공·실패 후 폐기한다.
 - OAuth session의 `SecurityContext`를 REST API 인증으로 사용하지 않는다.
-- 약관 미동의 사용자에게는 5분짜리 onboarding token만 발급한다.
-- 활성 사용자에게는 15분 access token과 30일 rotating refresh token을 발급한다.
+- 로그인 화면에서 현재 필수 약관 동의를 고지하고 유효한 OAuth 교환 시 신규·약관 미동의 사용자를 활성화한다.
+- 활성화된 사용자에게 15분 access token과 30일 rotating refresh token을 발급한다.
 - refresh token은 hash로 저장하고 갱신할 때 회전한다.
 - 카카오 access token은 사용자 확인 후 저장하지 않는다.
 - access token 인증 시 현재 데이터베이스의 `USER` 또는 `ADMIN` 역할을 확인한다.

@@ -42,7 +42,7 @@ OAuth handshake에만 임시 HTTP session을 사용하고 성공·실패 후 폐
 
 ## ADR-005: Rider Voice opaque access/refresh token 유지
 
-**결정**: 카카오 로그인 성공 후 frontend가 단일 사용 교환 코드를 제출하면 Rider Voice access token과 rotating refresh token을 JSON으로 발급한다. 약관 미동의 사용자에게는 5분 onboarding token만 발급한다. onboarding, access와 refresh token은 redirect URL의 query string이나 fragment에 넣지 않는다.
+**결정**: 로그인 화면은 카카오 로그인을 계속하면 현재 Rider Voice 필수 약관에 동의한다는 점을 고지한다. 카카오 로그인 성공 후 frontend가 단일 사용 교환 코드를 제출하면 서버는 신규·약관 미동의 사용자의 현재 약관 버전과 동의 시각을 기록하고 Rider Voice access token과 rotating refresh token을 JSON으로 발급한다. 별도 onboarding token은 사용하지 않으며 access와 refresh token은 redirect URL의 query string이나 fragment에 넣지 않는다.
 
 **이유**: 소셜 로그인 과정과 서비스 API session을 분리하고 refresh session 폐기·회전을 서버에서 통제할 수 있다.
 
@@ -142,8 +142,8 @@ OAuth handshake에만 임시 HTTP session을 사용하고 성공·실패 후 폐
 
 **결정**: 루트 Spring Boot 프로젝트를 이동하지 않고 `/frontend`에 Node 24 LTS, React 19, Vite 8와 TypeScript 기반 SPA를 npm으로 관리한다. 서버 상태는 TanStack Query, route는 React Router, form은 React Hook Form과 Zod, component style은 CSS Modules, 테스트는 Vitest와 Testing Library를 사용한다. 실행 중인 `/v3/api-docs`에서 TypeScript API 타입을 생성하고 개발 요청은 Vite `/api` proxy를 통해 Spring Boot로 전달한다.
 
-frontend source는 기능 중심의 `app`, `pages`, `features`, `shared` 경계를 사용한다. access token은 JavaScript module memory에, refresh token과 onboarding token은 탭 단위 `sessionStorage`에 보관하며 browser 영구 저장소에는 저장하지 않는다.
+frontend source는 기능 중심의 `app`, `pages`, `features`, `shared` 경계를 사용한다. access token은 JavaScript module memory에, refresh token은 탭 단위 `sessionStorage`에 보관하며 browser 영구 저장소에는 저장하지 않는다.
 
-**이유**: 이미 완성된 서버와 OpenAPI 계약을 유지하면서 공개 조회, 로그인·약관, 네 가지 음식점 target 작성과 내 리뷰 관리 흐름을 실제 브라우저 UI로 빠르게 검증할 수 있다.
+**이유**: 이미 완성된 서버와 OpenAPI 계약을 유지하면서 공개 조회, 로그인 고지, 네 가지 음식점 target 작성과 내 리뷰 관리 흐름을 실제 브라우저 UI로 빠르게 검증할 수 있다.
 
 **트레이드오프**: 탭을 닫으면 로그인 상태가 사라지고 frontend 개발 서버와 backend를 함께 실행해야 한다. `sessionStorage`는 XSS에 대한 보호 수단이 아니므로 이 SPA는 local prototype으로만 사용한다. 운영 배포, SEO, SSR, 관리자·신고 UI와 실제 카카오 브라우저 E2E를 다루지 않으며 실제 제품 클라이언트로 전환할 때 token 전달·보관과 배포 구성을 다시 결정한다.

@@ -1,13 +1,9 @@
 package com.ridervoice.api.auth.presentation
 
-import com.ridervoice.api.auth.presentation.dto.OAuth2LoginResponse
-import com.ridervoice.api.auth.presentation.dto.ServiceTokensResponse
 import io.swagger.v3.core.converter.ModelConverters
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.Paths
-import io.swagger.v3.oas.models.media.ComposedSchema
-import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.responses.ApiResponse
@@ -24,10 +20,10 @@ class AuthOpenApiConfiguration {
     @Bean
     fun authOAuth2OpenApiCustomizer(): OpenApiCustomizer = OpenApiCustomizer { openApi ->
         val components = openApi.components ?: Components().also { openApi.components = it }
-        listOf(OAuth2LoginResponse::class.java, ServiceTokensResponse::class.java, ProblemDetail::class.java)
+        listOf(ProblemDetail::class.java)
             .flatMap { ModelConverters.getInstance().read(it).entries }
             .forEach { (name, schema) -> components.addSchemas(name, schema) }
-        applyNullableLoginContract(components)
+        applyProblemDetailContract(components)
         val paths = openApi.paths ?: Paths().also { openApi.paths = it }
 
         paths.addPathItem(
@@ -69,22 +65,7 @@ class AuthOpenApiConfiguration {
         )
     }
 
-    private fun applyNullableLoginContract(components: Components) {
-        val loginSchema = requireNotNull(components.schemas[OAuth2LoginResponse::class.java.simpleName])
-        loginSchema.types = setOf("object")
-        loginSchema.required = listOf("termsAgreed", "onboardingToken", "tokens")
-        loginSchema.properties["onboardingToken"]?.types = setOf("string", "null")
-        loginSchema.properties["tokens"] = ComposedSchema().oneOf(
-            listOf(
-                Schema<Any>().apply { `$ref` = "#/components/schemas/${ServiceTokensResponse::class.java.simpleName}" },
-                Schema<Any>().apply { types = setOf("null") },
-            ),
-        )
-
-        requireNotNull(components.schemas[ServiceTokensResponse::class.java.simpleName]).apply {
-            types = setOf("object")
-            required = listOf("accessToken", "refreshToken")
-        }
+    private fun applyProblemDetailContract(components: Components) {
         requireNotNull(components.schemas[ProblemDetail::class.java.simpleName]).apply {
             types = setOf("object")
             addProperty("code", StringSchema().description("안정적인 Rider Voice 오류 코드"))
