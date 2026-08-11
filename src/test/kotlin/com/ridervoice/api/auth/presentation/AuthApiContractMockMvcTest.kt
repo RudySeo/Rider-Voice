@@ -4,7 +4,6 @@ import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.UserSummary
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
-import com.ridervoice.api.auth.application.port.`in`.ServiceTokens
 import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
@@ -12,7 +11,6 @@ import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.SecurityProblemHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.containsString
-import org.hamcrest.Matchers.containsInAnyOrder
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -69,20 +67,14 @@ class AuthApiContractMockMvcTest {
                     value("#/components/schemas/OAuthExchangeCodeRequest")
                 }
                 jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.responses['200'].content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/OAuth2LoginResponse")
+                    value("#/components/schemas/AuthTokensResponse")
                 }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.properties.termsAgreed.type") { value("boolean") }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.required") {
-                    value(containsInAnyOrder("termsAgreed", "onboardingToken", "tokens"))
+                jsonPath("$.components.schemas.AuthTokensResponse.properties.accessToken.type") { value("string") }
+                jsonPath("$.components.schemas.AuthTokensResponse.properties.refreshToken.type") { value("string") }
+                jsonPath("$.components.schemas.AuthTokensResponse.properties.user['\$ref']") {
+                    value("#/components/schemas/UserResponse")
                 }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.properties.onboardingToken.type[0]") { value("string") }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.properties.onboardingToken.type[1]") { value("null") }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.properties.tokens.oneOf[0]['\$ref']") {
-                    value("#/components/schemas/ServiceTokensResponse")
-                }
-                jsonPath("$.components.schemas.OAuth2LoginResponse.properties.tokens.oneOf[1].type") { value("null") }
-                jsonPath("$.components.schemas.ServiceTokensResponse.properties.accessToken.type") { value("string") }
-                jsonPath("$.components.schemas.ServiceTokensResponse.properties.refreshToken.type") { value("string") }
+                jsonPath("$.components.schemas.OAuth2LoginResponse") { doesNotExist() }
                 jsonPath("$.components.schemas.ProblemDetail") { exists() }
                 jsonPath("$.components.schemas.ProblemDetail.properties.code.type") { value("string") }
                 jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.parameters[0].name") { value("code") }
@@ -93,12 +85,11 @@ class AuthApiContractMockMvcTest {
     }
 
     @Test
-    fun `valid exchange code returns the existing login response contract`() {
+    fun `valid exchange code returns service tokens and active user`() {
         val result = CompleteSocialLoginResult(
             user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
-            termsAgreed = true,
-            onboardingToken = null,
-            tokens = ServiceTokens("service-access-token", "service-refresh-token"),
+            accessToken = "service-access-token",
+            refreshToken = "service-refresh-token",
         )
         `when`(authService.exchange(ExchangeSocialLoginCodeCommand("valid-code")))
             .thenReturn(result)
@@ -108,10 +99,11 @@ class AuthApiContractMockMvcTest {
             content = """{"code":"valid-code"}"""
         }.andExpect {
             status { isOk() }
-            jsonPath("$.termsAgreed") { value(true) }
-            jsonPath("$.onboardingToken") { value(null) }
-            jsonPath("$.tokens.accessToken") { value("service-access-token") }
-            jsonPath("$.tokens.refreshToken") { value("service-refresh-token") }
+            jsonPath("$.accessToken") { value("service-access-token") }
+            jsonPath("$.refreshToken") { value("service-refresh-token") }
+            jsonPath("$.user.status") { value("ACTIVE") }
+            jsonPath("$.user.termsVersion") { value("2026-07-01") }
+            jsonPath("$.onboardingToken") { doesNotExist() }
         }
     }
 
@@ -143,7 +135,7 @@ class AuthApiContractMockMvcTest {
     }
 
     @Test
-    fun `generated OpenAPI exposes consent schemas with separate bearer schemes`() {
+    fun `generated OpenAPI exposes only the service bearer scheme`() {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
@@ -151,15 +143,9 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.securitySchemes.bearerAuth.scheme") { value("bearer") }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_USER")) }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_ADMIN")) }
-                jsonPath("$.components.securitySchemes.onboardingBearerAuth.type") { value("http") }
-                jsonPath("$.components.securitySchemes.onboardingBearerAuth.scheme") { value("bearer") }
-                jsonPath("$.paths['/api/v1/auth/consents'].post.requestBody.content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/ConsentRequest")
-                }
-                jsonPath("$.paths['/api/v1/auth/consents'].post.responses['200'].content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/AuthTokensResponse")
-                }
-                jsonPath("$.paths['/api/v1/auth/consents'].post.security[0].onboardingBearerAuth") { isArray() }
+                jsonPath("$.components.securitySchemes.onboardingBearerAuth") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/consents']") { doesNotExist() }
+                jsonPath("$.components.schemas.ConsentRequest") { doesNotExist() }
             }
     }
 

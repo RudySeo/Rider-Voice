@@ -120,7 +120,6 @@ class SecurityPolicyMockMvcTest {
         fun accessTokenAuthenticator(): AccessTokenAuthenticator = AccessTokenAuthenticator { accessToken ->
             when (accessToken) {
                 "valid-access-token" -> AuthenticatedUserPrincipal(TEST_USER_ID)
-                "valid-onboarding-token" -> OnboardingPrincipal(TEST_USER_ID)
                 "valid-admin-token" -> AuthenticatedUserPrincipal(
                     TEST_ADMIN_ID,
                     AuthenticatedUserPrincipal.ADMIN_AUTHORITY,
@@ -143,7 +142,6 @@ class SecurityPolicyMockMvcTest {
 
     private enum class Scope {
         PUBLIC,
-        ONBOARDING,
         USER,
         ADMIN,
         ;
@@ -159,7 +157,6 @@ class SecurityPolicyMockMvcTest {
     private companion object {
         val CREDENTIALS = listOf(
             Credential(null, null),
-            Credential("valid-onboarding-token", Scope.ONBOARDING),
             Credential("valid-access-token", Scope.USER),
             Credential("valid-admin-token", Scope.ADMIN),
         )
@@ -170,7 +167,6 @@ class SecurityPolicyMockMvcTest {
             Endpoint(HttpMethod.GET, "/api/v1/restaurants/10/reviews", Scope.PUBLIC),
             Endpoint(HttpMethod.POST, "/api/v1/auth/oauth2/exchange", Scope.PUBLIC),
             Endpoint(HttpMethod.POST, "/api/v1/auth/refresh", Scope.PUBLIC),
-            Endpoint(HttpMethod.POST, "/api/v1/auth/consents", Scope.ONBOARDING),
             Endpoint(HttpMethod.POST, "/api/v1/auth/logout", Scope.USER),
             Endpoint(HttpMethod.GET, "/api/v1/users/me", Scope.USER),
             Endpoint(HttpMethod.GET, "/api/v1/addresses/search", Scope.USER),
@@ -210,12 +206,6 @@ private class SecurityPolicyFixtureController {
         "/api/v1/auth/refresh",
     )
     fun publicPost() = "ok"
-
-    @PostMapping("/api/v1/auth/consents")
-    fun consent(
-        @AuthenticationPrincipal principal: OnboardingPrincipal,
-        authentication: Authentication,
-    ) = "${principal::class.simpleName}:${principal.userId}:${authentication.authorities.single().authority}"
 
     @PostMapping("/api/v1/auth/logout")
     fun logout() = "ok"

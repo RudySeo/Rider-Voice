@@ -29,13 +29,7 @@ class OpenApiConfigurationTest {
     }
 
     @Test
-    fun `OpenAPI registers a separate onboarding bearer security scheme`() {
-        val onboardingBearer = requireNotNull(
-            openApi.components.securitySchemes[OpenApiConfiguration.ONBOARDING_BEARER_AUTH],
-        )
-
-        assertThat(onboardingBearer.type).isEqualTo(SecurityScheme.Type.HTTP)
-        assertThat(onboardingBearer.scheme).isEqualTo("bearer")
-        assertThat(onboardingBearer.bearerFormat).isEqualTo("opaque-onboarding")
+    fun `OpenAPI does not register a separate onboarding bearer security scheme`() {
+        assertThat(openApi.components.securitySchemes).doesNotContainKey("onboardingBearerAuth")
     }
 }

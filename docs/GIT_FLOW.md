@@ -42,7 +42,7 @@ PR 필수 조건:
 
 `feature/*`와 기존 `feat/*` 브랜치에 `develop`보다 앞선 변경 커밋을 처음 push하면 `.github/workflows/feature-pr.yml`이 `develop` 대상 Draft PR을 생성한다. 로컬 브랜치 생성이나 변경 커밋이 없는 최초 push만으로는 PR을 만들 수 없으며, 다음 변경 push에서 다시 시도한다. 같은 브랜치에 열린 PR이 있으면 새 PR을 만들지 않는다.
 
-workflow는 push마다 JDK 21에서 backend `./gradlew build`를 실행한다. 자동 생성되는 Draft PR 본문은 한글 `변경 요약`과 `확인 사항` 체크리스트로 구성한다.
+workflow는 push마다 JDK 25에서 backend `./gradlew build`를 실행한다. 자동 생성되는 Draft PR 본문은 한글 `변경 요약`과 `확인 사항` 체크리스트로 구성한다.
 
 로컬 MySQL이 필요한 `integrationTest`는 이 GitHub-hosted CI에 포함하지 않는다. 현재 자동화는 CI 실패나 리뷰 결과로 merge를 강제 차단하지 않으며 결과를 PR 판단 자료로 제공한다.
 

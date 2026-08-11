@@ -8,7 +8,6 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { useForm } from 'react-hook-form'
 import {
   Link,
   Navigate,
@@ -16,7 +15,6 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
-import { z } from 'zod'
 
 import type { components } from '@/shared/api/generated'
 import {
@@ -27,20 +25,18 @@ import {
 
 import styles from './AuthFlow.module.css'
 
-type OAuth2LoginResponse = components['schemas']['OAuth2LoginResponse']
+type OAuthExchangeResponse = components['schemas']['AuthTokensResponse']
 
 export const OAUTH_LOGIN_PATH =
   '/api/v1/auth/oauth2/authorization/kakao' as const
 export const LOGIN_RETURN_PATH_KEY = 'riderVoice.loginReturnPath' as const
-export const CURRENT_TERMS_VERSION = '2026-07-01' as const
-
-const AUTH_FLOW_PATHS = new Set(['/login', '/auth/callback', '/consent'])
+const AUTH_FLOW_PATHS = new Set(['/login', '/auth/callback'])
 
 export type AuthSession = Pick<
   ApiSession,
-  'getState' | 'subscribe' | 'restore' | 'consent' | 'logout'
+  'getState' | 'subscribe' | 'restore' | 'logout'
 > & {
-  exchange(code: string): Promise<OAuth2LoginResponse>
+  exchange(code: string): Promise<OAuthExchangeResponse>
 }
 
 type AuthContextValue = {
@@ -146,12 +142,20 @@ export function LoginButton({ label = '카카오로 로그인' }: LoginButtonPro
   const location = useLocation()
 
   return (
-    <a
+    <Link
       className={styles.primaryAction}
-      href={OAUTH_LOGIN_PATH}
+      to="/login"
       onClick={() => rememberLoginReturnPath(toCurrentInternalPath(location))}
     >
       {label}
+    </Link>
+  )
+}
+
+function OAuthLoginButton() {
+  return (
+    <a className={styles.primaryAction} href={OAUTH_LOGIN_PATH}>
+      카카오로 로그인
     </a>
   )
 }
@@ -178,10 +182,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   rememberLoginReturnPath(toCurrentInternalPath(location))
   return (
-    <Navigate
-      replace
-      to={state.status === 'onboarding' ? '/consent' : '/login'}
-    />
+    <Navigate replace to="/login" />
   )
 }
 
@@ -262,13 +263,7 @@ export function OAuthCallback() {
 
     void session
       .exchange(code)
-      .then((response) => {
-        if (response.termsAgreed) {
-          navigate(takeLoginReturnPath(), { replace: true })
-        } else {
-          navigate('/consent', { replace: true })
-        }
-      })
+      .then(() => navigate(takeLoginReturnPath(), { replace: true }))
       .catch(() => setCallbackState('failed'))
   }, [code, invalidCallback, navigate, session])
 
@@ -293,112 +288,18 @@ export function OAuthCallback() {
   )
 }
 
-const consentSchema = z.object({
-  agreed: z.literal(true, { error: '필수 약관에 동의해 주세요.' }),
-})
-
-export function Consent() {
-  const { restoring, session, state } = useAuth()
-  const navigate = useNavigate()
-  const [submitFailed, setSubmitFailed] = useState(false)
-  const {
-    handleSubmit,
-    register,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<{ agreed: boolean }>({ defaultValues: { agreed: false } })
-
-  useEffect(() => {
-    if (!restoring && state.status === 'authenticated' && !isSubmitting) {
-      navigate(takeLoginReturnPath(), { replace: true })
-    }
-  }, [isSubmitting, navigate, restoring, state.status])
-
-  if (restoring) {
-    return (
-      <p className={styles.status} role="status">
-        로그인 상태 확인 중…
-      </p>
-    )
-  }
-
-  if (state.status === 'authenticated') {
-    return (
-      <p className={styles.status} role="status">
-        로그인 완료 후 이동 중…
-      </p>
-    )
-  }
-
-  if (state.status !== 'onboarding') {
-    return (
-      <section className={styles.panel}>
-        <p className={styles.eyebrow}>필수 약관</p>
-        <h1>로그인이 필요합니다</h1>
-        <p>약관 동의를 계속하려면 카카오 로그인을 먼저 완료해 주세요.</p>
-        <LoginButton />
-      </section>
-    )
-  }
-
-  const submit = async (values: { agreed: boolean }) => {
-    const parsed = consentSchema.safeParse(values)
-    if (!parsed.success) {
-      setError('agreed', { message: parsed.error.issues[0]?.message })
-      return
-    }
-
-    setSubmitFailed(false)
-    try {
-      await session.consent(CURRENT_TERMS_VERSION)
-    } catch {
-      setSubmitFailed(true)
-    }
-  }
-
-  return (
-    <section className={styles.panel}>
-      <p className={styles.eyebrow}>필수 약관</p>
-      <h1>서비스 이용 동의</h1>
-      <p>필수 약관 버전 {CURRENT_TERMS_VERSION}</p>
-      <p className={styles.notice}>
-        카카오 로그인은 계정 식별 수단이며 라이더 신분이나 실제 방문을
-        인증하지 않습니다.
-      </p>
-      <form className={styles.form} onSubmit={handleSubmit(submit)}>
-        <label className={styles.checkboxLabel}>
-          <input type="checkbox" {...register('agreed')} />
-          필수 약관에 동의합니다
-        </label>
-        {errors.agreed ? (
-          <p className={styles.error} role="alert">
-            {errors.agreed.message}
-          </p>
-        ) : null}
-        {submitFailed ? (
-          <p className={styles.error} role="alert">
-            동의를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.
-          </p>
-        ) : null}
-        <button
-          className={styles.primaryButton}
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? '처리 중…' : '동의하고 계속'}
-        </button>
-      </form>
-    </section>
-  )
-}
-
 export function LoginPageContent() {
   return (
     <section className={styles.panel}>
       <p className={styles.eyebrow}>로그인</p>
       <h1>리뷰를 작성하려면 로그인해 주세요</h1>
       <p>카카오 계정으로 Rider Voice에 로그인합니다.</p>
-      <LoginButton />
+      <p className={styles.notice}>
+        카카오로 로그인을 계속하면 Rider Voice 필수 약관에 동의한 것으로
+        처리됩니다. 카카오 로그인은 계정 식별 수단이며 라이더 신분이나 실제
+        방문을 인증하지 않습니다.
+      </p>
+      <OAuthLoginButton />
     </section>
   )
 }

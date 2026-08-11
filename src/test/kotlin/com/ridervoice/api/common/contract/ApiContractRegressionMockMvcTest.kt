@@ -171,21 +171,17 @@ class ApiContractRegressionMockMvcTest {
         val paths = document.required("paths")
 
         assertThat(paths.propertyNames().asSequence().toSet()).isEqualTo(EXPECTED_PATHS)
-        assertThat(apiOperations(paths)).containsExactlyInAnyOrderElementsOf(
-            PUBLIC_OPERATIONS + BEARER_OPERATIONS + setOf("/api/v1/auth/consents" to "post"),
-        )
+        assertThat(apiOperations(paths)).containsExactlyInAnyOrderElementsOf(PUBLIC_OPERATIONS + BEARER_OPERATIONS)
 
         PUBLIC_OPERATIONS.forEach { (path, method) ->
             assertThat(operation(paths, path, method).has("security")).isFalse()
         }
-        assertSecurity(paths, "/api/v1/auth/consents", "post", "onboardingBearerAuth")
         BEARER_OPERATIONS.forEach { (path, method) ->
             assertSecurity(paths, path, method, "bearerAuth")
         }
         assertThat(document.at("/components/securitySchemes/bearerAuth/bearerFormat").stringValue())
             .isEqualTo("opaque")
-        assertThat(document.at("/components/securitySchemes/onboardingBearerAuth/bearerFormat").stringValue())
-            .isEqualTo("opaque-onboarding")
+        assertThat(document.at("/components/securitySchemes/onboardingBearerAuth").isMissingNode).isTrue()
     }
 
     @Test
@@ -449,7 +445,6 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/auth/oauth2/authorization/kakao",
             "/api/v1/auth/oauth2/callback/kakao",
             "/api/v1/auth/oauth2/exchange",
-            "/api/v1/auth/consents",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
             "/api/v1/users/me",
@@ -518,7 +513,6 @@ class ApiContractRegressionMockMvcTest {
 
         val REQUEST_REFS = mapOf(
             ("/api/v1/auth/oauth2/exchange" to "post") to "OAuthExchangeCodeRequest",
-            ("/api/v1/auth/consents" to "post") to "ConsentRequest",
             ("/api/v1/auth/refresh" to "post") to "TokenRequest",
             ("/api/v1/auth/logout" to "post") to "TokenRequest",
             ("/api/v1/reviews" to "post") to "CreateReviewRequest",
@@ -538,8 +532,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val RESPONSE_REFS = mapOf(
-            ("/api/v1/auth/oauth2/exchange" to "post") to ("200" to "OAuth2LoginResponse"),
-            ("/api/v1/auth/consents" to "post") to ("200" to "AuthTokensResponse"),
+            ("/api/v1/auth/oauth2/exchange" to "post") to ("200" to "AuthTokensResponse"),
             ("/api/v1/auth/refresh" to "post") to ("200" to "AuthTokensResponse"),
             ("/api/v1/users/me" to "get") to ("200" to "UserResponse"),
             ("/api/v1/restaurants/search" to "get") to ("200" to "RestaurantSearchResponse"),
@@ -576,9 +569,8 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val EXPECTED_SCHEMA_NAMES = setOf(
-            "ProblemDetail", "OAuthExchangeCodeRequest", "ConsentRequest", "TokenRequest",
-            "OAuth2LoginResponse", "ServiceTokensResponse",
-            "AuthTokensResponse", "UserResponse", "RestaurantSearchResponse", "RestaurantSearchCandidateResponse",
+            "ProblemDetail", "OAuthExchangeCodeRequest", "TokenRequest", "AuthTokensResponse", "UserResponse",
+            "RestaurantSearchResponse", "RestaurantSearchCandidateResponse",
             "AddressSearchResponse", "AddressSearchCandidateResponse", "RestaurantDetailResponse",
             "RestaurantPickupLocationResponse", "RestaurantBrandReportResponse",
             "RestaurantPickupLocationReportResponse", "RestaurantBrandReportMetricsResponse",
@@ -661,7 +653,6 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val NULLABLE_PROPERTIES = setOf(
-            "OAuth2LoginResponse" to "onboardingToken", "OAuth2LoginResponse" to "tokens",
             "UserResponse" to "termsVersion", "RestaurantSearchCandidateResponse" to "restaurantId",
             "RestaurantSearchCandidateResponse" to "kakaoPlaceId", "AddressSearchCandidateResponse" to "lotNumberAddress",
             "AddressSearchCandidateResponse" to "existingPickupLocationId",

@@ -34,12 +34,6 @@ data class ExchangeSocialLoginCodeCommand(
 
 data class CompleteSocialLoginResult(
     val user: UserSummary,
-    val termsAgreed: Boolean,
-    val onboardingToken: String?,
-    val tokens: ServiceTokens?,
-)
-
-data class ServiceTokens(
     val accessToken: String,
     val refreshToken: String,
 )

@@ -3,16 +3,14 @@ import { ApiClient } from './client'
 import { ApiError } from './errors'
 
 type AuthTokensResponse = components['schemas']['AuthTokensResponse']
-type OAuth2LoginResponse = components['schemas']['OAuth2LoginResponse']
+type OAuthExchangeResponse = AuthTokensResponse
 
 export const SESSION_STORAGE_KEYS = {
   refreshToken: 'riderVoice.refreshToken',
-  onboardingToken: 'riderVoice.onboardingToken',
 } as const
 
 export type AuthState =
   | { status: 'anonymous' }
-  | { status: 'onboarding' }
   | { status: 'authenticated' }
 
 type SessionOptions = {
@@ -57,16 +55,11 @@ export class ApiSession {
 
   constructor(options: SessionOptions = {}) {
     this.storage = options.storage ?? sessionStorage
-    this.state = this.storage.getItem(SESSION_STORAGE_KEYS.onboardingToken)
-      ? { status: 'onboarding' }
-      : { status: 'anonymous' }
+    this.state = { status: 'anonymous' }
     this.client = new ApiClient({
       baseUrl: options.baseUrl,
       fetchFn: options.fetchFn,
-      getBearerToken: (auth) =>
-        auth === 'access'
-          ? accessToken
-          : this.storage.getItem(SESSION_STORAGE_KEYS.onboardingToken),
+      getBearerToken: () => accessToken,
       refreshSession: () => this.refresh(),
     })
   }
@@ -80,7 +73,7 @@ export class ApiSession {
     return () => this.listeners.delete(listener)
   }
 
-  async exchange(code: string): Promise<OAuth2LoginResponse> {
+  async exchange(code: string): Promise<OAuthExchangeResponse> {
     const response = await this.client.request(
       '/api/v1/auth/oauth2/exchange',
       {
@@ -90,26 +83,8 @@ export class ApiSession {
       },
     )
 
-    if (response.termsAgreed && response.tokens) {
-      this.applyServiceTokens(response.tokens)
-      return response
-    }
-    if (!response.termsAgreed && response.onboardingToken) {
-      this.applyOnboardingToken(response.onboardingToken)
-      return response
-    }
-
-    this.clear()
-    throw new ApiError(500, 'INVALID_API_RESPONSE')
-  }
-
-  async consent(termsVersion: string): Promise<void> {
-    const response = await this.client.request('/api/v1/auth/consents', {
-      method: 'post',
-      body: { termsVersion },
-      auth: 'onboarding',
-    })
     this.applyServiceTokens(requireTokens(response))
+    return response
   }
 
   async restore(): Promise<void> {
@@ -154,7 +129,6 @@ export class ApiSession {
   clear(): void {
     accessToken = null
     this.storage.removeItem(SESSION_STORAGE_KEYS.refreshToken)
-    this.storage.removeItem(SESSION_STORAGE_KEYS.onboardingToken)
     this.setState({ status: 'anonymous' })
   }
 
@@ -189,15 +163,7 @@ export class ApiSession {
       SESSION_STORAGE_KEYS.refreshToken,
       tokens.refreshToken,
     )
-    this.storage.removeItem(SESSION_STORAGE_KEYS.onboardingToken)
     this.setState({ status: 'authenticated' })
-  }
-
-  private applyOnboardingToken(token: string): void {
-    accessToken = null
-    this.storage.removeItem(SESSION_STORAGE_KEYS.refreshToken)
-    this.storage.setItem(SESSION_STORAGE_KEYS.onboardingToken, token)
-    this.setState({ status: 'onboarding' })
   }
 
   private setState(state: AuthState): void {

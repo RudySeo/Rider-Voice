@@ -23,7 +23,7 @@
 
 ## 기술 스택
 
-- Kotlin, JDK 21, Gradle Kotlin DSL
+- Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
 - Bean Validation, Spring Data JPA, Hibernate, MySQL 9.3
 - Spring `RestClient`, Spring Cache, Caffeine
@@ -96,7 +96,7 @@ com.ridervoice.api
 - 카카오를 사용자 정의 OAuth provider로 등록하고 user info의 `id`만 외부 subject로 사용한다.
 - OAuth handshake에만 임시 HTTP session을 허용하고 성공·실패 후 폐기한다.
 - REST API security chain은 stateless이며 OAuth session을 API 인증으로 받아들이지 않는다.
-- OAuth 성공 후 기존 onboarding token 또는 opaque access/refresh token을 발급한다.
+- 로그인 화면에서 현재 필수 약관 동의를 고지하고 OAuth 교환 시 신규·약관 미동의 사용자를 활성화한 뒤 opaque access/refresh token을 발급한다.
 - 카카오 access token은 사용자 확인 뒤 저장하지 않는다.
 - refresh token은 hash로 저장하고 갱신할 때 회전시킨다.
 - `UserRole`은 `USER`, `ADMIN`이며 access token 인증 시 현재 DB role을 확인한다.

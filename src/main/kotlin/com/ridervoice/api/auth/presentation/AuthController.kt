@@ -4,14 +4,11 @@ import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.presentation.dto.AuthTokensResponse
-import com.ridervoice.api.auth.presentation.dto.ConsentRequest
-import com.ridervoice.api.auth.presentation.dto.OAuth2LoginResponse
 import com.ridervoice.api.auth.presentation.dto.OAuthExchangeCodeRequest
 import com.ridervoice.api.auth.presentation.dto.TokenRequest
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.InvalidOAuthExchangeRequestException
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
-import com.ridervoice.api.common.security.OnboardingPrincipal
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -25,7 +22,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/auth/oauth2")
-@Tag(name = "Authentication", description = "서비스 온보딩과 세션 API")
+@Tag(name = "Authentication", description = "로그인과 서비스 세션 API")
 class OAuthExchangeController(
     private val exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase,
     private val responseMapper: AuthResponseMapper,
@@ -35,11 +32,11 @@ class OAuthExchangeController(
     fun exchange(
         @Valid @RequestBody request: OAuthExchangeCodeRequest,
         bindingResult: BindingResult,
-    ): OAuth2LoginResponse {
+    ): AuthTokensResponse {
         if (bindingResult.hasErrors()) {
             throw InvalidOAuthExchangeRequestException()
         }
-        return responseMapper.toOAuth2LoginResponse(
+        return responseMapper.toAuthTokensResponse(
             exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand(request.code)),
         )
     }
@@ -47,22 +44,11 @@ class OAuthExchangeController(
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "서비스 온보딩과 세션 API")
+@Tag(name = "Authentication", description = "로그인과 서비스 세션 API")
 class AuthController(
     private val auth: AuthService,
     private val responseMapper: AuthResponseMapper,
 ) {
-    @Operation(
-        summary = "필수 약관 동의",
-        security = [SecurityRequirement(name = OpenApiConfiguration.ONBOARDING_BEARER_AUTH)],
-    )
-    @PostMapping("/consents")
-    fun consent(
-        @Parameter(hidden = true)
-        @AuthenticationPrincipal principal: OnboardingPrincipal,
-        @Valid @RequestBody request: ConsentRequest,
-    ): AuthTokensResponse = responseMapper.toAuthTokensResponse(auth.agree(principal, request.termsVersion))
-
     @Operation(summary = "서비스 access token 갱신")
     @PostMapping("/refresh")
     fun refresh(@Valid @RequestBody request: TokenRequest): AuthTokensResponse =

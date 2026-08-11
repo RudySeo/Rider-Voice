@@ -22,18 +22,6 @@ data class AuthenticatedUserPrincipal(
     }
 }
 
-data class OnboardingPrincipal(
-    override val userId: Long,
-    val tokenHash: String = "",
-) : BearerPrincipal {
-    override val authority: String
-        get() = AUTHORITY
-
-    companion object {
-        const val AUTHORITY = "ROLE_ONBOARDING"
-    }
-}
-
 fun interface AccessTokenAuthenticator {
     fun authenticate(accessToken: String): BearerPrincipal?
 }

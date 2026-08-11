@@ -1,11 +1,6 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 
-import {
-  Consent,
-  LoginPageContent,
-  OAuthCallback,
-  ProtectedRoute,
-} from '@/features/auth/AuthFlow'
+import { LoginPageContent, OAuthCallback, ProtectedRoute } from '@/features/auth/AuthFlow'
 import { RestaurantDetailPage } from '@/features/restaurants/PublicDiscovery'
 import { ReviewCreate } from '@/features/reviews/ReviewCreate'
 import {
@@ -33,10 +28,6 @@ export const appRoutes: RouteObject[] = [
       {
         path: 'auth/callback',
         element: <OAuthCallback />,
-      },
-      {
-        path: 'consent',
-        element: <Consent />,
       },
       {
         path: 'restaurants/:restaurantId',
