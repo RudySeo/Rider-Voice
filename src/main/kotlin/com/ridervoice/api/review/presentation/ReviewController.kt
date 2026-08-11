@@ -123,7 +123,7 @@ class PublicReviewController(
 ) {
     @Operation(
         summary = "음식점 공개 리뷰 목록 조회",
-        description = "ACTIVE 리뷰 이력을 최신순으로 반환하며 승인된 의견과 익명 활동 정보만 공개합니다.",
+        description = "ACTIVE 리뷰 이력을 최신순으로 반환하며 신고로 숨겨지지 않은 의견과 익명 활동 정보만 공개합니다.",
     )
     @ApiResponse(responseCode = "200", description = "공개 리뷰 목록 조회 성공")
     @GetMapping

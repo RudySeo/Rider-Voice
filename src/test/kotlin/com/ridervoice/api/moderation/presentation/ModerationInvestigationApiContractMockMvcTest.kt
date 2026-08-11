@@ -87,7 +87,7 @@ class ModerationInvestigationApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.reviewId") { value(40) }
             jsonPath("$.ratings.packagingStability") { value("GOOD") }
-            jsonPath("$.comment") { value("검수 원문") }
+            jsonPath("$.comment") { value("신고 조사 원문") }
             jsonPath("$.oauthSubject") { doesNotExist() }
         }
         mockMvc.get("/api/v1/admin/restaurants/search?query=브랜드") { with(adminAuthentication()) }.andExpect {
@@ -127,7 +127,7 @@ class ModerationInvestigationApiContractMockMvcTest {
 
     private fun review() = AdminReviewDetailResult(
         40L, 9L, UserStatus.ACTIVE, 3, 4, 20L, "브랜드", RestaurantStatus.ACTIVE,
-        30L, "서울 강남구 1", VisitMonth.parse("2026-07"), ratings(), "검수 원문",
+        30L, "서울 강남구 1", VisitMonth.parse("2026-07"), ratings(), "신고 조사 원문",
         ReviewCommentStatus.PENDING, ReviewVisibilityStatus.ACTIVE, true,
         null, NOW, NOW,
     )

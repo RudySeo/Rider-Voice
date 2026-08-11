@@ -97,23 +97,14 @@ class Review(
         val normalizedComment = ReviewCommentPolicy.normalize(comment)
         this.ratings = ratings
         if (this.comment != normalizedComment) {
+            val wasHiddenByReport = commentModerationStatus == ReviewCommentStatus.HIDDEN_REPORTED
             this.comment = normalizedComment
-            commentModerationStatus = initialCommentStatus(this.comment)
+            commentModerationStatus = when {
+                this.comment == null -> ReviewCommentStatus.NONE
+                wasHiddenByReport -> ReviewCommentStatus.HIDDEN_REPORTED
+                else -> ReviewCommentStatus.PUBLISHED
+            }
         }
-    }
-
-    fun publishComment() {
-        check(commentModerationStatus == ReviewCommentStatus.PENDING) {
-            "Only a pending comment can be published"
-        }
-        commentModerationStatus = ReviewCommentStatus.PUBLISHED
-    }
-
-    fun rejectComment() {
-        check(commentModerationStatus == ReviewCommentStatus.PENDING) {
-            "Only a pending comment can be rejected"
-        }
-        commentModerationStatus = ReviewCommentStatus.REJECTED
     }
 
     fun hidePublishedCommentForReport() {
@@ -164,6 +155,6 @@ class Review(
         const val ACTIVE_SLOT = 1
 
         fun initialCommentStatus(comment: String?): ReviewCommentStatus =
-            if (comment == null) ReviewCommentStatus.NONE else ReviewCommentStatus.PENDING
+            if (comment == null) ReviewCommentStatus.NONE else ReviewCommentStatus.PUBLISHED
     }
 }

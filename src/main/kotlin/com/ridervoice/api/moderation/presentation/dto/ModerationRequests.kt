@@ -1,6 +1,5 @@
 package com.ridervoice.api.moderation.presentation.dto
 
-import com.ridervoice.api.moderation.domain.CommentModerationDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
@@ -35,12 +34,6 @@ data class CreateRestaurantInfoReportRequest(
     @field:Schema(nullable = true)
     @field:Size(max = 1000)
     val details: String? = null,
-)
-
-data class CommentDecisionRequest(
-    @field:NotNull
-    @field:Schema(nullable = false)
-    val decision: CommentModerationDecision?,
 )
 
 data class ReviewReportDecisionRequest(

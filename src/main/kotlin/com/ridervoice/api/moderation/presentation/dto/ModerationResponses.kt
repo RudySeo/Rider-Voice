@@ -5,7 +5,6 @@ import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportReason
-import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -36,29 +35,6 @@ data class RestaurantInfoReportResponse(
     val createdAt: Instant,
     @field:Schema(nullable = true)
     val decidedAt: Instant?,
-)
-
-data class PendingReviewCommentResponse(
-    @field:Schema(format = "int64")
-    val reviewId: Long,
-    @field:Schema(format = "int64")
-    val authorUserId: Long,
-    val comment: String,
-    val createdAt: Instant,
-    val updatedAt: Instant,
-)
-
-data class PendingReviewCommentPageResponse(
-    val items: List<PendingReviewCommentResponse>,
-    @field:Schema(description = "createdAt과 reviewId 기반 opaque cursor", nullable = true)
-    val nextCursor: String?,
-)
-
-data class ReviewCommentDecisionResponse(
-    @field:Schema(format = "int64")
-    val reviewId: Long,
-    val commentModerationStatus: ReviewCommentStatus,
-    val decidedAt: Instant,
 )
 
 data class PendingReviewReportResponse(

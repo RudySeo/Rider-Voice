@@ -5,23 +5,19 @@ import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
-import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
-import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
-import com.ridervoice.api.moderation.presentation.dto.CommentDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
 import com.ridervoice.api.moderation.presentation.dto.ModerationPageRequest
 import com.ridervoice.api.moderation.presentation.dto.MergeRestaurantRequest
 import com.ridervoice.api.moderation.presentation.dto.PendingRestaurantInfoReportPageResponse
-import com.ridervoice.api.moderation.presentation.dto.PendingReviewCommentPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportResponse
@@ -33,7 +29,6 @@ import com.ridervoice.api.moderation.presentation.dto.RestaurantStatusChangeResp
 import com.ridervoice.api.moderation.presentation.dto.RelinkRestaurantVerifiedAddressRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantMergeResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantPickupRelinkResponse
-import com.ridervoice.api.moderation.presentation.dto.ReviewCommentDecisionResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -129,7 +124,7 @@ class ModerationReportController(
 @Validated
 @RestController
 @RequestMapping("/api/v1/admin")
-@Tag(name = "Moderation Admin", description = "관리자 검수와 신고 처리 API")
+@Tag(name = "Moderation Admin", description = "관리자 신고 처리 API")
 @SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)
 @ApiResponses(
     ApiResponse(
@@ -154,35 +149,12 @@ class ModerationReportController(
     ),
 )
 class AdminModerationController(
-    private val listComments: ListPendingReviewCommentsUseCase,
-    private val decideComment: DecideReviewCommentUseCase,
     private val listReviewReports: ListPendingReviewReportsUseCase,
     private val decideReviewReport: DecideReviewReportUseCase,
     private val listRestaurantReports: ListPendingRestaurantInfoReportsUseCase,
     private val decideRestaurantReport: DecideRestaurantInfoReportUseCase,
     private val mapper: ModerationHttpMapper,
 ) {
-    @Operation(summary = "검수 대기 리뷰 의견 목록")
-    @ApiResponse(responseCode = "200", description = "검수 대기 리뷰 의견 목록 조회 성공")
-    @GetMapping("/review-comments")
-    fun listComments(
-        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
-        @Valid @ParameterObject request: ModerationPageRequest,
-    ): PendingReviewCommentPageResponse = mapper.toResponse(
-        listComments.list(mapper.toCommentQuery(principal.userId, request)),
-    )
-
-    @Operation(summary = "리뷰 의견 검수 결정")
-    @ApiResponse(responseCode = "200", description = "리뷰 의견 검수 결정 완료")
-    @PatchMapping("/review-comments/{reviewId}")
-    fun decideComment(
-        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
-        @PathVariable @Positive reviewId: Long,
-        @Valid @RequestBody request: CommentDecisionRequest,
-    ): ReviewCommentDecisionResponse = mapper.toResponse(
-        decideComment.decide(mapper.toCommentDecisionCommand(principal.userId, reviewId, request)),
-    )
-
     @Operation(summary = "처리 대기 리뷰 신고 목록")
     @ApiResponse(responseCode = "200", description = "처리 대기 리뷰 신고 목록 조회 성공")
     @GetMapping("/review-reports")

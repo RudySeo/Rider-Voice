@@ -51,8 +51,6 @@ class SecurityConfig(
             it.requestMatchers(HttpMethod.GET, "/api/v1/users/me").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/users/me/reviews").hasRole("USER")
             it.requestMatchers(HttpMethod.GET, "/api/v1/addresses/search").hasRole("USER")
-            it.requestMatchers(HttpMethod.GET, "/api/v1/admin/review-comments").hasRole("ADMIN")
-            it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/review-comments/*").hasRole("ADMIN")
             it.requestMatchers(HttpMethod.GET, "/api/v1/admin/review-reports").hasRole("ADMIN")
             it.requestMatchers(HttpMethod.PATCH, "/api/v1/admin/review-reports/*").hasRole("ADMIN")
             it.requestMatchers(HttpMethod.GET, "/api/v1/admin/restaurant-reports").hasRole("ADMIN")

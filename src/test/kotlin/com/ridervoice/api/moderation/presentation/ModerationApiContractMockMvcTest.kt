@@ -7,16 +7,12 @@ import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
 import com.ridervoice.api.common.security.SecurityConfig
 import com.ridervoice.api.common.security.SecurityProblemHandler
-import com.ridervoice.api.moderation.application.model.CommentModerationCursor
 import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportPageResult
 import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportResult
-import com.ridervoice.api.moderation.application.model.PendingReviewCommentPageResult
-import com.ridervoice.api.moderation.application.model.PendingReviewCommentResult
 import com.ridervoice.api.moderation.application.model.PendingReviewReportPageResult
 import com.ridervoice.api.moderation.application.model.PendingReviewReportResult
 import com.ridervoice.api.moderation.application.model.ReportModerationCursor
 import com.ridervoice.api.moderation.application.model.RestaurantInfoReportResult
-import com.ridervoice.api.moderation.application.model.ReviewCommentDecisionResult
 import com.ridervoice.api.moderation.application.model.ReviewReportResult
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportUseCase
@@ -24,24 +20,18 @@ import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCom
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
-import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentCommand
-import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
-import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsQuery
-import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
-import com.ridervoice.api.moderation.domain.CommentModerationDecision
 import com.ridervoice.api.moderation.domain.ReportStatus
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportDecision
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportDecision
 import com.ridervoice.api.moderation.domain.ReviewReportReason
-import com.ridervoice.api.review.domain.ReviewCommentStatus
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.`when`
@@ -104,12 +94,6 @@ class ModerationApiContractMockMvcTest {
     private lateinit var createRestaurantReport: CreateRestaurantInfoReportUseCase
 
     @MockitoBean
-    private lateinit var listComments: ListPendingReviewCommentsUseCase
-
-    @MockitoBean
-    private lateinit var decideComment: DecideReviewCommentUseCase
-
-    @MockitoBean
     private lateinit var listReviewReports: ListPendingReviewReportsUseCase
 
     @MockitoBean
@@ -130,11 +114,11 @@ class ModerationApiContractMockMvcTest {
             status { isUnauthorized() }
             jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
         }
-        mockMvc.get("/api/v1/admin/review-comments").andExpect {
+        mockMvc.get("/api/v1/admin/review-reports").andExpect {
             status { isUnauthorized() }
             jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
         }
-        verifyNoInteractions(createReviewReport, listComments)
+        verifyNoInteractions(createReviewReport, listReviewReports)
     }
 
     @Test
@@ -173,7 +157,6 @@ class ModerationApiContractMockMvcTest {
         verify(createRestaurantReport).createRestaurantInfoReport(restaurantCommand)
 
         listOf(
-            "/api/v1/admin/review-comments",
             "/api/v1/admin/review-reports",
             "/api/v1/admin/restaurant-reports",
         ).forEach { path ->
@@ -182,21 +165,10 @@ class ModerationApiContractMockMvcTest {
                 jsonPath("$.code") { value("ACCESS_DENIED") }
             }
         }
-        mockMvc.patch("/api/v1/admin/review-comments/40") {
-            with(userAuthentication())
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"decision":"APPROVE"}"""
-        }.andExpect { status { isForbidden() } }
     }
 
     @Test
-    fun `ADMIN can list and decide every moderation queue but cannot submit USER reports`() {
-        `when`(listComments.list(ListPendingReviewCommentsQuery(ADMIN_ID, null, 20))).thenReturn(
-            PendingReviewCommentPageResult(
-                listOf(PendingReviewCommentResult(40L, 9L, "검수 의견", NOW, NOW)),
-                CommentModerationCursor(NOW, 40L),
-            ),
-        )
+    fun `ADMIN can list and decide report queues but cannot submit USER reports`() {
         `when`(listReviewReports.list(ListPendingReviewReportsQuery(ADMIN_ID, null, 20))).thenReturn(
             PendingReviewReportPageResult(
                 listOf(PendingReviewReportResult(101L, USER_ID, 40L, ReviewReportReason.SPAM, "반복 게시", NOW)),
@@ -221,9 +193,6 @@ class ModerationApiContractMockMvcTest {
             ),
         )
         `when`(
-            decideComment.decide(DecideReviewCommentCommand(ADMIN_ID, 40L, CommentModerationDecision.APPROVE)),
-        ).thenReturn(ReviewCommentDecisionResult(40L, ReviewCommentStatus.PUBLISHED, NOW))
-        `when`(
             decideReviewReport.decideReviewReport(
                 DecideReviewReportCommand(ADMIN_ID, 101L, ReviewReportDecision.EXCLUDE_REVIEW, "도배 확인"),
             ),
@@ -246,11 +215,6 @@ class ModerationApiContractMockMvcTest {
             ),
         )
 
-        mockMvc.get("/api/v1/admin/review-comments") { with(adminAuthentication()) }.andExpect {
-            status { isOk() }
-            jsonPath("$.items[0].reviewId") { value(40) }
-            jsonPath("$.nextCursor") { isString() }
-        }
         mockMvc.get("/api/v1/admin/review-reports") { with(adminAuthentication()) }.andExpect {
             status { isOk() }
             jsonPath("$.items[0].reporterUserId") { value(USER_ID) }
@@ -260,14 +224,6 @@ class ModerationApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.items[0].restaurantId") { value(50) }
             jsonPath("$.items[0].reason") { value("DUPLICATE") }
-        }
-        mockMvc.patch("/api/v1/admin/review-comments/40") {
-            with(adminAuthentication())
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"decision":"APPROVE"}"""
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.commentModerationStatus") { value("PUBLISHED") }
         }
         mockMvc.patch("/api/v1/admin/review-reports/101") {
             with(adminAuthentication())
@@ -347,7 +303,7 @@ class ModerationApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.paths['/api/v1/reviews/{reviewId}/reports'].post.security[0].bearerAuth") { isArray() }
             jsonPath("$.paths['/api/v1/restaurants/{restaurantId}/reports'].post.security[0].bearerAuth") { isArray() }
-            jsonPath("$.paths['/api/v1/admin/review-comments'].get.security[0].bearerAuth") { isArray() }
+            jsonPath("$.paths['/api/v1/admin/review-comments']") { doesNotExist() }
             jsonPath("$.paths['/api/v1/admin/review-reports'].get.parameters[0].name") { value("cursor") }
             jsonPath("$.paths['/api/v1/admin/restaurant-reports'].get.parameters[1].schema.maximum") { value(50) }
             jsonPath("$.paths['/api/v1/admin/review-reports/{reportId}'].patch.responses['409'].content['application/problem+json'].schema['\$ref']") {
@@ -375,9 +331,6 @@ class ModerationApiContractMockMvcTest {
                         "OTHER",
                     ),
                 )
-            }
-            jsonPath("$.components.schemas.CommentDecisionRequest.properties.decision.enum") {
-                value(containsInAnyOrder("APPROVE", "REJECT"))
             }
             jsonPath("$.components.schemas.ReviewReportDecisionRequest.properties.decision.enum") {
                 value(containsInAnyOrder("DISMISS", "HIDE_COMMENT", "EXCLUDE_REVIEW"))

@@ -37,12 +37,12 @@ class ReviewDomainTest {
     }
 
     @Test
-    fun `comment is trimmed and starts pending while blank comment becomes none`() {
-        val pending = review(comment = "  픽업 동선이 잘 구분되어 있었습니다.  ")
+    fun `comment is trimmed and published immediately while blank comment becomes none`() {
+        val published = review(comment = "  픽업 동선이 잘 구분되어 있었습니다.  ")
         val absent = review(comment = "  \n\t ")
 
-        assertThat(pending.comment).isEqualTo("픽업 동선이 잘 구분되어 있었습니다.")
-        assertThat(pending.commentModerationStatus).isEqualTo(ReviewCommentStatus.PENDING)
+        assertThat(published.comment).isEqualTo("픽업 동선이 잘 구분되어 있었습니다.")
+        assertThat(published.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
         assertThat(absent.comment).isNull()
         assertThat(absent.commentModerationStatus).isEqualTo(ReviewCommentStatus.NONE)
     }
@@ -57,9 +57,8 @@ class ReviewDomainTest {
     }
 
     @Test
-    fun `comment moderation follows pending published reported and rejected transitions`() {
+    fun `published comment can be hidden restored or permanently hidden after a report`() {
         val published = review(comment = "의견")
-        published.publishComment()
         assertThat(published.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
 
         published.hidePublishedCommentForReport()
@@ -68,26 +67,37 @@ class ReviewDomainTest {
         published.restoreReportedComment()
         assertThat(published.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
 
-        val rejected = review(comment = "다른 의견")
-        rejected.rejectComment()
-        assertThat(rejected.commentModerationStatus).isEqualTo(ReviewCommentStatus.REJECTED)
-
-        assertThatIllegalStateException().isThrownBy { rejected.publishComment() }
+        published.hidePublishedCommentForReport()
+        published.permanentlyHideReportedComment()
+        assertThat(published.commentModerationStatus).isEqualTo(ReviewCommentStatus.REJECTED)
+        assertThatIllegalStateException().isThrownBy { published.restoreReportedComment() }
     }
 
     @Test
-    fun `changing a published comment requires moderation again`() {
+    fun `changing a published comment publishes the normalized change immediately`() {
         val review = review(comment = "기존 공개 의견")
-        review.publishComment()
 
         review.update(ratings(), "  수정 의견  ")
 
         assertThat(review.comment).isEqualTo("수정 의견")
-        assertThat(review.commentModerationStatus).isEqualTo(ReviewCommentStatus.PENDING)
+        assertThat(review.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
 
         review.update(ratings(), "  ")
         assertThat(review.comment).isNull()
         assertThat(review.commentModerationStatus).isEqualTo(ReviewCommentStatus.NONE)
+    }
+
+    @Test
+    fun `changing a report hidden comment keeps it hidden until the report is resolved`() {
+        val review = review(comment = "신고된 의견")
+        review.hidePublishedCommentForReport()
+
+        review.update(ratings(), "  수정된 의견  ")
+
+        assertThat(review.comment).isEqualTo("수정된 의견")
+        assertThat(review.commentModerationStatus).isEqualTo(ReviewCommentStatus.HIDDEN_REPORTED)
+        review.restoreReportedComment()
+        assertThat(review.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
     }
 
     @Test

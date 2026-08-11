@@ -38,11 +38,11 @@ class ReviewCreateServiceTest {
     fun `validates the target before atomically resolving and saving an active review`() {
         val fixture = fixture()
 
-        val result = fixture.service.create(command("  검수할 의견  "))
+        val result = fixture.service.create(command("  즉시 공개할 의견  "))
 
         assertThat(fixture.events).startsWith("validate", "transaction.begin", "resolve", "review.save")
-        assertThat(result.comment).isEqualTo("검수할 의견")
-        assertThat(result.commentModerationStatus).isEqualTo(ReviewCommentStatus.PENDING)
+        assertThat(result.comment).isEqualTo("즉시 공개할 의견")
+        assertThat(result.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
         assertThat(fixture.transactions.commits).isEqualTo(1)
     }
 
@@ -165,7 +165,7 @@ class ReviewCreateServiceTest {
                 command.visitMonth,
                 command.ratings,
                 command.comment?.trim()?.takeIf(String::isNotEmpty),
-                if (command.comment.isNullOrBlank()) ReviewCommentStatus.NONE else ReviewCommentStatus.PENDING,
+                if (command.comment.isNullOrBlank()) ReviewCommentStatus.NONE else ReviewCommentStatus.PUBLISHED,
                 ReviewVisibilityStatus.ACTIVE,
                 now,
                 now,

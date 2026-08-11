@@ -38,9 +38,9 @@ const MY_REVIEWS_QUERY_KEY = ['my-reviews'] as const
 
 const COMMENT_STATUS_LABELS = {
   NONE: '의견 없음',
-  PENDING: '의견 검수 대기',
+  PENDING: '이전 의견 상태',
   PUBLISHED: '의견 공개',
-  REJECTED: '의견 반려',
+  REJECTED: '관리자에 의해 숨김',
   HIDDEN_REPORTED: '신고로 의견 숨김',
 } as const
 
@@ -405,7 +405,7 @@ function ReviewEditForm({ client, review }: { client: ApiClient; review: Review 
       <ReviewCommentField
         comment={comment}
         error={errors.comment}
-        notice="의견을 수정하면 기존 공개 의견은 숨겨지고 다시 검수 대기가 됩니다."
+        notice="수정한 의견은 즉시 공개됩니다. 신고로 숨겨진 의견은 처리 전까지 계속 숨겨집니다."
         onChange={setComment}
       />
       {submitError ? <p className={styles.error} role="alert">{submitError}</p> : null}

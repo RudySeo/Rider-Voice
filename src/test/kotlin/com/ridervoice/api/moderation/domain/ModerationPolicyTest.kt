@@ -41,44 +41,6 @@ class ModerationPolicyTest {
     }
 
     @Test
-    fun `pending comment can be approved or rejected and every decision requires audit`() {
-        val approved = ModerationTransitionPolicy.decideComment(
-            ReviewCommentStatus.PENDING,
-            CommentModerationDecision.APPROVE,
-        )
-        val rejected = ModerationTransitionPolicy.decideComment(
-            ReviewCommentStatus.PENDING,
-            CommentModerationDecision.REJECT,
-        )
-
-        assertThat(approved).isEqualTo(
-            CommentModerationTransition(
-                commentStatus = ReviewCommentStatus.PUBLISHED,
-                auditAction = ModerationAuditAction.COMMENT_APPROVED,
-            ),
-        )
-        assertThat(rejected).isEqualTo(
-            CommentModerationTransition(
-                commentStatus = ReviewCommentStatus.REJECTED,
-                auditAction = ModerationAuditAction.COMMENT_REJECTED,
-            ),
-        )
-    }
-
-    @Test
-    fun `comment decision rejects every state other than pending`() {
-        ReviewCommentStatus.entries
-            .filterNot { it == ReviewCommentStatus.PENDING }
-            .forEach { status ->
-                CommentModerationDecision.entries.forEach { decision ->
-                    assertThatIllegalStateException().isThrownBy {
-                        ModerationTransitionPolicy.decideComment(status, decision)
-                    }
-                }
-            }
-    }
-
-    @Test
     fun `review report receipt hides only a published comment and never structured ratings`() {
         ReviewCommentStatus.entries.forEach { status ->
             val transition = ModerationTransitionPolicy.receiveReviewReport(

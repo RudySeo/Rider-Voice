@@ -9,7 +9,9 @@ const outputPath = resolve(
   scriptDirectory,
   '../src/shared/api/generated.ts',
 )
-const schemaUrl = new URL('http://localhost:8080/v3/api-docs')
+const schemaUrl = new URL(
+  process.env.OPENAPI_SCHEMA_URL ?? 'http://localhost:8080/v3/api-docs',
+)
 const nodes = await openapiTS(schemaUrl, { exportType: true })
 const source = `// @ts-nocheck -- generated discriminator cycles are validated by the backend OpenAPI contract\n${astToString(nodes)}`
 

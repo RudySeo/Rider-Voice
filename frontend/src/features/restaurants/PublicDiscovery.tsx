@@ -482,7 +482,7 @@ function PublicReviewList({
     >
       <div className={styles.sectionHeading}>
         <h2 id="public-reviews-title">공개 리뷰</h2>
-        <p>구조화 평가는 즉시 공개되며 의견은 승인된 경우에만 보입니다.</p>
+        <p>구조화 평가와 자유 의견은 즉시 공개되며 신고 시 의견이 숨겨질 수 있습니다.</p>
       </div>
       {reviews.isPending ? (
         <p className={styles.status} role="status">

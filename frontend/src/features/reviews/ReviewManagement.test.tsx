@@ -124,7 +124,7 @@ describe('my review list', () => {
     expect(within(currentCard).getByRole('button', { name: '삭제' })).toBeInTheDocument()
 
     expect(within(anotherCard).getByText('공개됨')).toBeInTheDocument()
-    expect(within(anotherCard).getByText('의견 반려')).toBeInTheDocument()
+    expect(within(anotherCard).getByText('관리자에 의해 숨김')).toBeInTheDocument()
     expect(within(anotherCard).getByRole('link', { name: '수정' })).toBeInTheDocument()
     expect(within(anotherCard).getByRole('button', { name: '삭제' })).toBeInTheDocument()
 
@@ -175,7 +175,7 @@ describe('review edit', () => {
             pickupSpaceCleanliness: 'VERY_GOOD',
           },
           comment: '수정한 의견',
-          commentModerationStatus: 'PENDING',
+          commentModerationStatus: 'PUBLISHED',
         })
       }
       return jsonResponse({ items: [currentReview], nextCursor: null })
@@ -188,7 +188,7 @@ describe('review edit', () => {
     expect(screen.queryByRole('textbox', { name: '음식점' })).not.toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: '방문 연월' })).not.toBeInTheDocument()
     expect(
-      screen.getByText('의견을 수정하면 기존 공개 의견은 숨겨지고 다시 검수 대기가 됩니다.'),
+      screen.getByText('수정한 의견은 즉시 공개됩니다. 신고로 숨겨진 의견은 처리 전까지 계속 숨겨집니다.'),
     ).toBeInTheDocument()
 
     await userEvent.click(

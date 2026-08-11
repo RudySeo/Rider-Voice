@@ -32,12 +32,12 @@ describe('shared review fields', () => {
     render(
       <ReviewCommentField
         comment="기존 의견"
-        notice="다시 검수됩니다."
+        notice="즉시 공개됩니다."
         onChange={onChange}
       />,
     )
 
-    expect(screen.getByText('다시 검수됩니다.')).toBeInTheDocument()
+    expect(screen.getByText('즉시 공개됩니다.')).toBeInTheDocument()
     await userEvent.type(
       screen.getByRole('textbox', { name: '자유 의견 (선택)' }),
       ' 수정',

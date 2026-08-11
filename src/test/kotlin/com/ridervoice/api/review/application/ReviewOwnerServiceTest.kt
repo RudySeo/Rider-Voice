@@ -27,7 +27,7 @@ class ReviewOwnerServiceTest {
 
     @Test
     fun `owner can update an active review without changing visit month`() {
-        val review = review("기존 공개 의견").also { it.publishComment() }
+        val review = review("기존 공개 의견")
         val fixture = fixture(review)
 
         val result = fixture.service.update(UpdateReviewCommand(AUTHOR_ID, REVIEW_ID, changedRatings(), "  새 의견  "))
@@ -35,7 +35,7 @@ class ReviewOwnerServiceTest {
         assertThat(result.visitMonth).isEqualTo(VisitMonth.parse("2026-07"))
         assertThat(result.ratings).isEqualTo(changedRatings())
         assertThat(result.comment).isEqualTo("새 의견")
-        assertThat(result.commentModerationStatus).isEqualTo(ReviewCommentStatus.PENDING)
+        assertThat(result.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
     }
 
     @Test

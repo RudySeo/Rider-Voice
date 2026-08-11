@@ -1,39 +1,30 @@
 package com.ridervoice.api.moderation.presentation
 
-import com.ridervoice.api.moderation.application.model.CommentModerationCursor
 import com.ridervoice.api.moderation.application.model.PendingRestaurantInfoReportPageResult
-import com.ridervoice.api.moderation.application.model.PendingReviewCommentPageResult
 import com.ridervoice.api.moderation.application.model.PendingReviewReportPageResult
 import com.ridervoice.api.moderation.application.model.ReportModerationCursor
 import com.ridervoice.api.moderation.application.model.RestaurantInfoReportResult
-import com.ridervoice.api.moderation.application.model.ReviewCommentDecisionResult
 import com.ridervoice.api.moderation.application.model.ReviewReportResult
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportCommand
-import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentCommand
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
-import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.RelinkExistingPickupCorrection
 import com.ridervoice.api.moderation.application.port.`in`.RelinkVerifiedAddressCorrection
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.CloseRestaurantCorrection
-import com.ridervoice.api.moderation.presentation.dto.CommentDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
 import com.ridervoice.api.moderation.presentation.dto.ModerationPageRequest
 import com.ridervoice.api.moderation.presentation.dto.PendingRestaurantInfoReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingRestaurantInfoReportResponse
-import com.ridervoice.api.moderation.presentation.dto.PendingReviewCommentPageResponse
-import com.ridervoice.api.moderation.presentation.dto.PendingReviewCommentResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportResponse
-import com.ridervoice.api.moderation.presentation.dto.ReviewCommentDecisionResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportResponse
 import com.ridervoice.api.moderation.presentation.dto.*
@@ -61,12 +52,6 @@ class ModerationHttpMapper {
         request.details,
     )
 
-    fun toCommentQuery(adminUserId: Long, request: ModerationPageRequest) = ListPendingReviewCommentsQuery(
-        adminUserId,
-        request.cursor?.let(::decodeCommentCursor),
-        request.size,
-    )
-
     fun toReviewReportQuery(adminUserId: Long, request: ModerationPageRequest) = ListPendingReviewReportsQuery(
         adminUserId,
         request.cursor?.let(::decodeReportCursor),
@@ -81,12 +66,6 @@ class ModerationHttpMapper {
         request.cursor?.let(::decodeReportCursor),
         request.size,
     )
-
-    fun toCommentDecisionCommand(
-        adminUserId: Long,
-        reviewId: Long,
-        request: CommentDecisionRequest,
-    ) = DecideReviewCommentCommand(adminUserId, reviewId, requireNotNull(request.decision))
 
     fun toReviewReportDecisionCommand(
         adminUserId: Long,
@@ -138,19 +117,6 @@ class ModerationHttpMapper {
         result.decidedAt,
     )
 
-    fun toResponse(result: ReviewCommentDecisionResult) = ReviewCommentDecisionResponse(
-        result.reviewId,
-        result.commentModerationStatus,
-        result.decidedAt,
-    )
-
-    fun toResponse(result: PendingReviewCommentPageResult) = PendingReviewCommentPageResponse(
-        items = result.items.map {
-            PendingReviewCommentResponse(it.reviewId, it.authorUserId, it.comment, it.createdAt, it.updatedAt)
-        },
-        nextCursor = result.nextCursor?.let { encodeCursor(it.createdAt, it.reviewId) },
-    )
-
     fun toResponse(result: PendingReviewReportPageResult) = PendingReviewReportPageResponse(
         items = result.items.map {
             PendingReviewReportResponse(
@@ -178,11 +144,6 @@ class ModerationHttpMapper {
         },
         nextCursor = result.nextCursor?.let { encodeCursor(it.createdAt, it.reportId) },
     )
-
-    private fun decodeCommentCursor(value: String): CommentModerationCursor {
-        val (createdAt, id) = decodeCursor(value)
-        return CommentModerationCursor(createdAt, id)
-    }
 
     private fun decodeReportCursor(value: String): ReportModerationCursor {
         val (createdAt, id) = decodeCursor(value)

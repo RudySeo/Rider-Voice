@@ -42,7 +42,7 @@ class ModerationInvestigationServiceTest {
         assertThat(result.authorUserId).isEqualTo(9L)
         assertThat(result.authorActivityMonths).isEqualTo(3)
         assertThat(result.restaurantName).isEqualTo("브랜드")
-        assertThat(result.comment).isEqualTo("검수 원문")
+        assertThat(result.comment).isEqualTo("신고 조사 원문")
     }
 
     @Test
@@ -93,7 +93,7 @@ class ModerationInvestigationServiceTest {
         pickupAddress = "서울 강남구 1",
         visitMonth = VisitMonth.parse("2026-07"),
         ratings = ReviewRatings(ReviewRating.GOOD, ReviewRating.GOOD, ReviewRating.GOOD, ReviewRating.GOOD, ReviewRating.GOOD, ReviewRating.GOOD),
-        comment = "검수 원문",
+        comment = "신고 조사 원문",
         commentStatus = ReviewCommentStatus.PENDING,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
         active = true,

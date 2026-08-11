@@ -167,3 +167,4 @@ erDiagram
 | 운영 | `restaurant_info_reports` | 음식점 정보 신고와 처리 결과 | `(reporter_user_id, restaurant_id)` |
 | 운영 | `moderation_audits` | 관리자 변경 전후 감사 기록 | - |
 
+`reviews.comment_moderation_status`는 의견이 없으면 `NONE`, 즉시 공개 상태면 `PUBLISHED`, 신고로 임시 숨김이면 `HIDDEN_REPORTED`, 관리자 사후 조치로 숨김이면 `REJECTED`를 사용한다. `PENDING`은 기존 데이터 호환을 위해 enum에만 남기고 새 리뷰에는 저장하지 않는다.

@@ -20,10 +20,8 @@ import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoReportUseCase
-import com.ridervoice.api.moderation.application.port.`in`.DecideReviewCommentUseCase
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
-import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewCommentsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListModerationAuditsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
@@ -158,8 +156,6 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var listPublicReviews: ListPublicRestaurantReviewsUseCase
     @MockitoBean private lateinit var createReviewReport: CreateReviewReportUseCase
     @MockitoBean private lateinit var createRestaurantReport: CreateRestaurantInfoReportUseCase
-    @MockitoBean private lateinit var listComments: ListPendingReviewCommentsUseCase
-    @MockitoBean private lateinit var decideComment: DecideReviewCommentUseCase
     @MockitoBean private lateinit var listReviewReports: ListPendingReviewReportsUseCase
     @MockitoBean private lateinit var decideReviewReport: DecideReviewReportUseCase
     @MockitoBean private lateinit var listRestaurantReports: ListPendingRestaurantInfoReportsUseCase
@@ -466,8 +462,6 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/reviews/{reviewId}",
             "/api/v1/reviews/{reviewId}/reports",
             "/api/v1/restaurants/{restaurantId}/reports",
-            "/api/v1/admin/review-comments",
-            "/api/v1/admin/review-comments/{reviewId}",
             "/api/v1/admin/review-reports",
             "/api/v1/admin/review-reports/{reportId}",
             "/api/v1/admin/restaurant-reports",
@@ -503,8 +497,6 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/reviews/{reviewId}" to "delete",
             "/api/v1/reviews/{reviewId}/reports" to "post",
             "/api/v1/restaurants/{restaurantId}/reports" to "post",
-            "/api/v1/admin/review-comments" to "get",
-            "/api/v1/admin/review-comments/{reviewId}" to "patch",
             "/api/v1/admin/review-reports" to "get",
             "/api/v1/admin/review-reports/{reportId}" to "patch",
             "/api/v1/admin/restaurant-reports" to "get",
@@ -528,7 +520,6 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/reviews/{reviewId}" to "patch") to "UpdateReviewRequest",
             ("/api/v1/reviews/{reviewId}/reports" to "post") to "CreateReviewReportRequest",
             ("/api/v1/restaurants/{restaurantId}/reports" to "post") to "CreateRestaurantInfoReportRequest",
-            ("/api/v1/admin/review-comments/{reviewId}" to "patch") to "CommentDecisionRequest",
             ("/api/v1/admin/review-reports/{reportId}" to "patch") to "ReviewReportDecisionRequest",
             ("/api/v1/admin/restaurant-reports/{reportId}" to "patch") to "RestaurantInfoReportDecisionRequest",
             ("/api/v1/admin/restaurants/{restaurantId}/merge" to "post") to "MergeRestaurantRequest",
@@ -554,8 +545,6 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/reviews/{reviewId}" to "delete") to ("200" to "DeleteReviewResponse"),
             ("/api/v1/reviews/{reviewId}/reports" to "post") to ("201" to "ReviewReportResponse"),
             ("/api/v1/restaurants/{restaurantId}/reports" to "post") to ("201" to "RestaurantInfoReportResponse"),
-            ("/api/v1/admin/review-comments" to "get") to ("200" to "PendingReviewCommentPageResponse"),
-            ("/api/v1/admin/review-comments/{reviewId}" to "patch") to ("200" to "ReviewCommentDecisionResponse"),
             ("/api/v1/admin/review-reports" to "get") to ("200" to "PendingReviewReportPageResponse"),
             ("/api/v1/admin/review-reports/{reportId}" to "patch") to ("200" to "ReviewReportResponse"),
             ("/api/v1/admin/restaurant-reports" to "get") to ("200" to "PendingRestaurantInfoReportPageResponse"),
@@ -590,14 +579,13 @@ class ApiContractRegressionMockMvcTest {
             "ReviewResponse", "ReviewRestaurantResponse", "ReviewRatingsResponse", "MyReviewListResponse",
             "PublicReviewListResponse", "PublicReviewListItemResponse", "PublicReviewAuthorActivityResponse",
             "DeleteReviewResponse", "CreateReviewReportRequest", "CreateRestaurantInfoReportRequest",
-            "CommentDecisionRequest", "ReviewReportDecisionRequest", "RestaurantInfoReportDecisionRequest",
+            "ReviewReportDecisionRequest", "RestaurantInfoReportDecisionRequest",
             "RestaurantInfoCorrectionRequest", "RenameRestaurantCorrectionRequest",
             "RelinkExistingPickupCorrectionRequest", "RelinkVerifiedAddressCorrectionRequest",
             "MergeRestaurantCorrectionRequest", "CloseRestaurantCorrectionRequest",
             "MergeRestaurantRequest", "RelinkRestaurantPickupLocationRequest", "ReviewReportResponse",
             "RenameRestaurantRequest", "ChangeRestaurantStatusRequest", "RelinkRestaurantVerifiedAddressRequest",
-            "RestaurantInfoReportResponse", "PendingReviewCommentResponse", "PendingReviewCommentPageResponse",
-            "ReviewCommentDecisionResponse", "PendingReviewReportResponse", "PendingReviewReportPageResponse",
+            "RestaurantInfoReportResponse", "PendingReviewReportResponse", "PendingReviewReportPageResponse",
             "PendingRestaurantInfoReportResponse", "PendingRestaurantInfoReportPageResponse",
             "RestaurantMergeResponse", "RestaurantPickupRelinkResponse", "RestaurantRenameResponse",
             "RestaurantStatusChangeResponse", "AdminReviewDetailResponse", "AdminReviewAuthorResponse",
@@ -631,7 +619,6 @@ class ApiContractRegressionMockMvcTest {
             ),
             ("CreateRestaurantInfoReportRequest" to "reason") to
                 setOf("INCORRECT_NAME", "INCORRECT_PICKUP_LOCATION", "DUPLICATE", "CLOSED", "OTHER"),
-            ("CommentDecisionRequest" to "decision") to setOf("APPROVE", "REJECT"),
             ("ReviewReportDecisionRequest" to "decision") to setOf("DISMISS", "HIDE_COMMENT", "EXCLUDE_REVIEW"),
             ("RestaurantInfoReportDecisionRequest" to "decision") to setOf("DISMISS", "RESOLVE"),
             ("RestaurantInfoCorrectionRequest" to "type") to setOf(
@@ -652,8 +639,6 @@ class ApiContractRegressionMockMvcTest {
             ),
             ("PendingRestaurantInfoReportResponse" to "reason") to
                 setOf("INCORRECT_NAME", "INCORRECT_PICKUP_LOCATION", "DUPLICATE", "CLOSED", "OTHER"),
-            ("ReviewCommentDecisionResponse" to "commentModerationStatus") to
-                setOf("NONE", "PENDING", "PUBLISHED", "REJECTED", "HIDDEN_REPORTED"),
             ("RestaurantMergeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
             ("RestaurantStatusChangeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
             ("RestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
@@ -680,7 +665,7 @@ class ApiContractRegressionMockMvcTest {
             "RelinkRestaurantVerifiedAddressRequest" to "reason",
             "ReviewReportResponse" to "decision", "ReviewReportResponse" to "decidedAt",
             "RestaurantInfoReportResponse" to "decision", "RestaurantInfoReportResponse" to "decidedAt",
-            "PendingReviewCommentPageResponse" to "nextCursor", "PendingReviewReportResponse" to "details",
+            "PendingReviewReportResponse" to "details",
             "PendingReviewReportPageResponse" to "nextCursor", "PendingRestaurantInfoReportResponse" to "details",
             "PendingRestaurantInfoReportPageResponse" to "nextCursor",
             "AdminRestaurantSearchPageResponse" to "nextCursor",
@@ -706,7 +691,7 @@ class ApiContractRegressionMockMvcTest {
             "ManualExistingLocationRestaurantTargetRequest" to "platforms",
             "ManualAddressRestaurantTargetRequest" to "platforms",
             "CreateReviewReportRequest" to "reason", "CreateRestaurantInfoReportRequest" to "reason",
-            "CommentDecisionRequest" to "decision", "ReviewReportDecisionRequest" to "decision",
+            "ReviewReportDecisionRequest" to "decision",
             "RestaurantInfoReportDecisionRequest" to "decision",
             "MergeRestaurantRequest" to "canonicalRestaurantId",
             "RelinkRestaurantPickupLocationRequest" to "pickupLocationId",
@@ -739,7 +724,6 @@ class ApiContractRegressionMockMvcTest {
         val CURSOR_OPERATIONS = setOf(
             "/api/v1/restaurants/{restaurantId}/reviews" to "get",
             "/api/v1/users/me/reviews" to "get",
-            "/api/v1/admin/review-comments" to "get",
             "/api/v1/admin/review-reports" to "get",
             "/api/v1/admin/restaurant-reports" to "get",
             "/api/v1/admin/restaurants/search" to "get",

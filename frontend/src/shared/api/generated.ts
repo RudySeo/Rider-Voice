@@ -154,23 +154,6 @@ export type paths = {
         patch: operations["decideReviewReport"];
         trace?: never;
     };
-    "/api/v1/admin/review-comments/{reviewId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** 리뷰 의견 검수 결정 */
-        patch: operations["decideComment"];
-        trace?: never;
-    };
     "/api/v1/admin/restaurants/{restaurantId}/status": {
         parameters: {
             query?: never;
@@ -319,7 +302,7 @@ export type paths = {
         };
         /**
          * 음식점 공개 리뷰 목록 조회
-         * @description ACTIVE 리뷰 이력을 최신순으로 반환하며 승인된 의견과 익명 활동 정보만 공개합니다.
+         * @description ACTIVE 리뷰 이력을 최신순으로 반환하며 신고로 숨겨지지 않은 의견과 익명 활동 정보만 공개합니다.
          */
         get: operations["list_1"];
         put?: never;
@@ -376,23 +359,6 @@ export type paths = {
         };
         /** 처리 대기 리뷰 신고 목록 */
         get: operations["listReviewReports"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 검수 대기 리뷰 의견 목록 */
-        get: operations["listComments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -816,18 +782,6 @@ export type components = {
             /** @description 관리자 결정 사유 */
             reason?: string | null;
         };
-        CommentDecisionRequest: {
-            /** @enum {string} */
-            decision: "APPROVE" | "REJECT";
-        };
-        ReviewCommentDecisionResponse: {
-            /** Format: int64 */
-            reviewId?: number;
-            /** @enum {string} */
-            commentModerationStatus?: "NONE" | "PENDING" | "PUBLISHED" | "REJECTED" | "HIDDEN_REPORTED";
-            /** Format: date-time */
-            decidedAt?: string;
-        };
         ChangeRestaurantStatusRequest: {
             /** @enum {string} */
             action: "CLOSE" | "REOPEN";
@@ -1032,7 +986,7 @@ export type components = {
             /** @example 2026-07 */
             visitMonth?: string;
             ratings?: components["schemas"]["ReviewRatingsResponse"];
-            /** @description 관리자 승인된 의견만 노출됩니다. */
+            /** @description 작성 즉시 공개되며 신고 또는 관리자 조치로 숨겨질 수 있습니다. */
             comment?: string | null;
             authorActivity?: components["schemas"]["PublicReviewAuthorActivityResponse"];
             /** Format: date-time */
@@ -1136,22 +1090,6 @@ export type components = {
             details?: string | null;
             /** Format: date-time */
             createdAt?: string;
-        };
-        PendingReviewCommentPageResponse: {
-            items?: components["schemas"]["PendingReviewCommentResponse"][];
-            /** @description createdAt과 reviewId 기반 opaque cursor */
-            nextCursor?: string | null;
-        };
-        PendingReviewCommentResponse: {
-            /** Format: int64 */
-            reviewId?: number;
-            /** Format: int64 */
-            authorUserId?: number;
-            comment?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
         };
         AdminExternalReferenceResponse: {
             /** @enum {string} */
@@ -1665,77 +1603,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewReportResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    decideComment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                reviewId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CommentDecisionRequest"];
-            };
-        };
-        responses: {
-            /** @description 리뷰 의견 검수 결정 완료 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewCommentDecisionResponse"];
                 };
             };
             /** @description Bad Request */
@@ -2318,75 +2185,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PendingReviewReportPageResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listComments: {
-        parameters: {
-            query?: {
-                /** @description createdAt과 ID 기반 opaque cursor */
-                cursor?: string | null;
-                size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 검수 대기 리뷰 의견 목록 조회 성공 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PendingReviewCommentPageResponse"];
                 };
             };
             /** @description Bad Request */

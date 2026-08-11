@@ -25,11 +25,6 @@ enum class RestaurantInfoReportReason {
     OTHER,
 }
 
-enum class CommentModerationDecision {
-    APPROVE,
-    REJECT,
-}
-
 enum class ReviewReportDecision {
     DISMISS,
     HIDE_COMMENT,
@@ -79,11 +74,6 @@ enum class ModerationTargetType {
     RESTAURANT,
     RESTAURANT_INFO_REPORT,
 }
-
-data class CommentModerationTransition(
-    val commentStatus: ReviewCommentStatus,
-    val auditAction: ModerationAuditAction,
-)
 
 data class ReviewReportReceiptTransition(
     val reportStatus: ReportStatus,

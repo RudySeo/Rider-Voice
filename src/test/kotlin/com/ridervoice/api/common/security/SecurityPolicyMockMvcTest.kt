@@ -176,8 +176,6 @@ class SecurityPolicyMockMvcTest {
             Endpoint(HttpMethod.DELETE, "/api/v1/reviews/10", Scope.USER),
             Endpoint(HttpMethod.POST, "/api/v1/reviews/10/reports", Scope.USER),
             Endpoint(HttpMethod.POST, "/api/v1/restaurants/10/reports", Scope.USER),
-            Endpoint(HttpMethod.GET, "/api/v1/admin/review-comments", Scope.ADMIN),
-            Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-comments/10", Scope.ADMIN),
             Endpoint(HttpMethod.GET, "/api/v1/admin/review-reports", Scope.ADMIN),
             Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-reports/10", Scope.ADMIN),
             Endpoint(HttpMethod.GET, "/api/v1/admin/restaurant-reports", Scope.ADMIN),
@@ -247,14 +245,12 @@ private class SecurityPolicyFixtureController {
     fun reportRestaurant() = "ok"
 
     @GetMapping(
-        "/api/v1/admin/review-comments",
         "/api/v1/admin/review-reports",
         "/api/v1/admin/restaurant-reports",
     )
     fun adminQueues() = "ok"
 
     @org.springframework.web.bind.annotation.PatchMapping(
-        "/api/v1/admin/review-comments/{reviewId}",
         "/api/v1/admin/review-reports/{reportId}",
         "/api/v1/admin/restaurant-reports/{reportId}",
         "/api/v1/admin/restaurants/{restaurantId}/pickup-location",

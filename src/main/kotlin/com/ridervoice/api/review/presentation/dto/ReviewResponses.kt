@@ -55,7 +55,7 @@ data class PublicReviewListItemResponse(
     @field:Schema(pattern = VISIT_MONTH_PATTERN, example = "2026-07")
     val visitMonth: String,
     val ratings: ReviewRatingsResponse,
-    @field:Schema(nullable = true, description = "관리자 승인된 의견만 노출됩니다.")
+    @field:Schema(nullable = true, description = "작성 즉시 공개되며 신고 또는 관리자 조치로 숨겨질 수 있습니다.")
     val comment: String?,
     val authorActivity: PublicReviewAuthorActivityResponse,
     val createdAt: Instant,

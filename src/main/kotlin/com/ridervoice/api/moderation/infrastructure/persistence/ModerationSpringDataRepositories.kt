@@ -10,8 +10,6 @@ import com.ridervoice.api.moderation.domain.ReviewReport
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.Review
-import com.ridervoice.api.review.domain.ReviewCommentStatus
-import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
@@ -193,46 +191,4 @@ internal interface SpringDataModerationReviewTargetRepository : JpaRepository<Re
 
 internal interface SpringDataModerationRestaurantTargetRepository : Repository<Restaurant, Long> {
     fun existsByIdAndStatus(restaurantId: Long, status: RestaurantStatus): Boolean
-}
-
-internal interface SpringDataReviewCommentModerationRepository : JpaRepository<Review, Long> {
-    @Query(
-        """
-        select review
-        from Review review
-        where review.commentModerationStatus = :commentStatus
-          and review.visibilityStatus = :visibilityStatus
-        order by review.createdAt desc, review.id desc
-        """,
-    )
-    fun findAllPendingComments(
-        @Param("commentStatus") commentStatus: ReviewCommentStatus,
-        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
-        pageable: Pageable,
-    ): List<Review>
-
-    @Query(
-        """
-        select review
-        from Review review
-        where review.commentModerationStatus = :commentStatus
-          and review.visibilityStatus = :visibilityStatus
-          and (
-              review.createdAt < :cursorCreatedAt
-              or (review.createdAt = :cursorCreatedAt and review.id < :cursorId)
-          )
-        order by review.createdAt desc, review.id desc
-        """,
-    )
-    fun findAllPendingCommentsBeforeCursor(
-        @Param("commentStatus") commentStatus: ReviewCommentStatus,
-        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
-        @Param("cursorCreatedAt") cursorCreatedAt: Instant,
-        @Param("cursorId") cursorId: Long,
-        pageable: Pageable,
-    ): List<Review>
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select review from Review review where review.id = :reviewId")
-    fun findByIdForUpdate(@Param("reviewId") reviewId: Long): Optional<Review>
 }

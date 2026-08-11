@@ -341,7 +341,6 @@ class ModerationPersistenceContractTest {
         ).also {
             it.id = 40L
             setAuditTimes(it, Instant.parse("2026-07-25T03:00:00Z"))
-            it.publishComment()
         }
         val entityManager = fakeRepository(EntityManager::class.java) { method, arguments ->
             when (method.name) {

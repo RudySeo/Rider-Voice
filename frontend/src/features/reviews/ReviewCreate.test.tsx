@@ -88,7 +88,7 @@ const createReviewResult = (restaurantId: number) => ({
   visitMonth: '2026-07',
   ratings: {},
   comment: null,
-  commentModerationStatus: 'PENDING',
+  commentModerationStatus: 'PUBLISHED',
   visibilityStatus: 'ACTIVE',
   createdAt: '2026-07-29T03:00:00Z',
   updatedAt: '2026-07-29T03:00:00Z',
@@ -384,7 +384,7 @@ describe('review create validation and failures', () => {
       screen.getByText('의견은 공백을 정리한 뒤 200자 이하여야 합니다.'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('의견은 관리자 사전 검수 후 공개됩니다.'),
+      screen.getByText('의견은 제출 직후 공개되며 신고 시 숨겨질 수 있습니다.'),
     ).toBeInTheDocument()
   })
 

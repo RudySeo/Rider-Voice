@@ -32,6 +32,7 @@ import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.application.port.out.ReviewRepository
+import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
 import com.ridervoice.api.review.domain.VisitMonth
@@ -227,11 +228,12 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
         val first = service.create(createCommand(author.id, ExistingRestaurantTargetCommand(fixture.restaurant.id)))
 
         val updated = updateReview.update(
-            UpdateReviewCommand(author.id, first.reviewId, changedRatings(), "  다시 검수  "),
+            UpdateReviewCommand(author.id, first.reviewId, changedRatings(), "  즉시 공개  "),
         )
         assertThat(updated.visitMonth).isEqualTo(VISIT_MONTH)
         assertThat(updated.ratings).isEqualTo(changedRatings())
-        assertThat(updated.comment).isEqualTo("다시 검수")
+        assertThat(updated.comment).isEqualTo("즉시 공개")
+        assertThat(updated.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
 
         deleteReview.delete(DeleteReviewCommand(author.id, first.reviewId))
         assertThatThrownBy {

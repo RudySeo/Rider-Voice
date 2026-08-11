@@ -5,27 +5,6 @@ import com.ridervoice.api.review.domain.ReviewVisibilityStatus
 
 object ModerationTransitionPolicy {
 
-    fun decideComment(
-        currentStatus: ReviewCommentStatus,
-        decision: CommentModerationDecision,
-    ): CommentModerationTransition {
-        check(currentStatus == ReviewCommentStatus.PENDING) {
-            "Only a pending comment can receive a moderation decision"
-        }
-
-        return when (decision) {
-            CommentModerationDecision.APPROVE -> CommentModerationTransition(
-                commentStatus = ReviewCommentStatus.PUBLISHED,
-                auditAction = ModerationAuditAction.COMMENT_APPROVED,
-            )
-
-            CommentModerationDecision.REJECT -> CommentModerationTransition(
-                commentStatus = ReviewCommentStatus.REJECTED,
-                auditAction = ModerationAuditAction.COMMENT_REJECTED,
-            )
-        }
-    }
-
     fun receiveReviewReport(
         reviewVisibilityStatus: ReviewVisibilityStatus,
         commentStatus: ReviewCommentStatus,

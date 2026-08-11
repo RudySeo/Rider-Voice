@@ -13,7 +13,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
   → 6개 구조화 평가와 선택 의견 작성
   → 개별 리뷰 공개
   → 서로 다른 작성자 5명부터 브랜드·장소 집계 공개
-  → 의견 검수, 신고와 관리자 정정
+  → 의견 공개, 신고와 관리자 정정
 ```
 
 하나의 실제 픽업 장소에 여러 배달 브랜드가 연결될 수 있습니다. 카카오에 없는 브랜드는 검증된 표준 주소와 상세 위치를 사용해 첫 리뷰 작성 시 등록합니다.
@@ -27,7 +27,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 직원 응대
 - 라이더 존중
 
-평가 값은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`입니다. 같은 음식점에는 활성 리뷰를 하나만 둘 수 있고, 삭제·전체 제외된 경우 최초 작성 시각부터 90일 후 다시 작성할 수 있습니다. 구조화 평가는 즉시 공개하고 최대 200자의 선택 의견은 관리자 승인 후 공개합니다.
+평가 값은 `VERY_GOOD`, `GOOD`, `NEEDS_IMPROVEMENT`, `MAJOR_IMPROVEMENT`, `NOT_OBSERVED`입니다. 같은 음식점에는 활성 리뷰를 하나만 둘 수 있고, 삭제·전체 제외된 경우 최초 작성 시각부터 90일 후 다시 작성할 수 있습니다. 구조화 평가와 최대 200자의 선택 의견은 작성·수정 즉시 공개하며, 신고된 의견은 처리 전까지 숨깁니다.
 
 배달내역 캡처, 이미지 업로드, OCR와 배달 앱 화면 파싱은 사용하지 않습니다. 종합 별점, 음식점 순위와 인증 배지도 제공하지 않습니다.
 
@@ -58,7 +58,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 리뷰 생성·수정·삭제·내 리뷰 조회, 90일 재작성 제한과 공개 이력
 - 로그인 없이 사용할 수 있는 음식점 검색·상세·리뷰 조회
 - 서로 다른 작성자 5명 기준 브랜드·픽업 장소 집계와 `NOT_OBSERVED` 처리
-- 의견 검수, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
+- 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
 - 60초 단일 사용 OAuth 교환 코드와 `POST /api/v1/auth/oauth2/exchange`
@@ -77,7 +77,7 @@ OAuth 성공 시 backend callback은 access/refresh token을 URL에 전달하지
 
 모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
 
-목표 기획과 기술 계약은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [API 계약](docs/API_SPEC.md)을 참고하세요.
+목표 기획과 기술 결정은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [ERD](docs/ERD.md)를 참고하세요. 자세한 API 계약은 실행 중인 OpenAPI에서 확인합니다.
 
 ## 현재 API
 
@@ -105,8 +105,6 @@ POST   /api/v1/reviews/{reviewId}/reports
 POST   /api/v1/restaurants/{restaurantId}/reports
 
 # 관리자
-GET    /api/v1/admin/review-comments
-PATCH  /api/v1/admin/review-comments/{reviewId}
 GET    /api/v1/admin/review-reports
 PATCH  /api/v1/admin/review-reports/{reportId}
 GET    /api/v1/admin/restaurant-reports
@@ -137,6 +135,12 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 API 서버와 MySQL은 로컬 프로세스로 실행합니다. Docker와 Testcontainers는 사용하지 않습니다.
 
 Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 데이터베이스를 자동으로 삭제하거나 초기화하지 않으므로, 기존 데이터가 필요한 환경에서는 DROP/truncate를 실행하지 않습니다.
+
+자유 의견 즉시 공개 정책 적용 전에 기존 `PENDING` 의견을 한 번 전환합니다. 아래 migration은 의견이 있으면 `PUBLISHED`, 없으면 `NONE`으로 바꾸며 다른 의견·리뷰 상태는 변경하지 않습니다.
+
+```bash
+mysql --user=<사용자> --password --database=rider < scripts/migrations/20260812-publish-pending-review-comments.sql
+```
 
 프로젝트 루트에 Git에서 제외되는 `.env`를 만들고 로컬 환경에 맞게 설정합니다.
 
@@ -212,4 +216,4 @@ npm run build
 - 외부 API는 infrastructure adapter에서만 호출합니다.
 - 현재 작업과 무관한 사용자 변경은 되돌리지 않습니다.
 
-브랜치와 커밋 규칙은 [Git Flow](docs/GIT_FLOW.md)를 참고하세요.
+커밋 메시지는 Conventional Commits 형식을 사용합니다.

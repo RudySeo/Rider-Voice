@@ -159,7 +159,7 @@ class ReviewApiContractMockMvcTest {
                 jsonPath("$.restaurant.restaurantId") { value(10) }
                 jsonPath("$.visitMonth") { value("2026-07") }
                 jsonPath("$.ratings.pickupSpaceCleanliness") { value("GOOD") }
-                jsonPath("$.commentModerationStatus") { value("PENDING") }
+                jsonPath("$.commentModerationStatus") { value("PUBLISHED") }
                 jsonPath("$.historyStatus") { doesNotExist() }
                 jsonPath("$.sequence") { doesNotExist() }
                 jsonPath("$.createdAt") { value("2026-07-25T03:00:00Z") }
@@ -175,7 +175,7 @@ class ReviewApiContractMockMvcTest {
             validCreateBody(EXISTING_TARGET).replace("\"pickupSpaceCleanliness\":\"GOOD\",", ""),
             validCreateBody(EXISTING_TARGET).replace("2026-07", "2026-13"),
             validCreateBody(EXISTING_TARGET).replace(
-                "  검수할 의견  ",
+                "  즉시 공개할 의견  ",
                 " ${"가".repeat(201)} ",
             ),
             validCreateBody("""{"type":"EXISTING","restaurantId":0}"""),
@@ -401,8 +401,8 @@ class ReviewApiContractMockMvcTest {
         ),
         visitMonth = VisitMonth.parse("2026-07"),
         ratings = ratings(),
-        comment = "검수할 의견",
-        commentModerationStatus = ReviewCommentStatus.PENDING,
+        comment = "즉시 공개할 의견",
+        commentModerationStatus = ReviewCommentStatus.PUBLISHED,
         visibilityStatus = ReviewVisibilityStatus.ACTIVE,
         createdAt = Instant.parse("2026-07-25T03:00:00Z"),
         updatedAt = Instant.parse("2026-07-25T03:00:00Z"),
@@ -432,7 +432,7 @@ class ReviewApiContractMockMvcTest {
             restaurantTarget = target,
             visitMonth = VisitMonth.parse("2026-07"),
             ratings = ratings(),
-            comment = "  검수할 의견  ",
+            comment = "  즉시 공개할 의견  ",
         )
 
     private fun authenticatedUser() = authentication(
@@ -453,7 +453,7 @@ class ReviewApiContractMockMvcTest {
           "handoffAccuracy":"GOOD",
           "staffInteraction":"NOT_OBSERVED",
           "riderRespect":"GOOD",
-          "comment":"  검수할 의견  "
+          "comment":"  즉시 공개할 의견  "
         }
     """.trimIndent()
 

@@ -778,7 +778,7 @@ export function ReviewCreate({
           <ReviewCommentField
             comment={comment}
             error={reviewErrors.comment}
-            notice="의견은 관리자 사전 검수 후 공개됩니다."
+            notice="의견은 제출 직후 공개되며 신고 시 숨겨질 수 있습니다."
             onChange={setComment}
           />
           <div className={styles.actions}>
@@ -810,7 +810,7 @@ export function ReviewCreate({
         <div className={styles.panel}>
           <div className={styles.sectionHeading}>
             <h2>제출할 리뷰를 최종 확인해 주세요</h2>
-            <p>구조화 평가는 제출 직후 공개되며 의견은 검수 후 공개됩니다.</p>
+            <p>구조화 평가와 자유 의견은 제출 직후 공개됩니다.</p>
           </div>
           <TargetSummary selection={selection} />
           <dl className={styles.confirmation}>

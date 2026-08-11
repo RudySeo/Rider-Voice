@@ -285,8 +285,8 @@ describe('public restaurant detail', () => {
                 staffInteraction: 'NOT_OBSERVED',
                 riderRespect: 'GOOD',
               },
-              comment: '승인되어 공개된 의견',
-              rawComment: '검수 전 원문',
+              comment: '즉시 공개된 의견',
+              rawComment: '공개하면 안 되는 원문',
               authorActivity: {
                 activityMonths: 3,
                 publicReviewCount: 8,
@@ -318,7 +318,7 @@ describe('public restaurant detail', () => {
                 riderRespect: 'GOOD',
               },
               comment: null,
-              rawComment: '승인되지 않은 의견',
+              rawComment: '숨겨진 의견 원문',
               authorActivity: {
                 activityMonths: 2,
                 publicReviewCount: 4,
@@ -384,9 +384,9 @@ describe('public restaurant detail', () => {
     ).toBeInTheDocument()
 
     expect(
-      await screen.findByText('승인되어 공개된 의견'),
+      await screen.findByText('즉시 공개된 의견'),
     ).toBeInTheDocument()
-    expect(screen.queryByText('검수 전 원문')).not.toBeInTheDocument()
+    expect(screen.queryByText('공개하면 안 되는 원문')).not.toBeInTheDocument()
     expect(
       screen.queryByText('공개하면 안 되는 같은 장소 브랜드'),
     ).not.toBeInTheDocument()
@@ -409,7 +409,7 @@ describe('public restaurant detail', () => {
       ),
     )
     expect(await screen.findByText('2026-04 방문')).toBeInTheDocument()
-    expect(screen.queryByText('승인되지 않은 의견')).not.toBeInTheDocument()
+    expect(screen.queryByText('숨겨진 의견 원문')).not.toBeInTheDocument()
     expect(screen.getAllByText('UNVERIFIED')).toHaveLength(3)
     expect(
       screen.queryByRole('button', { name: '리뷰 더 보기' }),
