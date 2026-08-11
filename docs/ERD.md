@@ -129,7 +129,7 @@ erDiagram
 
     USERS ||--o{ OAUTH_ACCOUNTS : connects
     USERS ||--o{ USER_SESSIONS : owns
-    USER_SESSIONS o|--o| USER_SESSIONS : rotates_to
+ 
 
     PICKUP_LOCATIONS ||--o{ RESTAURANTS : contains
     RESTAURANTS o|--o{ RESTAURANTS : merged_into
