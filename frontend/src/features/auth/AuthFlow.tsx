@@ -11,7 +11,6 @@ import {
 import {
   Link,
   Navigate,
-  useLocation,
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
@@ -22,6 +21,7 @@ import {
   type ApiSession,
   type AuthState,
 } from '@/shared/api/session'
+import { ApiError } from '@/shared/api/errors'
 
 import styles from './AuthFlow.module.css'
 
@@ -29,8 +29,8 @@ type OAuthExchangeResponse = components['schemas']['AuthTokensResponse']
 
 export const OAUTH_LOGIN_PATH =
   '/api/v1/auth/oauth2/authorization/kakao' as const
+// Remove return paths saved by older frontend versions after a successful login.
 export const LOGIN_RETURN_PATH_KEY = 'riderVoice.loginReturnPath' as const
-const AUTH_FLOW_PATHS = new Set(['/login', '/auth/callback'])
 
 export type AuthSession = Pick<
   ApiSession,
@@ -97,56 +97,13 @@ const useAuth = (): AuthContextValue => {
   return useContext(AuthContext)
 }
 
-const toCurrentInternalPath = (
-  location: Pick<Location, 'pathname' | 'search' | 'hash'>,
-): string => `${location.pathname}${location.search}${location.hash}`
-
-const isSafeInternalPath = (candidate: string): boolean => {
-  if (
-    !candidate.startsWith('/') ||
-    candidate.startsWith('//') ||
-    candidate.startsWith('/\\')
-  ) {
-    return false
-  }
-
-  try {
-    return new URL(candidate, window.location.origin).origin === window.location.origin
-  } catch {
-    return false
-  }
-}
-
-const rememberLoginReturnPath = (path: string): void => {
-  if (!isSafeInternalPath(path)) {
-    return
-  }
-
-  const pathname = new URL(path, window.location.origin).pathname
-  if (!AUTH_FLOW_PATHS.has(pathname)) {
-    sessionStorage.setItem(LOGIN_RETURN_PATH_KEY, path)
-  }
-}
-
-const takeLoginReturnPath = (): string => {
-  const candidate = sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)
-  sessionStorage.removeItem(LOGIN_RETURN_PATH_KEY)
-  return candidate && isSafeInternalPath(candidate) ? candidate : '/'
-}
-
 type LoginButtonProps = {
   label?: string
 }
 
 export function LoginButton({ label = '카카오로 로그인' }: LoginButtonProps) {
-  const location = useLocation()
-
   return (
-    <Link
-      className={styles.primaryAction}
-      to="/login"
-      onClick={() => rememberLoginReturnPath(toCurrentInternalPath(location))}
-    >
+    <Link className={styles.primaryAction} to="/login">
       {label}
     </Link>
   )
@@ -155,7 +112,7 @@ export function LoginButton({ label = '카카오로 로그인' }: LoginButtonPro
 function OAuthLoginButton() {
   return (
     <a className={styles.primaryAction} href={OAUTH_LOGIN_PATH}>
-      카카오로 로그인
+      카카오 로그인
     </a>
   )
 }
@@ -165,7 +122,6 @@ type ProtectedRouteProps = {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const location = useLocation()
   const { restoring, state } = useAuth()
 
   if (restoring) {
@@ -180,10 +136,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return children
   }
 
-  rememberLoginReturnPath(toCurrentInternalPath(location))
-  return (
-    <Navigate replace to="/login" />
-  )
+  return <Navigate replace to="/login" />
 }
 
 export function AuthNavigation() {
@@ -238,7 +191,11 @@ export function AuthNavigation() {
   )
 }
 
-type CallbackState = 'exchanging' | 'failed'
+const GENERIC_CALLBACK_ERROR = '잠시 후 카카오 로그인을 다시 시작해 주세요.'
+
+type CallbackState =
+  | { status: 'exchanging' }
+  | { status: 'failed'; message: string }
 
 export function OAuthCallback() {
   const { session } = useAuth()
@@ -247,8 +204,11 @@ export function OAuthCallback() {
   const code = searchParams.get('code')
   const oauthError = searchParams.get('error')
   const invalidCallback = oauthError === 'oauth_failed' || !code?.trim()
-  const [callbackState, setCallbackState] =
-    useState<CallbackState>(invalidCallback ? 'failed' : 'exchanging')
+  const [callbackState, setCallbackState] = useState<CallbackState>(
+    invalidCallback
+      ? { status: 'failed', message: GENERIC_CALLBACK_ERROR }
+      : { status: 'exchanging' },
+  )
   const started = useRef(false)
 
   useEffect(() => {
@@ -263,16 +223,26 @@ export function OAuthCallback() {
 
     void session
       .exchange(code)
-      .then(() => navigate(takeLoginReturnPath(), { replace: true }))
-      .catch(() => setCallbackState('failed'))
+      .then(() => {
+        sessionStorage.removeItem(LOGIN_RETURN_PATH_KEY)
+        navigate('/', { replace: true })
+      })
+      .catch((error: unknown) => {
+        setCallbackState({
+          status: 'failed',
+          message:
+            error instanceof ApiError ? error.message : GENERIC_CALLBACK_ERROR,
+        })
+        navigate('/auth/callback', { replace: true })
+      })
   }, [code, invalidCallback, navigate, session])
 
-  if (callbackState === 'failed') {
+  if (callbackState.status === 'failed') {
     return (
       <section className={styles.panel}>
         <p className={styles.eyebrow}>로그인</p>
         <h1>로그인을 완료하지 못했습니다</h1>
-        <p>잠시 후 카카오 로그인을 다시 시작해 주세요.</p>
+        <p>{callbackState.message}</p>
         <LoginButton label="다시 로그인" />
       </section>
     )

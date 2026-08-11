@@ -69,7 +69,7 @@ describe('auth user flow', () => {
     resetApiSessionForTests()
   })
 
-  it('stores the current internal path before routing through the login notice', async () => {
+  it('routes through the login notice without storing the current path', async () => {
     render(
       <MemoryRouter initialEntries={['/restaurants/17?tab=reviews#latest']}>
         <LoginButton />
@@ -81,9 +81,7 @@ describe('auth user flow', () => {
     await userEvent.click(login)
 
     expect(login).toHaveAttribute('href', '/login')
-    expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBe(
-      '/restaurants/17?tab=reviews#latest',
-    )
+    expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
   })
 
   it('exchanges a new-user callback code once and applies the service session', async () => {
@@ -118,7 +116,7 @@ describe('auth user flow', () => {
     )
   })
 
-  it('applies an existing-user session and returns only to a safe stored internal path', async () => {
+  it('applies an existing-user session, clears a legacy return path, and goes home', async () => {
     sessionStorage.setItem(
       LOGIN_RETURN_PATH_KEY,
       '/me/reviews?cursor=next-review',
@@ -140,41 +138,12 @@ describe('auth user flow', () => {
       createApiSession({ fetchFn }),
     )
 
-    await waitFor(() =>
-      expect(`${router.state.location.pathname}${router.state.location.search}`).toBe(
-        '/me/reviews?cursor=next-review',
-      ),
-    )
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
 
     expect(fetchFn).toHaveBeenCalledTimes(1)
     expect(document.body).not.toHaveTextContent('private-access-token')
     expect(document.body).not.toHaveTextContent('private-refresh-token')
     expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
-  })
-
-  it.each([
-    'https://attacker.example/steal',
-    '//attacker.example/steal',
-    '/\\attacker.example/steal',
-  ])('rejects the unsafe stored return target %s', async (returnTarget) => {
-    sessionStorage.setItem(LOGIN_RETURN_PATH_KEY, returnTarget)
-    const session = createApiSession({
-      fetchFn: vi.fn<typeof fetch>().mockResolvedValue(
-        jsonResponse({
-          accessToken: 'access-token',
-          refreshToken: 'refresh-token',
-          user: {
-            id: 7,
-            status: 'ACTIVE',
-            role: 'USER',
-            termsVersion: '2026-07-01',
-          },
-        }),
-      ),
-    })
-    const router = renderApp('/auth/callback?code=code', session)
-
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
   })
 
   it('shows the terms and trust notice before starting Kakao OAuth', async () => {
@@ -184,17 +153,15 @@ describe('auth user flow', () => {
       await screen.findByText(/필수 약관에 동의한 것으로 처리됩니다/),
     ).toBeInTheDocument()
     expect(screen.getByText(/라이더 신분이나 실제 방문을 인증하지 않습니다/)).toBeInTheDocument()
-    expect(
-      screen
-        .getAllByRole('link', { name: '카카오로 로그인' })
-        .some((link) => link.getAttribute('href') === OAUTH_LOGIN_PATH),
-    ).toBe(true)
+    expect(screen.getByRole('link', { name: '카카오 로그인' })).toHaveAttribute(
+      'href',
+      OAUTH_LOGIN_PATH,
+    )
   })
 
   it.each([
     ['/auth/callback?error=oauth_failed&error_description=provider-secret', false],
     ['/auth/callback', false],
-    ['/auth/callback?code=expired-or-reused', true],
   ] as const)(
     'shows one generic retry UI for callback failure %s',
     async (path, callsApi) => {
@@ -221,11 +188,36 @@ describe('auth user flow', () => {
     },
   )
 
+  it('removes a rejected exchange code and shows its safe expiry message', async () => {
+    const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(
+        {
+          code: 'INVALID_OAUTH_EXCHANGE_CODE',
+          detail: 'expired code provider-secret',
+        },
+        401,
+      ),
+    )
+    const router = renderApp(
+      '/auth/callback?code=expired-or-reused',
+      createApiSession({ fetchFn }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: '로그인을 완료하지 못했습니다' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('로그인 시간이 만료되었습니다. 다시 로그인해 주세요.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/auth/callback')
+    expect(router.state.location.search).toBe('')
+    expect(document.body).not.toHaveTextContent('provider-secret')
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
   it('uses the same generic retry UI for a network failure', async () => {
     const fetchFn = vi
       .fn<typeof fetch>()
       .mockRejectedValue(new Error('network provider-secret'))
-    renderApp(
+    const router = renderApp(
       '/auth/callback?code=single-use-code',
       createApiSession({ fetchFn }),
     )
@@ -233,10 +225,13 @@ describe('auth user flow', () => {
     expect(
       await screen.findByRole('heading', { name: '로그인을 완료하지 못했습니다' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('잠시 후 카카오 로그인을 다시 시작해 주세요.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/auth/callback')
+    expect(router.state.location.search).toBe('')
     expect(document.body).not.toHaveTextContent('provider-secret')
   })
 
-  it('keeps protected content hidden during restore and preserves its path for login', async () => {
+  it('keeps protected content hidden during restore without preserving its path', async () => {
     let finishRestore: (() => void) | undefined
     const session = new FakeAuthSession({ status: 'anonymous' })
     session.restore.mockImplementation(
@@ -270,9 +265,7 @@ describe('auth user flow', () => {
     finishRestore?.()
 
     expect(await screen.findByRole('heading', { name: '로그인 화면' })).toBeInTheDocument()
-    expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBe(
-      '/reviews/new?restaurantId=17',
-    )
+    expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
   })
 
   it('shows authenticated header actions and clears them after logout', async () => {

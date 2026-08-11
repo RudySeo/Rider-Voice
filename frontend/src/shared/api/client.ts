@@ -111,7 +111,8 @@ export class ApiClient {
 
   constructor(options: ApiClientOptions = {}) {
     this.baseUrl = options.baseUrl ?? window.location.origin
-    this.fetchFn = options.fetchFn ?? fetch
+    this.fetchFn =
+      options.fetchFn ?? ((input, init) => window.fetch(input, init))
     this.getBearerToken = options.getBearerToken
     this.refreshSession = options.refreshSession
   }

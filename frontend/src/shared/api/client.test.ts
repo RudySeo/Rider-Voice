@@ -8,6 +8,33 @@ const jsonResponse = (body: unknown, status = 200) =>
   })
 
 describe('ApiClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('calls the browser fetch function with the window receiver', async () => {
+    const browserFetch = vi.fn(function (this: unknown) {
+      if (this !== window) {
+        throw new TypeError('Illegal invocation')
+      }
+      return Promise.resolve(
+        jsonResponse({
+          externalSearchStatus: 'AVAILABLE',
+          candidates: [],
+        }),
+      )
+    })
+    vi.stubGlobal('fetch', browserFetch)
+    const client = new ApiClient()
+
+    await client.request('/api/v1/restaurants/search', {
+      method: 'get',
+      query: { query: '강남 분식' },
+    })
+
+    expect(browserFetch.mock.contexts).toEqual([window])
+  })
+
   it('serializes query parameters and attaches the in-memory bearer token', async () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
