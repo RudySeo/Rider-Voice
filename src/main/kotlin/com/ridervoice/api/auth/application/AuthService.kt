@@ -36,7 +36,6 @@ data class UserSummary(
     val id: Long,
     val status: String,
     val role: UserRole,
-    val termsVersion: String?,
 )
 
 @Service
@@ -59,9 +58,6 @@ class AuthService(
         val account = accounts.findOAuthAccount(command.provider, command.providerSubject)
         val user = account?.user?.let { users.findUserForUpdate(it.id) }
             ?: if (account == null) createUserWithAccount(command) else throw AuthenticationRequiredException()
-        if (user.status == UserStatus.PENDING_TERMS) {
-            user.agreeToTerms(CURRENT_TERMS_VERSION, now)
-        }
         if (user.status != UserStatus.ACTIVE) {
             throw AuthenticationRequiredException("User is not eligible to sign in")
         }
@@ -153,12 +149,11 @@ class AuthService(
         return IssuedRefreshSession(rawToken, session)
     }
 
-    private fun userSummary(user: User) = UserSummary(user.id, user.status.name, user.role, user.termsVersion)
+    private fun userSummary(user: User) = UserSummary(user.id, user.status.name, user.role)
     private fun randomToken() = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32).also(random::nextBytes))
     private fun hash(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private companion object {
-        const val CURRENT_TERMS_VERSION = "2026-07-01"
         const val ACCESS_TOKEN_EXPIRY_MINUTES = 15L
         const val REFRESH_TOKEN_EXPIRY_DAYS = 30L
     }

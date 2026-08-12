@@ -716,7 +716,6 @@ export type components = {
             status?: string;
             /** @enum {string} */
             role?: "USER" | "ADMIN";
-            termsVersion?: string | null;
         };
         MergeRestaurantRequest: {
             /** Format: int64 */
@@ -996,7 +995,7 @@ export type components = {
             /** Format: int64 */
             userId?: number;
             /** @enum {string} */
-            status?: "PENDING_TERMS" | "ACTIVE" | "RATE_LIMITED" | "SUSPENDED" | "WITHDRAWN";
+            status?: "ACTIVE" | "RATE_LIMITED" | "SUSPENDED" | "WITHDRAWN";
             /** Format: int32 */
             activityMonths?: number;
             /** Format: int64 */

@@ -16,7 +16,6 @@ const accessSession = (accessToken: string) => ({
     id: 1,
     status: 'ACTIVE',
     role: 'USER',
-    termsVersion: '2026-07-01',
   },
 })
 

@@ -34,15 +34,13 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
     private lateinit var sessions: UserSessionRepository
 
     @Test
-    fun `OAuth callback completion records current terms and creates a refresh session`() {
+    fun `OAuth callback completion creates an active user and refresh session`() {
         val subject = "pending-${UUID.randomUUID()}"
         val login = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject))
         val result = auth.refresh(RefreshSessionCommand(login.refreshToken))
 
         val persistedUser = users.findById(result.user.id).orElseThrow()
         assertThat(persistedUser.status).isEqualTo(UserStatus.ACTIVE)
-        assertThat(persistedUser.termsVersion).isEqualTo("2026-07-01")
-        assertThat(persistedUser.termsAgreedAt).isNotNull()
         assertThat(result.accessToken).isNotBlank()
         assertThat(result.refreshToken).isNotBlank()
         assertThat(sessions.findAll().count { it.user.id == persistedUser.id }).isEqualTo(2)
@@ -52,7 +50,7 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
     @Test
     fun `concurrent refresh creates exactly one successor session`() {
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-        val user = User().also { it.agreeToTerms("2026-07-01", now) }
+        val user = User()
         users.saveAndFlush(user)
         val rawRefreshToken = "refresh-${UUID.randomUUID()}"
         val original = sessions.saveAndFlush(

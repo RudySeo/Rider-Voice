@@ -90,7 +90,6 @@ describe('auth user flow', () => {
           id: 7,
           status: 'ACTIVE',
           role: 'USER',
-          termsVersion: '2026-07-01',
         },
       }),
     )
@@ -124,7 +123,6 @@ describe('auth user flow', () => {
           id: 7,
           status: 'ACTIVE',
           role: 'USER',
-          termsVersion: '2026-07-01',
         },
       }),
     )
@@ -140,13 +138,11 @@ describe('auth user flow', () => {
     expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
   })
 
-  it('shows the terms and trust notice before starting Kakao OAuth', async () => {
+  it('shows only the trust notice before starting Kakao OAuth', async () => {
     renderApp('/login', createApiSession())
 
-    expect(
-      await screen.findByText(/필수 약관에 동의한 것으로 처리됩니다/),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/라이더 신분이나 실제 방문을 인증하지 않습니다/)).toBeInTheDocument()
+    expect(await screen.findByText(/라이더 신분이나 실제 방문을 인증하지 않습니다/)).toBeInTheDocument()
+    expect(screen.queryByText(/필수 약관/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '카카오 로그인' })).toHaveAttribute(
       'href',
       OAUTH_LOGIN_PATH,

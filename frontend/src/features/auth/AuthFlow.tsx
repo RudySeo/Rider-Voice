@@ -259,9 +259,8 @@ export function LoginPageContent() {
       <h1>리뷰를 작성하려면 로그인해 주세요</h1>
       <p>카카오 계정으로 Rider Voice에 로그인합니다.</p>
       <p className={styles.notice}>
-        카카오로 로그인을 계속하면 Rider Voice 필수 약관에 동의한 것으로
-        처리됩니다. 카카오 로그인은 계정 식별 수단이며 라이더 신분이나 실제
-        방문을 인증하지 않습니다.
+        카카오 로그인은 계정 식별 수단이며 라이더 신분이나 실제 방문을
+        인증하지 않습니다.
       </p>
       <OAuthLoginButton />
     </section>

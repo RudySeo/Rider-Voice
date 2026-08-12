@@ -17,6 +17,5 @@ class AuthResponseMapper {
         id = user.id,
         status = user.status,
         role = user.role,
-        termsVersion = user.termsVersion,
     )
 }

@@ -12,11 +12,10 @@ class AuthResponseMapperTest {
 
     @Test
     fun `maps an application session to an access-only presentation response`() {
-        val user = UserSummary(42L, "ACTIVE", UserRole.ADMIN, "2026-07-01")
+        val user = UserSummary(42L, "ACTIVE", UserRole.ADMIN)
         val session = mapper.toAccessSessionResponse(AuthTokens("next-access", "next-refresh", user))
         assertThat(session.accessToken).isEqualTo("next-access")
         assertThat(session.user.id).isEqualTo(42L)
         assertThat(session.user.role).isEqualTo(UserRole.ADMIN)
-        assertThat(session.user.termsVersion).isEqualTo("2026-07-01")
     }
 }

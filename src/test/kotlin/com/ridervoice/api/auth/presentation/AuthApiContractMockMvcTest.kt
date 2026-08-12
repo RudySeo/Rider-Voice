@@ -132,6 +132,7 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.schemas.UserResponse.properties.id.format") { value("int64") }
                 jsonPath("$.components.schemas.UserResponse.properties.role.enum[0]") { value("USER") }
                 jsonPath("$.components.schemas.UserResponse.properties.role.enum[1]") { value("ADMIN") }
+                jsonPath("$.components.schemas.UserResponse.properties.termsVersion") { doesNotExist() }
             }
     }
 

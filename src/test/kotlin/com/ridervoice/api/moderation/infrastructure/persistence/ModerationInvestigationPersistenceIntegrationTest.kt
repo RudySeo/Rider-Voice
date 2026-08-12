@@ -43,8 +43,11 @@ class ModerationInvestigationPersistenceIntegrationTest : MySqlIntegrationTest()
     @Test
     fun `admin investigation queries expose review restaurant references pending reports and filtered audits`() {
         val suffix = UUID.randomUUID().toString()
-        val user = User(UserRole.ADMIN).also {
-            it.agreeToTerms("investigation-test", Instant.parse("2026-07-01T00:00:00Z"))
+        val user = User().also {
+            User::class.java.getDeclaredField("role").also { field ->
+                field.isAccessible = true
+                field.set(it, UserRole.ADMIN)
+            }
             entityManager.persist(it)
         }
         val location = PickupLocation(

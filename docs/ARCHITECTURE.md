@@ -44,7 +44,7 @@ API 서버, frontend와 `rider` MySQL 데이터베이스는 각각 로컬 프로
 ```text
 com.ridervoice.api
 ├── common       # 공통 설정과 보안 기반
-├── auth         # 로그인, 사용자와 약관
+├── auth         # 로그인, 사용자와 세션
 ├── restaurant   # 픽업 장소, 브랜드와 검색
 ├── review       # 리뷰 작성, 공개와 집계
 └── moderation   # 신고와 정정
@@ -94,7 +94,7 @@ access token은 JavaScript 메모리에 두고 refresh token은 backend가 설�
 카카오 로그인 시작
   -> 기존 카카오 세션과 관계없이 계정 재인증과 사용자 동의
   -> callback에서 카카오 사용자 id 확인
-  -> 약관 기록 후 Rider Voice refresh session 생성
+  -> ACTIVE 사용자 생성 후 Rider Voice refresh session 생성
   -> HttpOnly refresh cookie를 설정하고 고정된 frontend callback 주소로 이동
   -> frontend가 cookie로 refresh API를 호출
   -> Rider Voice access token을 응답 body로 발급하고 refresh cookie 회전
@@ -106,8 +106,8 @@ access token은 JavaScript 메모리에 두고 refresh token은 backend가 설�
 - OAuth session은 REST API 로그인 상태로 사용할 수 없다.
 - 카카오 access token은 사용자 정보를 확인한 뒤 저장하지 않는다.
 - 카카오 client secret이 없으면 `none`, 있으면 `client_secret_post` 방식으로 카카오에 인증한다.
-- 로그인 화면은 계속 진행하면 현재 Rider Voice 필수 약관에 동의한다는 점을 알린다.
-- 신규·약관 미동의 사용자는 OAuth callback을 정상 완료할 때 현재 약관 버전과 동의 시각을 기록하고 활성화한다.
+- 로그인 화면은 카카오 로그인이 계정 식별 수단이며 라이더 신분이나 실제 방문을 인증하지 않는다는 점을 알린다.
+- 신규 사용자는 OAuth callback을 정상 완료할 때 처음부터 `ACTIVE`로 생성한다.
 - refresh token은 `HttpOnly`, `SameSite=Lax`, 인증 경로 전용 cookie로 전달하며 JavaScript가 읽을 수 없다.
 - 잘못되거나 만료되거나 다시 사용한 refresh token은 같은 인증 실패로 처리한다.
 - access token과 refresh token은 URL에 넣지 않는다.
@@ -115,7 +115,7 @@ access token은 JavaScript 메모리에 두고 refresh token은 backend가 설�
 
 활성 사용자는 15분 access token과 30일 refresh token을 사용한다. refresh token은 backend에 hash로 저장하고 browser에는 `HttpOnly` cookie로 보관하며 갱신할 때마다 교체한다. 로그아웃은 Rider Voice session과 refresh cookie만 종료하며 카카오 로그아웃은 호출하지 않는다. 다음 로그인에서 카카오 계정을 다시 인증하므로 사용자는 다른 카카오 계정을 선택할 수 있다.
 
-사용자 권한은 `USER`와 `ADMIN`이다. access token을 확인할 때 DB의 현재 권한도 함께 읽어 관리자 권한 변경이 기존 토큰에도 반영되게 한다.
+사용자 권한은 `USER`와 `ADMIN`이다. 애플리케이션에서 생성하는 사용자는 항상 `USER`이며, `ADMIN`은 운영자가 DB에서 직접 부여한다. access token을 확인할 때 DB의 현재 권한도 함께 읽어 관리자 권한 변경이 기존 토큰에도 반영되게 한다.
 
 ## 5. 음식점 구조와 등록
 
@@ -206,7 +206,7 @@ PickupLocation 1
 
 자동 테스트에서는 다음 경계를 우선 확인한다.
 
-- OAuth 요청 위조 방지, refresh cookie 속성, 약관 기록과 토큰 회전
+- OAuth 요청 위조 방지, refresh cookie 속성과 토큰 회전
 - 음식점·장소·외부 참조의 중복 및 동시 등록
 - 활성 리뷰 중복, 삭제·전체 제외 후 90일 제한
 - 브랜드·장소 작성자 4명과 5명 경계 및 `NOT_OBSERVED`

@@ -7,39 +7,19 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import org.hibernate.annotations.ColumnDefault
-import java.time.Instant
 
 @Entity
 @Table(name = "users")
-class User(
-    role: UserRole = UserRole.USER,
-) : BaseEntity() {
+class User : BaseEntity() {
 
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, length = 20)
     @field:ColumnDefault("'USER'")
-    final var role: UserRole = role
+    final var role: UserRole = UserRole.USER
         private set
 
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, length = 32)
-    final var status: UserStatus = UserStatus.PENDING_TERMS
+    final var status: UserStatus = UserStatus.ACTIVE
         private set
-
-    @field:Column(name = "terms_version", length = 50)
-    final var termsVersion: String? = null
-        private set
-
-    @field:Column(name = "terms_agreed_at")
-    final var termsAgreedAt: Instant? = null
-        private set
-
-    fun agreeToTerms(termsVersion: String, agreedAt: Instant) {
-        require(termsVersion.isNotBlank()) { "Terms version must not be blank" }
-        check(status == UserStatus.PENDING_TERMS) { "Only a user pending terms can agree" }
-
-        this.termsVersion = termsVersion
-        termsAgreedAt = agreedAt
-        status = UserStatus.ACTIVE
-    }
 }

@@ -20,8 +20,6 @@ erDiagram
         bigint id PK
         enum role
         enum status
-        varchar terms_version
-        datetime terms_agreed_at
     }
 
     OAUTH_ACCOUNTS {
@@ -155,7 +153,7 @@ erDiagram
 
 | 영역 | 테이블 | 역할 | 주요 unique 제약 |
 | --- | --- | --- | --- |
-| 인증 | `users` | 내부 사용자 상태와 권한 | - |
+| 인증 | `users` | 내부 사용자 권한과 이용 상태 | - |
 | 인증 | `oauth_accounts` | 외부 OAuth 계정 연결 | `(provider, provider_subject)`, `(user_id, provider)` |
 | 인증 | `user_sessions` | refresh token 만료·폐기·회전 | `(refresh_token_hash)` |
 | 음식점 | `pickup_locations` | 실제 픽업 장소 | `(location_key)` |

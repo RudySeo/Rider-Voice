@@ -646,7 +646,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val NULLABLE_PROPERTIES = setOf(
-            "UserResponse" to "termsVersion", "RestaurantSearchCandidateResponse" to "restaurantId",
+            "RestaurantSearchCandidateResponse" to "restaurantId",
             "RestaurantSearchCandidateResponse" to "kakaoPlaceId", "AddressSearchCandidateResponse" to "lotNumberAddress",
             "AddressSearchCandidateResponse" to "existingPickupLocationId",
             "RestaurantPickupLocationResponse" to "detailAddress", "RestaurantBrandReportResponse" to "metrics",

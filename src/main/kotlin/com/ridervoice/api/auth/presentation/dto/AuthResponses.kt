@@ -13,6 +13,4 @@ data class UserResponse(
     val id: Long,
     val status: String,
     val role: UserRole,
-    @field:Schema(nullable = true)
-    val termsVersion: String?,
 )

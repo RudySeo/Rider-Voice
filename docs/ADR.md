@@ -44,7 +44,7 @@
 
 ## ADR-005: Rider Voice 전용 토큰을 사용한다
 
-**선택**: 로그인 화면에서 계속 진행하면 현재 필수 약관에 동의한다는 점을 알린다. OAuth callback을 정상 완료하면 신규·약관 미동의 사용자의 약관 버전과 동의 시각을 기록하고 Rider Voice refresh session을 만든다. frontend는 `HttpOnly` refresh cookie로 access token을 발급받는다. 별도의 onboarding token과 OAuth 교환 코드는 사용하지 않는다.
+**선택**: OAuth callback을 정상 완료하면 신규 사용자를 `ACTIVE` 상태로 만들고 Rider Voice refresh session을 생성한다. 현재 MVP에는 실제 약관 문서와 동의 절차가 없으므로 약관 버전이나 동의 시각을 저장하지 않는다. 별도의 onboarding token과 OAuth 교환 코드는 사용하지 않는다. 애플리케이션에서 생성하는 사용자의 권한은 항상 `USER`이며 `ADMIN`은 운영자가 DB에서 직접 부여한다. frontend는 `HttpOnly` refresh cookie로 access token을 발급받는다.
 
 access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. refresh token은 30일 동안 유효하며 backend에는 원문 대신 hash로 저장하고 browser에는 `HttpOnly` cookie로 보관하며 사용할 때마다 교체한다. 두 토큰 모두 URL과 Web Storage에 넣지 않는다.
 
@@ -72,7 +72,7 @@ access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. ref
 
 ## ADR-008: 미인증 리뷰도 첫 작성부터 공개한다
 
-**선택**: 카카오 로그인과 필수 약관 동의를 마친 사용자는 별도의 라이더·방문 인증 없이 리뷰를 작성한다. 조건에 맞는 개별 평가는 첫 리뷰부터 공개하며 모든 공개 정보에 `verificationStatus=UNVERIFIED`와 미인증 안내를 넣는다.
+**선택**: 카카오 로그인 사용자는 별도의 라이더·방문 인증 없이 리뷰를 작성한다. 조건에 맞는 개별 평가는 첫 리뷰부터 공개하며 모든 공개 정보에 `verificationStatus=UNVERIFIED`와 미인증 안내를 넣는다.
 
 **선택한 이유**: 초기 사용자의 작성 부담을 낮추고 실제 정보 공유 수요부터 확인하기 위해서다.
 

@@ -63,13 +63,12 @@ class AuthServiceTest {
         assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.refreshToken)
         assertThat(savedSession.expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         assertThat(savedAccount.user.status).isEqualTo(UserStatus.ACTIVE)
-        assertThat(savedAccount.user.termsVersion).isEqualTo("2026-07-01")
+        assertThat(savedAccount.user.role).isEqualTo(UserRole.USER)
     }
 
     @Test
-    fun `provider login for an active account creates a refresh session without changing terms`() {
+    fun `provider login for an active account creates a refresh session`() {
         val user = activeUser()
-        val originalTermsAgreedAt = user.termsAgreedAt
         val account = OAuthAccount(user, OAuthProvider.KAKAO, "active-subject")
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "active-subject")).thenReturn(account)
         `when`(users.findUserForUpdate(user.id)).thenReturn(user)
@@ -79,7 +78,6 @@ class AuthServiceTest {
         val result = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject"))
 
         assertThat(result.refreshToken).isNotBlank()
-        assertThat(user.termsAgreedAt).isEqualTo(originalTermsAgreedAt)
         verify(users).findUserForUpdate(user.id)
         val savedSession = savedArgument<UserSession>(sessions, "saveSession")
         assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.refreshToken))
@@ -206,7 +204,7 @@ class AuthServiceTest {
 
     @Test
     fun `expired refresh token cannot create a successor session`() {
-        val user = User().apply { id = 3L }.also { it.agreeToTerms("2026-07-01", now.minusSeconds(60)) }
+        val user = User().apply { id = 3L }
         val rawRefreshToken = "expired-refresh-token"
         val expiredSession = UserSession(
             user = user,
@@ -234,8 +232,15 @@ class AuthServiceTest {
         return service.refresh(RefreshSessionCommand(rawRefreshToken))
     }
 
-    private fun activeUser(role: UserRole = UserRole.USER) = User(role).apply { id = 9L }.also {
-        it.agreeToTerms("2026-07-01", now.minusSeconds(60))
+    private fun activeUser(role: UserRole = UserRole.USER) = User().apply { id = 9L }.also {
+        setRole(it, role)
+    }
+
+    private fun setRole(user: User, role: UserRole) {
+        User::class.java.getDeclaredField("role").also { field ->
+            field.isAccessible = true
+            field.set(user, role)
+        }
     }
 
     private fun setStatus(user: User, status: UserStatus) {

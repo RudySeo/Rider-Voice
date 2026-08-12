@@ -8,7 +8,7 @@
 - 카카오에 없는 배달 브랜드를 검증된 주소 기반으로 수동 등록할 수 있게 한다.
 - 개별 구조화 평가는 즉시 공개하고 브랜드·장소 집계는 각각 서로 다른 작성자 5명부터 공개한다.
 - 자유 의견은 작성·수정 즉시 공개하고 신고·사후 조치·정정·중복 병합을 지원한다.
-- 카카오 로그인과 필수 약관 동의를 완료한 활성 사용자(이하 라이더)는 음식점별 활성 리뷰를 하나만 작성할 수 있게 한다.
+- 카카오 로그인 활성 사용자(이하 라이더)는 음식점별 활성 리뷰를 하나만 작성할 수 있게 한다.
 - 활성 리뷰가 삭제되거나 전체 제외된 경우 최초 제출 시각부터 90일 후 다시 작성할 수 있게 한다.
 
 ## 제품 신뢰 경계
@@ -96,7 +96,8 @@ com.ridervoice.api
 - 카카오를 사용자 정의 OAuth provider로 등록하고 user info의 `id`만 외부 subject로 사용한다.
 - OAuth handshake에만 임시 HTTP session을 허용하고 성공·실패 후 폐기한다.
 - REST API security chain은 stateless이며 OAuth session을 API 인증으로 받아들이지 않는다.
-- 로그인 화면에서 현재 필수 약관 동의를 고지하고 OAuth 교환 시 신규·약관 미동의 사용자를 활성화한 뒤 opaque access/refresh token을 발급한다.
+- 로그인 화면에서 카카오 로그인이 라이더 신분이나 방문을 인증하지 않는다는 점을 고지하고 OAuth 교환 시 신규 사용자를 `ACTIVE` 상태로 생성한 뒤 opaque access/refresh token을 발급한다.
+- 애플리케이션에서 생성하는 사용자의 권한은 항상 `USER`이며 `ADMIN`은 운영자가 DB에서 직접 부여한다.
 - 카카오 access token은 사용자 확인 뒤 저장하지 않는다.
 - refresh token은 hash로 저장하고 갱신할 때 회전시킨다.
 - `UserRole`은 `USER`, `ADMIN`이며 access token 인증 시 현재 DB role을 확인한다.

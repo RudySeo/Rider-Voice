@@ -74,6 +74,5 @@ class AuthControllerTest {
         id = 42L,
         status = "ACTIVE",
         role = UserRole.USER,
-        termsVersion = "2026-07-01",
     )
 }

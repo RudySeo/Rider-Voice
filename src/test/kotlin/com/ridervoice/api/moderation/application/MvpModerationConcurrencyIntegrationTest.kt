@@ -31,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
-import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -185,8 +184,11 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
         return ReportFixture(user, review)
     }
 
-    private fun activeUser(role: UserRole): User = User(role).also {
-        it.agreeToTerms("concurrency-test", Instant.parse("2026-07-26T00:00:00Z"))
+    private fun activeUser(role: UserRole): User = User().also {
+        User::class.java.getDeclaredField("role").also { field ->
+            field.isAccessible = true
+            field.set(it, role)
+        }
     }.let(users::saveUser).also { userIds += it.id }
 
     private fun locationFixture(label: String): PickupLocation = pickupLocations.save(
