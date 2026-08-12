@@ -246,7 +246,11 @@ export function ReviewCreate({
     () => initialSelectionFromParameters(searchParameters),
     [searchParameters],
   )
-  const [step, setStep] = useState<WizardStep>('target')
+  const [step, setStep] = useState<WizardStep>(() =>
+    initialSelection || searchParameters.get('mode') !== 'manual'
+      ? 'target'
+      : 'manual',
+  )
   const [selection, setSelection] = useState<TargetSelection | null>(
     initialSelection,
   )

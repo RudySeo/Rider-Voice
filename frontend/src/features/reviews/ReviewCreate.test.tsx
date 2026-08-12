@@ -95,6 +95,22 @@ const createReviewResult = (restaurantId: number) => ({
 })
 
 describe('review create target mapping', () => {
+  it('opens the verified address step directly in manual mode', () => {
+    renderWizard('/reviews/new?mode=manual', vi.fn<typeof fetch>())
+
+    expect(
+      screen.getByRole('heading', {
+        name: '검증된 픽업 장소와 브랜드 정보를 입력해 주세요',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('searchbox', { name: '픽업 장소 주소' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('searchbox', { name: '음식점명 또는 주소' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('maps an INTERNAL search candidate to EXISTING and moves to the response restaurant', async () => {
     const fetchFn = vi.fn<typeof fetch>(async (input) => {
       const url = String(input)

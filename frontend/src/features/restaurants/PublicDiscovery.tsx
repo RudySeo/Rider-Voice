@@ -328,6 +328,23 @@ export function RestaurantSearch({
           ))}
         </ul>
       ) : null}
+      {search.isSuccess && !search.isFetching ? (
+        <div className={styles.manualPrompt}>
+          <div>
+            <strong>검색 결과에 원하는 배달 브랜드가 없나요?</strong>
+            <p>
+              검증된 주소를 선택해 새 브랜드의 첫 리뷰를 작성할 수
+              있습니다.
+            </p>
+          </div>
+          <Link
+            className={styles.secondaryAction}
+            to="/reviews/new?mode=manual"
+          >
+            검색 결과에 없는 브랜드 등록
+          </Link>
+        </div>
+      ) : null}
     </section>
   )
 }

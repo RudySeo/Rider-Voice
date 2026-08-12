@@ -86,6 +86,9 @@ describe('public restaurant search', () => {
     expect(
       await screen.findByText('검색 결과가 없습니다.'),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: '검색 결과에 없는 브랜드 등록' }),
+    ).toHaveAttribute('href', '/reviews/new?mode=manual')
   })
 
   it('shows a safe request error', async () => {
@@ -198,6 +201,9 @@ describe('public restaurant search', () => {
     expect(actionUrl.searchParams.get('name')).toBe('후보 2')
     expect(actionUrl.searchParams.get('address')).toBe('서울 주소 2')
     expect(screen.queryByText('후보 21')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: '검색 결과에 없는 브랜드 등록' }),
+    ).toHaveAttribute('href', '/reviews/new?mode=manual')
   })
 })
 
