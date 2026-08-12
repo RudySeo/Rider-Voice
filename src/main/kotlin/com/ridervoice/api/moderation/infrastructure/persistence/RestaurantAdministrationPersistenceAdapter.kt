@@ -48,20 +48,20 @@ internal class RestaurantAdministrationPersistenceAdapter(
 
     override fun restaurantNameExistsAtPickupLocation(
         pickupLocationId: Long,
-        normalizedName: String,
+        brandName: String,
         excludedRestaurantId: Long,
     ): Boolean = entityManager.createQuery(
         """
         select count(restaurant)
         from Restaurant restaurant
         where restaurant.pickupLocation.id = :pickupLocationId
-          and restaurant.normalizedName = :normalizedName
+          and restaurant.brandName = :brandName
           and restaurant.id <> :excludedRestaurantId
         """.trimIndent(),
         Long::class.javaObjectType,
     )
         .setParameter("pickupLocationId", pickupLocationId)
-        .setParameter("normalizedName", normalizedName)
+        .setParameter("brandName", brandName)
         .setParameter("excludedRestaurantId", excludedRestaurantId)
         .singleResult > 0L
 
@@ -211,7 +211,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
     private fun Restaurant.toSnapshot() = StoredAdminRestaurant(
         restaurantId = id,
         brandName = brandName,
-        normalizedName = normalizedName,
         pickupLocationId = pickupLocation.id,
         status = status,
         canonicalRestaurantId = canonicalRestaurant?.id,

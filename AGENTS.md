@@ -107,7 +107,7 @@ com.ridervoice.api
 - `PickupLocation`은 실제 픽업 장소, `Restaurant`은 소비자에게 보이는 배달 브랜드다.
 - 하나의 픽업 장소에 여러 배달 브랜드를 연결할 수 있다.
 - 카카오 장소 ID는 `RestaurantExternalReference`에서 `(provider, externalPlaceId)` unique로 관리한다.
-- 같은 장소와 정규화 브랜드명 조합은 DB unique 제약으로 중복을 막는다.
+- 브랜드명은 저장 전에 NFKC와 공백을 정리하고, 같은 장소와 `brand_name` 조합은 MySQL의 대소문자 비구분 DB unique 제약으로 중복을 막는다.
 - 카카오와 주소 등록 요청에는 원 검색어와 선택 결과 식별 정보를 받고 서버가 같은 검색을 반복해 검증한다.
 - 사용자 입력의 주소, 이름, 좌표와 카카오 장소 ID를 그대로 신뢰하지 않는다.
 - 음식점·장소 등록과 첫 리뷰 생성은 같은 application use case와 트랜잭션에서 완료한다.

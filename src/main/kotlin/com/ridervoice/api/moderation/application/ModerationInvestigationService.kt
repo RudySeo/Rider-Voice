@@ -142,7 +142,6 @@ internal class ModerationInvestigationService(
     private fun StoredAdminRestaurantDetail.toDetail() = AdminRestaurantDetailResult(
         restaurantId,
         name,
-        normalizedName,
         status,
         canonicalRestaurantId,
         pickupLocationId,

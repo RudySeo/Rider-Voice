@@ -1080,7 +1080,6 @@ export type components = {
             /** Format: int64 */
             restaurantId?: number;
             name?: string;
-            normalizedName?: string;
             /** @enum {string} */
             status?: "ACTIVE" | "CLOSED" | "MERGED";
             /** Format: int64 */

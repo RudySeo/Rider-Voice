@@ -61,7 +61,6 @@ data class AdminExternalReferenceResult(
 data class AdminRestaurantDetailResult(
     val restaurantId: Long,
     val name: String,
-    val normalizedName: String,
     val status: RestaurantStatus,
     val canonicalRestaurantId: Long?,
     val pickupLocationId: Long,

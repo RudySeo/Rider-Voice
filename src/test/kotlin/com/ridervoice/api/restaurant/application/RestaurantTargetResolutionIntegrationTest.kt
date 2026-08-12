@@ -57,7 +57,7 @@ class RestaurantTargetResolutionIntegrationTest : MySqlIntegrationTest() {
         assertThat(setOf(first.id, second.id, elsewhere.id)).hasSize(3)
         assertThat(second.pickupLocation.id).isEqualTo(first.pickupLocation.id)
         assertThat(elsewhere.pickupLocation.id).isNotEqualTo(first.pickupLocation.id)
-        assertThat(elsewhere.normalizedName).isEqualTo(first.normalizedName)
+        assertThat(elsewhere.brandName).isEqualTo(first.brandName)
     }
 
     @Test

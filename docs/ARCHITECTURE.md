@@ -130,7 +130,7 @@ PickupLocation 1
 
 `PickupLocation`은 표준 주소, 정규화 주소, 상세 위치와 좌표를 가진다. 주소와 상세 위치로 만든 `location_key`를 unique로 두어 같은 장소의 중복을 줄인다.
 
-`Restaurant`은 브랜드명, 정규화한 이름과 상태를 가진다. `(pickup_location_id, normalized_name)`을 unique로 두며 상태는 `ACTIVE`, `CLOSED`, `MERGED`다. 중복 병합된 음식점은 삭제하지 않고 대표 음식점 ID를 남긴다.
+`Restaurant`은 NFKC와 공백 정리를 거친 브랜드명과 상태를 가진다. 별도 정규화 이름은 저장하지 않고 MySQL `utf8mb4_0900_ai_ci` collation이 적용된 `(pickup_location_id, brand_name)`을 unique로 두어 대소문자를 구분하지 않는 중복을 막는다. 상태는 `ACTIVE`, `CLOSED`, `MERGED`다. 중복 병합된 음식점은 삭제하지 않고 대표 음식점 ID를 남긴다.
 
 `RestaurantExternalReference`는 카카오 같은 외부 서비스의 장소 ID를 저장한다. `(provider, external_place_id)`는 unique다. 플랫폼 정보는 선택 항목이며 음식점의 동일성이나 운영 주체를 증명하지 않는다.
 

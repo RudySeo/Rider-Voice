@@ -88,6 +88,29 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             assertThat(column.extra).describedAs("${column.table}.id generation").contains("auto_increment")
         }
 
+        val restaurantColumns = jdbc.queryForList(
+            """
+            select column_name
+            from information_schema.columns
+            where table_schema = database()
+              and table_name = 'restaurants'
+            """.trimIndent(),
+            String::class.java,
+        )
+        assertThat(restaurantColumns).contains("brand_name").doesNotContain("normalized_name")
+        assertThat(
+            jdbc.queryForObject(
+                """
+                select collation_name
+                from information_schema.columns
+                where table_schema = database()
+                  and table_name = 'restaurants'
+                  and column_name = 'brand_name'
+                """.trimIndent(),
+                String::class.java,
+            ),
+        ).isEqualTo("utf8mb4_0900_ai_ci")
+
         val foreignKeys = jdbc.query(
             """
             select kcu.table_name,
@@ -220,8 +243,8 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             IndexSpec("user_sessions", "idx_user_sessions_active_expiry", false, listOf("revoked_at", "expires_at")),
             IndexSpec("pickup_locations", "uk_pickup_locations_location_key", true, listOf("location_key")),
             IndexSpec("pickup_locations", "idx_pickup_locations_normalized_address", false, listOf("normalized_address")),
-            IndexSpec("restaurants", "uk_restaurants_pickup_location_normalized_name", true, listOf("pickup_location_id", "normalized_name")),
-            IndexSpec("restaurants", "idx_restaurants_status_normalized_name", false, listOf("status", "normalized_name")),
+            IndexSpec("restaurants", "uk_restaurants_pickup_location_brand_name", true, listOf("pickup_location_id", "brand_name")),
+            IndexSpec("restaurants", "idx_restaurants_status_brand_name", false, listOf("status", "brand_name")),
             IndexSpec("restaurants", "idx_restaurants_canonical", false, listOf("canonical_restaurant_id")),
             IndexSpec("restaurant_external_references", "uk_restaurant_external_references_provider_place", true, listOf("provider", "external_place_id")),
             IndexSpec("restaurant_external_references", "idx_restaurant_external_references_restaurant", false, listOf("restaurant_id")),

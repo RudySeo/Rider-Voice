@@ -57,7 +57,6 @@ class ModerationInvestigationHttpMapper {
     fun toResponse(result: AdminRestaurantDetailResult) = AdminRestaurantDetailResponse(
         result.restaurantId,
         result.name,
-        result.normalizedName,
         result.status,
         result.canonicalRestaurantId,
         AdminPickupLocationResponse(result.pickupLocationId, result.standardAddress, result.detailAddress, result.latitude, result.longitude),

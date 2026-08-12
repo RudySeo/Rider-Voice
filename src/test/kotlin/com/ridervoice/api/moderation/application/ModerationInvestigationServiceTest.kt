@@ -105,7 +105,6 @@ class ModerationInvestigationServiceTest {
     private fun restaurant(id: Long) = StoredAdminRestaurantDetail(
         restaurantId = id,
         name = "브랜드-$id",
-        normalizedName = "브랜드-$id",
         status = RestaurantStatus.ACTIVE,
         canonicalRestaurantId = null,
         pickupLocationId = 100L + id,

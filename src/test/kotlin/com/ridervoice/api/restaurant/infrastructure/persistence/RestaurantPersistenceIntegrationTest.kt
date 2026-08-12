@@ -40,7 +40,7 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
     @Test
     fun `adapter persists exact identities searches active restaurants and resolves canonical chains`() {
         val location = pickupLocations.save(pickupLocation())
-        val canonical = restaurants.save(Restaurant("대표 브랜드", location))
+        val canonical = restaurants.save(Restaurant("Rider Voice 대표 브랜드", location))
         val duplicate = restaurants.save(Restaurant("중복 브랜드", location))
         externalReferences.save(
             RestaurantExternalReference(canonical, RestaurantExternalProvider.KAKAO, "integration-place"),
@@ -51,7 +51,7 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
 
         assertThat(pickupLocations.findByLocationKey(location.locationKey)?.id).isEqualTo(location.id)
         assertThat(
-            restaurants.findByPickupLocationIdAndNormalizedName(location.id, canonical.normalizedName)?.id,
+            restaurants.findByPickupLocationIdAndBrandName(location.id, canonical.brandName.lowercase())?.id,
         ).isEqualTo(canonical.id)
         assertThat(restaurants.findCanonicalById(duplicate.id)?.id).isEqualTo(canonical.id)
         assertThat(
@@ -60,7 +60,7 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
                 "integration-place",
             )?.restaurant?.id,
         ).isEqualTo(canonical.id)
-        assertThat(restaurants.searchActive("대표", 20).map { it.restaurantId })
+        assertThat(restaurants.searchActive("rider voice", 20).map { it.restaurantId })
             .contains(canonical.id)
             .doesNotContain(duplicate.id)
     }
@@ -74,11 +74,11 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
     }
 
     @Test
-    fun `normalized brand name is unique within a pickup location`() {
+    fun `brand name is unique within a pickup location regardless of unicode whitespace and case`() {
         val location = pickupLocations.save(pickupLocation())
-        restaurants.save(Restaurant("대표 브랜드", location))
+        restaurants.save(Restaurant("Ｒｉｄｅｒ Voice 대표 브랜드", location))
 
-        assertThatThrownBy { restaurants.save(Restaurant("  대표　브랜드  ", location)) }
+        assertThatThrownBy { restaurants.save(Restaurant("  rider　voice 대표 브랜드  ", location)) }
             .isInstanceOf(DataIntegrityViolationException::class.java)
     }
 

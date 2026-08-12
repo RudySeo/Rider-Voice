@@ -198,6 +198,8 @@ class ApiContractRegressionMockMvcTest {
         val schemas = document.at("/components/schemas")
 
         assertThat(schemas.propertyNames().asSequence().toSet()).containsAll(EXPECTED_SCHEMA_NAMES)
+        assertThat(schemas.required("AdminRestaurantDetailResponse").required("properties").has("normalizedName"))
+            .isFalse()
         REQUEST_REFS.forEach { (operation, schemaName) ->
             val (path, method) = operation
             assertThat(

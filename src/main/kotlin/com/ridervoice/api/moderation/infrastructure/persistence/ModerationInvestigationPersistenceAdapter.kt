@@ -88,7 +88,7 @@ internal class ModerationInvestigationPersistenceAdapter(
             append(
                 "select restaurant from Restaurant restaurant join fetch restaurant.pickupLocation pickupLocation " +
                     "left join fetch restaurant.canonicalRestaurant where " +
-                    "(restaurant.normalizedName like :query or pickupLocation.normalizedAddress like :query)",
+                    "(restaurant.brandName like :query or pickupLocation.normalizedAddress like :query)",
             )
             if (status != null) append(" and restaurant.status = :status")
             if (cursor != null) append(
@@ -189,7 +189,6 @@ internal class ModerationInvestigationPersistenceAdapter(
         return StoredAdminRestaurantDetail(
             restaurantId = restaurant.id,
             name = restaurant.brandName,
-            normalizedName = restaurant.normalizedName,
             status = restaurant.status,
             canonicalRestaurantId = restaurant.canonicalRestaurant?.id,
             pickupLocationId = restaurant.pickupLocation.id,

@@ -19,9 +19,9 @@ class RestaurantPersistenceMappingTest {
         )
         assertUniqueConstraint(
             Restaurant::class.java,
-            "uk_restaurants_pickup_location_normalized_name",
+            "uk_restaurants_pickup_location_brand_name",
             "pickup_location_id",
-            "normalized_name",
+            "brand_name",
         )
         assertUniqueConstraint(
             RestaurantExternalReference::class.java,
@@ -39,7 +39,7 @@ class RestaurantPersistenceMappingTest {
         )
         assertIndexes(
             Restaurant::class.java,
-            "idx_restaurants_status_normalized_name" to "status, normalized_name",
+            "idx_restaurants_status_brand_name" to "status, brand_name",
             "idx_restaurants_canonical" to "canonical_restaurant_id",
         )
         assertIndexes(

@@ -149,6 +149,21 @@ class RestaurantAdministrationServiceTest {
     }
 
     @Test
+    fun `rename rejects an unchanged name regardless of unicode whitespace and case`() {
+        val repository = FakeRestaurantAdministrationRepository(
+            restaurants = mutableMapOf(
+                DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID).copy(brandName = "Rider Voice"),
+            ),
+        )
+        val service = service(repository, FakeAuditRepository())
+
+        assertThatThrownBy {
+            service.rename(RenameRestaurantCommand(ADMIN_ID, DUPLICATE_ID, "  rider　voice  ", null))
+        }.isInstanceOf(StateConflictException::class.java)
+        assertThat(repository.renameCommand).isNull()
+    }
+
+    @Test
     fun `close and reopen preserve identity and audit each status transition`() {
         val repository = FakeRestaurantAdministrationRepository(
             restaurants = mutableMapOf(DUPLICATE_ID to restaurant(DUPLICATE_ID, PICKUP_ID)),
@@ -198,7 +213,7 @@ class RestaurantAdministrationServiceTest {
         id: Long,
         pickupLocationId: Long,
         status: RestaurantStatus = RestaurantStatus.ACTIVE,
-    ) = StoredAdminRestaurant(id, "브랜드-$id", "브랜드-$id", pickupLocationId, status, null)
+    ) = StoredAdminRestaurant(id, "브랜드-$id", pickupLocationId, status, null)
 
     private fun review(
         reviewId: Long,
@@ -234,7 +249,7 @@ class RestaurantAdministrationServiceTest {
 
         override fun restaurantNameExistsAtPickupLocation(
             pickupLocationId: Long,
-            normalizedName: String,
+            brandName: String,
             excludedRestaurantId: Long,
         ): Boolean = false
 
@@ -263,7 +278,6 @@ class RestaurantAdministrationServiceTest {
             renameCommand = command
             val renamed = restaurants.getValue(command.restaurantId).copy(
                 brandName = command.name,
-                normalizedName = command.name.lowercase(),
             )
             restaurants[renamed.restaurantId] = renamed
             return renamed

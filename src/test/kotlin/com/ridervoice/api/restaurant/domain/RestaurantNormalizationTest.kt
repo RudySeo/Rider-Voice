@@ -7,15 +7,15 @@ import java.math.BigDecimal
 class RestaurantNormalizationTest {
 
     @Test
-    fun `brand names normalize unicode case and repeated whitespace deterministically`() {
+    fun `brand names normalize unicode and repeated whitespace without storing a second name`() {
         val location = pickupLocation()
 
         val first = Restaurant("  Ｒｉｄｅｒ   Voice 강남점  ", location)
         val second = Restaurant("rider voice   강남점", location)
 
         assertThat(first.brandName).isEqualTo("Rider Voice 강남점")
-        assertThat(first.normalizedName).isEqualTo("rider voice 강남점")
-        assertThat(second.normalizedName).isEqualTo(first.normalizedName)
+        assertThat(second.brandName).isEqualTo("rider voice 강남점")
+        assertThat(Restaurant::class.java.declaredFields.map { it.name }).doesNotContain("normalizedName")
     }
 
     @Test

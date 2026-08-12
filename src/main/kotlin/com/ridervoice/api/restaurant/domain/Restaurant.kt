@@ -18,14 +18,14 @@ import jakarta.persistence.UniqueConstraint
     name = "restaurants",
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uk_restaurants_pickup_location_normalized_name",
-            columnNames = ["pickup_location_id", "normalized_name"],
+            name = "uk_restaurants_pickup_location_brand_name",
+            columnNames = ["pickup_location_id", "brand_name"],
         ),
     ],
     indexes = [
         Index(
-            name = "idx_restaurants_status_normalized_name",
-            columnList = "status, normalized_name",
+            name = "idx_restaurants_status_brand_name",
+            columnList = "status, brand_name",
         ),
         Index(
             name = "idx_restaurants_canonical",
@@ -40,10 +40,6 @@ class Restaurant(
 
     @field:Column(name = "brand_name", nullable = false, length = 255)
     final var brandName: String = RestaurantNormalization.displayText(brandName)
-        private set
-
-    @field:Column(name = "normalized_name", nullable = false, length = 255)
-    final var normalizedName: String = RestaurantNormalization.normalizedText(brandName)
         private set
 
     @field:ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -88,7 +84,6 @@ class Restaurant(
         val displayName = RestaurantNormalization.displayText(brandName)
         require(displayName.isNotEmpty()) { "Restaurant brand name must not be blank" }
         this.brandName = displayName
-        normalizedName = RestaurantNormalization.normalizedText(displayName)
     }
 
     fun close() {

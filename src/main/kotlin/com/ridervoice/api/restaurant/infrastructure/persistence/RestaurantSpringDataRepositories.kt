@@ -35,7 +35,7 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
             and externalReference.provider = :externalProvider
         where restaurant.status = :status
           and (
-              restaurant.normalizedName like concat('%', :normalizedQuery, '%')
+              restaurant.brandName like concat('%', :normalizedQuery, '%')
               or pickupLocation.normalizedAddress like concat('%', :normalizedQuery, '%')
           )
         order by restaurant.id desc
@@ -122,9 +122,9 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
         @Param("activeStatus") activeStatus: RestaurantStatus,
     ): Optional<Long>
 
-    fun findByPickupLocationIdAndNormalizedName(
+    fun findByPickupLocationIdAndBrandName(
         pickupLocationId: Long,
-        normalizedName: String,
+        brandName: String,
     ): Optional<Restaurant>
 }
 

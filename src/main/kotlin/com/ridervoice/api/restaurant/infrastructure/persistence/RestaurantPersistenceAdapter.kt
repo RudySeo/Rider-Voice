@@ -94,12 +94,12 @@ internal class RestaurantPersistenceAdapter(
         return null
     }
 
-    override fun findByPickupLocationIdAndNormalizedName(
+    override fun findByPickupLocationIdAndBrandName(
         pickupLocationId: Long,
-        normalizedName: String,
-    ): Restaurant? = restaurants.findByPickupLocationIdAndNormalizedName(
+        brandName: String,
+    ): Restaurant? = restaurants.findByPickupLocationIdAndBrandName(
         pickupLocationId,
-        normalizedName,
+        RestaurantNormalization.displayText(brandName),
     ).orElse(null)
 
     override fun save(restaurant: Restaurant): Restaurant = restaurants.saveAndFlush(restaurant)

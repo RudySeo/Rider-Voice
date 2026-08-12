@@ -101,7 +101,7 @@ class RestaurantPersistenceAdapterTest {
                     assertThat(arguments[1]).isEqualTo(setOf(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED))
                     Optional.of(detail)
                 }
-                "findByPickupLocationIdAndNormalizedName" -> Optional.of(restaurant)
+                "findByPickupLocationIdAndBrandName" -> Optional.of(restaurant)
                 "saveAndFlush" -> restaurant
                 else -> unexpected(method)
             }
@@ -113,7 +113,7 @@ class RestaurantPersistenceAdapterTest {
         assertThat(adapter.findCanonicalDetail(1L)).isEqualTo(detail)
         assertThat(adapter.findById(restaurant.id)).isSameAs(restaurant)
         assertThat(
-            adapter.findByPickupLocationIdAndNormalizedName(location.id, restaurant.normalizedName),
+            adapter.findByPickupLocationIdAndBrandName(location.id, restaurant.brandName),
         ).isSameAs(restaurant)
         assertThat(adapter.save(restaurant)).isSameAs(restaurant)
         assertThat(calls).containsExactly(
@@ -127,7 +127,7 @@ class RestaurantPersistenceAdapterTest {
             "findReadableCanonicalTargetIdById",
             "findDetailById",
             "findById",
-            "findByPickupLocationIdAndNormalizedName",
+            "findByPickupLocationIdAndBrandName",
             "saveAndFlush",
         )
     }

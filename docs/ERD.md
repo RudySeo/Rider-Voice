@@ -54,7 +54,6 @@ erDiagram
         bigint pickup_location_id FK
         bigint canonical_restaurant_id FK "nullable"
         varchar brand_name
-        varchar normalized_name
         enum status
     }
 
@@ -157,7 +156,7 @@ erDiagram
 | 인증 | `oauth_accounts` | 외부 OAuth 계정 연결 | `(provider, provider_subject)`, `(user_id, provider)` |
 | 인증 | `user_sessions` | refresh token 만료·폐기·회전 | `(refresh_token_hash)` |
 | 음식점 | `pickup_locations` | 실제 픽업 장소 | `(location_key)` |
-| 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, normalized_name)` |
+| 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, brand_name)` |
 | 음식점 | `restaurant_external_references` | 외부 장소 ID 연결 | `(provider, external_place_id)` |
 | 음식점 | `restaurant_platforms` | 배달 플랫폼 메타데이터 | - |
 | 리뷰 | `reviews` | 평가, 의견과 공개·삭제 이력 | `(author_user_id, restaurant_id, current_slot)` |
@@ -166,3 +165,5 @@ erDiagram
 | 운영 | `moderation_audits` | 관리자 변경 전후 감사 기록 | - |
 
 `reviews.comment_moderation_status`는 의견이 없으면 `NONE`, 즉시 공개 상태면 `PUBLISHED`, 신고로 임시 숨김이면 `HIDDEN_REPORTED`, 관리자 사후 조치로 숨김이면 `REJECTED`를 사용한다. `PENDING`은 기존 데이터 호환을 위해 enum에만 남기고 새 리뷰에는 저장하지 않는다.
+
+`restaurants.brand_name`은 저장 전에 NFKC와 공백을 정리하고 MySQL `utf8mb4_0900_ai_ci` collation으로 비교한다. 따라서 같은 픽업 장소에서는 대소문자만 다른 브랜드명도 중복으로 처리하며 별도 정규화 이름 컬럼은 저장하지 않는다.

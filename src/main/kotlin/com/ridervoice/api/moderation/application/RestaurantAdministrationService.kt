@@ -109,7 +109,7 @@ internal class RestaurantAdministrationService(
         if (
             restaurants.restaurantNameExistsAtPickupLocation(
                 command.pickupLocationId,
-                restaurant.normalizedName,
+                restaurant.brandName,
                 restaurant.restaurantId,
             )
         ) {
@@ -142,14 +142,16 @@ internal class RestaurantAdministrationService(
             ?: throw ResourceNotFoundException("Restaurant was not found")
         requireActive(restaurant, "Restaurant")
         val displayName = RestaurantNormalization.displayText(command.name)
-        val normalizedName = RestaurantNormalization.normalizedText(displayName)
-        if (normalizedName == restaurant.normalizedName) {
+        if (
+            RestaurantNormalization.normalizedText(displayName) ==
+            RestaurantNormalization.normalizedText(restaurant.brandName)
+        ) {
             throw StateConflictException("Restaurant already has the requested name")
         }
         if (
             restaurants.restaurantNameExistsAtPickupLocation(
                 restaurant.pickupLocationId,
-                normalizedName,
+                displayName,
                 restaurant.restaurantId,
             )
         ) {
@@ -204,7 +206,7 @@ internal class RestaurantAdministrationService(
         if (
             restaurants.restaurantNameExistsAtPickupLocation(
                 pickupLocationId,
-                restaurant.normalizedName,
+                restaurant.brandName,
                 restaurant.restaurantId,
             )
         ) {

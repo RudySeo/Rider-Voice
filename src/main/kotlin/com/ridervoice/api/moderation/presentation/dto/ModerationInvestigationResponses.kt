@@ -71,7 +71,6 @@ data class AdminRestaurantSearchItemResponse(
 data class AdminRestaurantDetailResponse(
     @field:Schema(format = "int64") val restaurantId: Long,
     val name: String,
-    val normalizedName: String,
     val status: RestaurantStatus,
     @field:Schema(format = "int64", nullable = true) val canonicalRestaurantId: Long?,
     val pickupLocation: AdminPickupLocationResponse,

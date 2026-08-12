@@ -12,7 +12,7 @@ interface RestaurantAdministrationRepository {
 
     fun restaurantNameExistsAtPickupLocation(
         pickupLocationId: Long,
-        normalizedName: String,
+        brandName: String,
         excludedRestaurantId: Long,
     ): Boolean
 
@@ -27,7 +27,6 @@ interface RestaurantAdministrationRepository {
 data class StoredAdminRestaurant(
     val restaurantId: Long,
     val brandName: String,
-    val normalizedName: String,
     val pickupLocationId: Long,
     val status: RestaurantStatus,
     val canonicalRestaurantId: Long?,

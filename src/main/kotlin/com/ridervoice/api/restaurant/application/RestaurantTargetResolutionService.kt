@@ -256,7 +256,7 @@ internal class TransactionalRestaurantTargetWriter(
 
     private fun findOrCreateRestaurant(location: PickupLocation, name: String): Restaurant {
         val candidate = Restaurant(name, location)
-        return restaurants.findByPickupLocationIdAndNormalizedName(location.id, candidate.normalizedName)
+        return restaurants.findByPickupLocationIdAndBrandName(location.id, candidate.brandName)
             ?: restaurants.save(candidate)
     }
 

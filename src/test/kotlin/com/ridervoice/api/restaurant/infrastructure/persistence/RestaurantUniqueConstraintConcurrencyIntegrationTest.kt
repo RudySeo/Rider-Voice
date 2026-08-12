@@ -87,7 +87,7 @@ class RestaurantUniqueConstraintConcurrencyIntegrationTest : MySqlIntegrationTes
 
         assertSingleDatabaseWinner(results)
         assertThat(
-            restaurants.findByPickupLocationIdAndNormalizedName(location.id, "동시 등록 브랜드"),
+            restaurants.findByPickupLocationIdAndBrandName(location.id, "동시 등록 브랜드"),
         ).isPresent
     }
 

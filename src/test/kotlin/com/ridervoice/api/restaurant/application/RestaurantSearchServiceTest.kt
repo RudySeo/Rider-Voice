@@ -28,6 +28,7 @@ import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
+import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -396,11 +397,13 @@ class RestaurantSearchServiceTest {
                 )
             }
 
-        override fun findByPickupLocationIdAndNormalizedName(
+        override fun findByPickupLocationIdAndBrandName(
             pickupLocationId: Long,
-            normalizedName: String,
+            brandName: String,
         ): Restaurant? = restaurants.find {
-            it.pickupLocation.id == pickupLocationId && it.normalizedName == normalizedName
+            it.pickupLocation.id == pickupLocationId &&
+                RestaurantNormalization.normalizedText(it.brandName) ==
+                RestaurantNormalization.normalizedText(brandName)
         }
 
         override fun save(restaurant: Restaurant): Restaurant {

@@ -88,7 +88,6 @@ class RestaurantDomainTest {
         restaurant.close()
 
         assertThat(restaurant.brandName).isEqualTo("새 브랜드")
-        assertThat(restaurant.normalizedName).isEqualTo("새 브랜드")
         assertThat(restaurant.status).isEqualTo(RestaurantStatus.CLOSED)
 
         restaurant.reopen()

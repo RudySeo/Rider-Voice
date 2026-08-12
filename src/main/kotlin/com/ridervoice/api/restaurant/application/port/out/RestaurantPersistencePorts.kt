@@ -22,9 +22,9 @@ interface RestaurantRepository {
     fun findSearchCandidateById(restaurantId: Long): StoredRestaurantSearchCandidate?
     fun findById(restaurantId: Long): Restaurant?
     fun findCanonicalById(restaurantId: Long): Restaurant?
-    fun findByPickupLocationIdAndNormalizedName(
+    fun findByPickupLocationIdAndBrandName(
         pickupLocationId: Long,
-        normalizedName: String,
+        brandName: String,
     ): Restaurant?
 
     fun save(restaurant: Restaurant): Restaurant
