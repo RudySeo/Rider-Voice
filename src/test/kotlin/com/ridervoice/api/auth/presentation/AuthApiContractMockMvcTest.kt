@@ -1,16 +1,11 @@
 package com.ridervoice.api.auth.presentation
 
-import com.ridervoice.api.auth.application.UserSummary
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
-import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.common.config.OpenApiConfiguration
-import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
+import com.ridervoice.api.common.error.AuthenticationRequiredException
 import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.SecurityProblemHandler
@@ -35,11 +30,12 @@ import org.springdoc.core.configuration.SpringDocConfiguration
 import org.springdoc.core.properties.SpringDocConfigProperties
 import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration
 
-@WebMvcTest(controllers = [AuthController::class, OAuthExchangeController::class, UserController::class])
+@WebMvcTest(controllers = [AuthController::class, UserController::class])
 @Import(
     OpenApiConfiguration::class,
     AuthOpenApiConfiguration::class,
     AuthResponseMapper::class,
+    AuthCookieManager::class,
     GlobalExceptionHandler::class,
     SecurityProblemHandler::class,
 )
@@ -55,9 +51,6 @@ class AuthApiContractMockMvcTest {
     private lateinit var mockMvc: MockMvc
 
     @MockitoBean
-    private lateinit var exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase
-
-    @MockitoBean
     private lateinit var refreshSession: RefreshSessionUseCase
 
     @MockitoBean
@@ -70,27 +63,22 @@ class AuthApiContractMockMvcTest {
     private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
 
     @Test
-    fun `generated OpenAPI exposes redirect callback and public exchange contract`() {
+    fun `generated OpenAPI exposes a cookie callback without an exchange endpoint`() {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/authorization/kakao'].get.security") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/oauth2/authorization/kakao'].get.description") {
+                    value(containsString("prompt=login"))
+                }
                 jsonPath("$.paths['/api/v1/auth/oauth2/authorization/kakao'].get.responses['302']") { exists() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.security") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['302']") { exists() }
                 jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['200']") { doesNotExist() }
-                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.security") { doesNotExist() }
-                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.requestBody.content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/OAuthExchangeCodeRequest")
-                }
-                jsonPath("$.paths['/api/v1/auth/oauth2/exchange'].post.responses['200'].content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/AuthTokensResponse")
-                }
-                jsonPath("$.components.schemas.AuthTokensResponse.properties.accessToken.type") { value("string") }
-                jsonPath("$.components.schemas.AuthTokensResponse.properties.refreshToken.type") { value("string") }
-                jsonPath("$.components.schemas.AuthTokensResponse.properties.user['\$ref']") {
-                    value("#/components/schemas/UserResponse")
-                }
+                jsonPath("$.paths['/api/v1/auth/oauth2/callback/kakao'].get.responses['302'].headers['Set-Cookie']") { exists() }
+                jsonPath("$.paths['/api/v1/auth/oauth2/exchange']") { doesNotExist() }
+                jsonPath("$.components.schemas.OAuthExchangeCodeRequest") { doesNotExist() }
+                jsonPath("$.components.schemas.AuthTokensResponse") { doesNotExist() }
                 jsonPath("$.components.schemas.OAuth2LoginResponse") { doesNotExist() }
                 jsonPath("$.components.schemas.ProblemDetail") { exists() }
                 jsonPath("$.components.schemas.ProblemDetail.properties.code.type") { value("string") }
@@ -102,57 +90,7 @@ class AuthApiContractMockMvcTest {
     }
 
     @Test
-    fun `valid exchange code returns service tokens and active user`() {
-        val result = CompleteSocialLoginResult(
-            user = UserSummary(42L, "ACTIVE", UserRole.USER, "2026-07-01"),
-            accessToken = "service-access-token",
-            refreshToken = "service-refresh-token",
-        )
-        `when`(exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand("valid-code")))
-            .thenReturn(result)
-
-        mockMvc.post("/api/v1/auth/oauth2/exchange") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"valid-code"}"""
-        }.andExpect {
-            status { isOk() }
-            jsonPath("$.accessToken") { value("service-access-token") }
-            jsonPath("$.refreshToken") { value("service-refresh-token") }
-            jsonPath("$.user.status") { value("ACTIVE") }
-            jsonPath("$.user.termsVersion") { value("2026-07-01") }
-            jsonPath("$.onboardingToken") { doesNotExist() }
-        }
-    }
-
-    @Test
-    fun `blank exchange code returns stable request problem`() {
-        mockMvc.post("/api/v1/auth/oauth2/exchange") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"  "}"""
-        }.andExpect {
-            status { isBadRequest() }
-            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
-            jsonPath("$.code") { value("INVALID_OAUTH_EXCHANGE_REQUEST") }
-        }
-    }
-
-    @Test
-    fun `invalid expired or reused exchange code returns the same unauthorized problem`() {
-        `when`(exchangeSocialLoginCode.exchange(ExchangeSocialLoginCodeCommand("invalid-code")))
-            .thenThrow(InvalidOAuthExchangeCodeException())
-
-        mockMvc.post("/api/v1/auth/oauth2/exchange") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"code":"invalid-code"}"""
-        }.andExpect {
-            status { isUnauthorized() }
-            content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
-            jsonPath("$.code") { value("INVALID_OAUTH_EXCHANGE_CODE") }
-        }
-    }
-
-    @Test
-    fun `generated OpenAPI exposes only the service bearer scheme`() {
+    fun `generated OpenAPI exposes bearer and refresh cookie schemes`() {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
@@ -160,6 +98,9 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.securitySchemes.bearerAuth.scheme") { value("bearer") }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_USER")) }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_ADMIN")) }
+                jsonPath("$.components.securitySchemes.refreshCookie.type") { value("apiKey") }
+                jsonPath("$.components.securitySchemes.refreshCookie.in") { value("cookie") }
+                jsonPath("$.components.securitySchemes.refreshCookie.name") { value("rider_voice_refresh") }
                 jsonPath("$.components.securitySchemes.onboardingBearerAuth") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/consents']") { doesNotExist() }
                 jsonPath("$.components.schemas.ConsentRequest") { doesNotExist() }
@@ -171,17 +112,15 @@ class AuthApiContractMockMvcTest {
         mockMvc.get("/v3/api-docs")
             .andExpect {
                 status { isOk() }
-                jsonPath("$.paths['/api/v1/auth/refresh'].post.security") { doesNotExist() }
-                jsonPath("$.paths['/api/v1/auth/refresh'].post.requestBody.content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/TokenRequest")
-                }
+                jsonPath("$.paths['/api/v1/auth/refresh'].post.security[0].refreshCookie") { isArray() }
+                jsonPath("$.paths['/api/v1/auth/refresh'].post.requestBody") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/refresh'].post.responses['200'].content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/AuthTokensResponse")
+                    value("#/components/schemas/AccessSessionResponse")
                 }
-                jsonPath("$.paths['/api/v1/auth/logout'].post.security[0].bearerAuth") { isArray() }
-                jsonPath("$.paths['/api/v1/auth/logout'].post.requestBody.content['application/json'].schema['\$ref']") {
-                    value("#/components/schemas/TokenRequest")
-                }
+                jsonPath("$.components.schemas.AccessSessionResponse.properties.accessToken.type") { value("string") }
+                jsonPath("$.components.schemas.AccessSessionResponse.properties.refreshToken") { doesNotExist() }
+                jsonPath("$.paths['/api/v1/auth/logout'].post.security[0].refreshCookie") { isArray() }
+                jsonPath("$.paths['/api/v1/auth/logout'].post.requestBody") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/auth/logout'].post.responses['204']") { exists() }
                 jsonPath("$.paths['/api/v1/auth/logout'].post.parameters") { doesNotExist() }
                 jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth") { isArray() }
@@ -200,19 +139,19 @@ class AuthApiContractMockMvcTest {
     fun `refresh failure returns stable problem detail without leaking token to response or logs`(output: CapturedOutput) {
         val rawRefreshToken = "refresh-token-should-never-leak"
         `when`(refreshSession.refresh(RefreshSessionCommand(rawRefreshToken)))
-            .thenThrow(IllegalArgumentException("Invalid refresh token: $rawRefreshToken"))
+            .thenThrow(AuthenticationRequiredException("Invalid refresh token: $rawRefreshToken"))
 
         mockMvc.post("/api/v1/auth/refresh") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"refreshToken":"$rawRefreshToken"}"""
+            cookie(jakarta.servlet.http.Cookie(REFRESH_TOKEN_COOKIE_NAME, rawRefreshToken))
         }.andExpect {
-            status { isBadRequest() }
+            status { isUnauthorized() }
             content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
-            jsonPath("$.type") { value("urn:ridervoice:error:bad-request") }
-            jsonPath("$.status") { value(400) }
-            jsonPath("$.code") { value("BAD_REQUEST") }
-            jsonPath("$.detail") { value("The request is invalid.") }
+            jsonPath("$.type") { value("urn:ridervoice:error:authentication-required") }
+            jsonPath("$.status") { value(401) }
+            jsonPath("$.code") { value("AUTHENTICATION_REQUIRED") }
+            jsonPath("$.detail") { value("Authentication is required.") }
             content { string(not(containsString(rawRefreshToken))) }
+            header { string("Set-Cookie", containsString("Max-Age=0")) }
         }
 
         assertThat(output.all).doesNotContain(rawRefreshToken)

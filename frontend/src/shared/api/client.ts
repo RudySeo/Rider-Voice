@@ -67,7 +67,6 @@ type ApiClientOptions = {
 }
 
 const NO_REFRESH_PATHS = new Set<ApiPath>([
-  '/api/v1/auth/oauth2/exchange',
   '/api/v1/auth/refresh',
   '/api/v1/auth/logout',
 ])
@@ -187,6 +186,7 @@ export class ApiClient {
       {
         method: options.method.toUpperCase(),
         headers,
+        credentials: 'include',
         body:
           options.body === undefined ? undefined : JSON.stringify(options.body),
       },

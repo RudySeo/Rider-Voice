@@ -71,8 +71,7 @@ describe('ApiClient', () => {
 
     const result = await client.request('/api/v1/auth/logout', {
       method: 'post',
-      body: { refreshToken: 'refresh-token' },
-      auth: 'access',
+      auth: 'none',
     })
 
     expect(result).toBeUndefined()
@@ -178,7 +177,6 @@ describe('ApiClient', () => {
   })
 
   it.each([
-    '/api/v1/auth/oauth2/exchange',
     '/api/v1/auth/refresh',
     '/api/v1/auth/logout',
   ] as const)('does not refresh the session for %s', async (path) => {
@@ -195,12 +193,7 @@ describe('ApiClient', () => {
     await expect(
       client.request(path, {
         method: 'post',
-        body:
-          path === '/api/v1/auth/oauth2/exchange'
-            ? { code: 'exchange-code' }
-            : { refreshToken: 'refresh-token' },
-        auth:
-          path === '/api/v1/auth/logout' ? 'access' : 'none',
+        auth: 'none',
       }),
     ).rejects.toMatchObject({ status: 401 })
 

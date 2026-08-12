@@ -24,11 +24,9 @@ data class RefreshSessionCommand(
 }
 
 data class LogoutCommand(
-    val userId: Long,
     val refreshToken: String,
 ) {
     init {
-        require(userId > 0) { "User ID must be positive" }
         require(refreshToken.isNotBlank()) { "Refresh token must not be blank" }
     }
 }

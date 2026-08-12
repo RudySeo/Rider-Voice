@@ -3,8 +3,6 @@ import type { components } from './generated'
 type ProblemDetail = components['schemas']['ProblemDetail']
 
 const CODE_MESSAGES: Readonly<Record<string, string>> = {
-  INVALID_OAUTH_EXCHANGE_REQUEST: '로그인 요청을 다시 시작해 주세요.',
-  INVALID_OAUTH_EXCHANGE_CODE: '로그인 시간이 만료되었습니다. 다시 로그인해 주세요.',
   INVALID_REFRESH_TOKEN: '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',
   EXTERNAL_PROVIDER_UNAVAILABLE:
     '외부 검색 서비스를 일시적으로 사용할 수 없습니다.',

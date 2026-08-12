@@ -20,7 +20,6 @@ import {
 import {
   createApiSession,
   resetApiSessionForTests,
-  SESSION_STORAGE_KEYS,
   type AuthState,
 } from '@/shared/api/session'
 
@@ -40,7 +39,6 @@ class FakeAuthSession implements AuthSession {
   private state: AuthState
   private readonly listeners = new Set<(state: AuthState) => void>()
   readonly restore = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
-  readonly exchange = vi.fn<AuthSession['exchange']>()
   readonly logout = vi.fn(async () => {
     this.setState({ status: 'anonymous' })
   })
@@ -84,11 +82,10 @@ describe('auth user flow', () => {
     expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
   })
 
-  it('exchanges a new-user callback code once and applies the service session', async () => {
+  it('restores a new-user callback from the HttpOnly cookie once', async () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
         accessToken: 'private-access-token',
-        refreshToken: 'private-refresh-token',
         user: {
           id: 7,
           status: 'ACTIVE',
@@ -98,22 +95,21 @@ describe('auth user flow', () => {
       }),
     )
     const session = createApiSession({ fetchFn })
-    const router = renderApp('/auth/callback?code=single-use-code', session)
+    const router = renderApp('/auth/callback', session)
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
 
     expect(fetchFn).toHaveBeenCalledTimes(1)
     expect(fetchFn).toHaveBeenCalledWith(
-      '/api/v1/auth/oauth2/exchange',
+      '/api/v1/auth/refresh',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ code: 'single-use-code' }),
+        body: undefined,
+        credentials: 'include',
       }),
     )
     expect(document.body).not.toHaveTextContent('private-access-token')
-    expect(sessionStorage.getItem(SESSION_STORAGE_KEYS.refreshToken)).toBe(
-      'private-refresh-token',
-    )
+    expect(sessionStorage.length).toBe(0)
   })
 
   it('applies an existing-user session, clears a legacy return path, and goes home', async () => {
@@ -124,7 +120,6 @@ describe('auth user flow', () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse({
         accessToken: 'private-access-token',
-        refreshToken: 'private-refresh-token',
         user: {
           id: 7,
           status: 'ACTIVE',
@@ -134,7 +129,7 @@ describe('auth user flow', () => {
       }),
     )
     const router = renderApp(
-      '/auth/callback?code=single-use-code',
+      '/auth/callback',
       createApiSession({ fetchFn }),
     )
 
@@ -142,7 +137,6 @@ describe('auth user flow', () => {
 
     expect(fetchFn).toHaveBeenCalledTimes(1)
     expect(document.body).not.toHaveTextContent('private-access-token')
-    expect(document.body).not.toHaveTextContent('private-refresh-token')
     expect(sessionStorage.getItem(LOGIN_RETURN_PATH_KEY)).toBeNull()
   })
 
@@ -160,16 +154,15 @@ describe('auth user flow', () => {
   })
 
   it.each([
-    ['/auth/callback?error=oauth_failed&error_description=provider-secret', false],
-    ['/auth/callback', false],
+    ['/auth/callback?error=oauth_failed&error_description=provider-secret', true],
   ] as const)(
     'shows one generic retry UI for callback failure %s',
     async (path, callsApi) => {
       const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
         jsonResponse(
           {
-            code: 'INVALID_OAUTH_EXCHANGE_CODE',
-            detail: 'expired code provider-secret',
+            code: 'AUTHENTICATION_REQUIRED',
+            detail: 'invalid cookie provider-secret',
           },
           401,
         ),
@@ -188,25 +181,25 @@ describe('auth user flow', () => {
     },
   )
 
-  it('removes a rejected exchange code and shows its safe expiry message', async () => {
+  it('shows a safe message when the refresh cookie is rejected', async () => {
     const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(
       jsonResponse(
         {
-          code: 'INVALID_OAUTH_EXCHANGE_CODE',
-          detail: 'expired code provider-secret',
+          code: 'AUTHENTICATION_REQUIRED',
+          detail: 'invalid cookie provider-secret',
         },
         401,
       ),
     )
     const router = renderApp(
-      '/auth/callback?code=expired-or-reused',
+      '/auth/callback',
       createApiSession({ fetchFn }),
     )
 
     expect(
       await screen.findByRole('heading', { name: '로그인을 완료하지 못했습니다' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('로그인 시간이 만료되었습니다. 다시 로그인해 주세요.')).toBeInTheDocument()
+    expect(screen.getByText('로그인이 필요하거나 세션이 만료되었습니다.')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/auth/callback')
     expect(router.state.location.search).toBe('')
     expect(document.body).not.toHaveTextContent('provider-secret')
@@ -218,7 +211,7 @@ describe('auth user flow', () => {
       .fn<typeof fetch>()
       .mockRejectedValue(new Error('network provider-secret'))
     const router = renderApp(
-      '/auth/callback?code=single-use-code',
+      '/auth/callback',
       createApiSession({ fetchFn }),
     )
 

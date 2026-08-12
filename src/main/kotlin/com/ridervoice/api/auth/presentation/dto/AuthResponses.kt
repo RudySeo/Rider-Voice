@@ -3,9 +3,8 @@ package com.ridervoice.api.auth.presentation.dto
 import com.ridervoice.api.auth.domain.UserRole
 import io.swagger.v3.oas.annotations.media.Schema
 
-data class AuthTokensResponse(
+data class AccessSessionResponse(
     val accessToken: String,
-    val refreshToken: String,
     val user: UserResponse,
 )
 

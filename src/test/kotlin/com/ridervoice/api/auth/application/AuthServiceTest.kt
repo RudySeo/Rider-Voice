@@ -1,12 +1,9 @@
 package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
-import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
-import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
@@ -16,7 +13,6 @@ import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
 import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.common.error.AuthenticationRequiredException
-import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -24,6 +20,7 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.mockingDetails
 import org.mockito.Mockito.never
+import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.springframework.transaction.annotation.Transactional
@@ -40,11 +37,10 @@ class AuthServiceTest {
     private val users = mock(UserStore::class.java)
     private val accounts = mock(OAuthAccountStore::class.java)
     private val sessions = mock(UserSessionStore::class.java)
-    private val exchangeGrants = mock(OAuthExchangeGrantStore::class.java)
-    private val auth = AuthService(users, accounts, sessions, exchangeGrants, clock)
+    private val auth = AuthService(users, accounts, sessions, clock)
 
     @Test
-    fun `provider login creates a new social account and returns only a hashed exchange grant`() {
+    fun `provider login creates a new active social account and stores only a hashed refresh token`() {
         val command = CompleteSocialLoginCommand(OAuthProvider.KAKAO, "provider-subject")
         `when`(accounts.findOAuthAccount(command.provider, command.providerSubject)).thenReturn(null)
         `when`(users.saveUser(anyValue())).thenAnswer {
@@ -52,42 +48,37 @@ class AuthServiceTest {
         }
         `when`(accounts.saveOAuthAccount(anyValue()))
             .thenAnswer { it.arguments[0] as OAuthAccount }
+        `when`(sessions.saveSession(anyValue()))
+            .thenAnswer { it.arguments[0] as UserSession }
 
         val result = auth.complete(command)
 
-        assertThat(result.code).isNotBlank()
+        assertThat(result.refreshToken).isNotBlank()
         val savedAccount = savedArgument<OAuthAccount>(accounts, "saveOAuthAccount")
         assertThat(savedAccount.user.id).isEqualTo(10L)
         assertThat(savedAccount.provider).isEqualTo(OAuthProvider.KAKAO)
         assertThat(savedAccount.providerSubject).isEqualTo("provider-subject")
-        val savedHash = savedArguments(exchangeGrants, "save").first() as String
-        val savedGrant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
-        assertThat(savedHash).isEqualTo(sha256(result.code))
-        assertThat(savedHash).isNotEqualTo(result.code)
-        assertThat(savedGrant.userId).isEqualTo(10L)
-        assertThat(savedGrant.expiresAt).isEqualTo(now.plusSeconds(60))
-        verify(sessions, never()).saveSession(anyValue())
+        val savedSession = savedArgument<UserSession>(sessions, "saveSession")
+        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.refreshToken))
+        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.refreshToken)
+        assertThat(savedSession.expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
+        assertThat(savedAccount.user.status).isEqualTo(UserStatus.ACTIVE)
+        assertThat(savedAccount.user.termsVersion).isEqualTo("2026-07-01")
     }
 
     @Test
-    fun `valid exchange code for an active account issues opaque service tokens`() {
+    fun `provider login for an active account creates a refresh session without changing terms`() {
         val user = activeUser()
         val originalTermsAgreedAt = user.termsAgreedAt
         val account = OAuthAccount(user, OAuthProvider.KAKAO, "active-subject")
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "active-subject")).thenReturn(account)
         `when`(users.findUserForUpdate(user.id)).thenReturn(user)
-        `when`(users.findUser(user.id)).thenReturn(user)
         `when`(sessions.saveSession(anyValue()))
             .thenAnswer { it.arguments[0] as UserSession }
 
-        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject")).code
-        val grant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
-        `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
-        val result = auth.exchange(ExchangeSocialLoginCodeCommand(code))
+        val result = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject"))
 
-        assertThat(result.accessToken).isNotBlank()
         assertThat(result.refreshToken).isNotBlank()
-        assertThat(result.user.termsVersion).isEqualTo("2026-07-01")
         assertThat(user.termsAgreedAt).isEqualTo(originalTermsAgreedAt)
         verify(users).findUserForUpdate(user.id)
         val savedSession = savedArgument<UserSession>(sessions, "saveSession")
@@ -96,47 +87,15 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `valid exchange code for a pending account records current terms and issues service tokens`() {
-        val user = User().apply { id = 8L }
-        `when`(users.findUserForUpdate(user.id)).thenReturn(user)
-        `when`(exchangeGrants.consume(sha256("pending-code"), now))
-            .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
-
-        val result = auth.exchange(ExchangeSocialLoginCodeCommand("pending-code"))
-
-        assertThat(result.user.id).isEqualTo(user.id)
-        assertThat(result.user.status).isEqualTo("ACTIVE")
-        assertThat(result.user.termsVersion).isEqualTo("2026-07-01")
-        assertThat(result.accessToken).isNotBlank()
-        assertThat(result.refreshToken).isNotBlank()
-    }
-
-    @Test
-    fun `invalid expired or reused exchange code is rejected with the same authentication error`() {
-        listOf("invalid-code", "expired-code", "reused-code").forEach { code ->
-            `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(null)
-
-            assertThrows<InvalidOAuthExchangeCodeException> {
-                auth.exchange(ExchangeSocialLoginCodeCommand(code))
-            }
-        }
-
-        verify(users, never()).findUserForUpdate(org.mockito.ArgumentMatchers.anyLong())
-        verify(sessions, never()).saveSession(anyValue())
-    }
-
-    @Test
-    fun `suspended social account cannot exchange for service tokens`() {
+    fun `suspended social account cannot create a refresh session`() {
         val user = activeUser()
         setStatus(user, UserStatus.SUSPENDED)
+        `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "suspended-subject"))
+            .thenReturn(OAuthAccount(user, OAuthProvider.KAKAO, "suspended-subject"))
         `when`(users.findUserForUpdate(user.id)).thenReturn(user)
-        `when`(exchangeGrants.consume(sha256("suspended-code"), now))
-            .thenReturn(OAuthExchangeGrant(user.id, now.plusSeconds(60)))
 
         assertThrows<AuthenticationRequiredException> {
-            auth.exchange(ExchangeSocialLoginCodeCommand("suspended-code"))
+            auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "suspended-subject"))
         }
 
         verify(sessions, never()).saveSession(anyValue())
@@ -145,16 +104,8 @@ class AuthServiceTest {
     @Test
     fun `access token authentication reflects the current database role`() {
         val original = activeUser(UserRole.USER)
-        `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "role-subject"))
-            .thenReturn(OAuthAccount(original, OAuthProvider.KAKAO, "role-subject"))
-        `when`(users.findUserForUpdate(original.id)).thenReturn(original)
         `when`(users.findUser(original.id)).thenReturn(original)
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
-        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "role-subject")).code
-        val grant = savedArguments(exchangeGrants, "save").last() as OAuthExchangeGrant
-        `when`(exchangeGrants.consume(sha256(code), now)).thenReturn(grant)
-        val accessToken = auth.exchange(ExchangeSocialLoginCodeCommand(code)).accessToken
+        val accessToken = issueTokens(auth, original).accessToken
         val promoted = activeUser(UserRole.ADMIN)
         `when`(users.findUser(original.id)).thenReturn(promoted)
 
@@ -175,7 +126,7 @@ class AuthServiceTest {
     @Test
     fun `access token expires after fifteen minutes`() {
         val mutableClock = MutableClock(now)
-        val service = AuthService(users, accounts, sessions, exchangeGrants, mutableClock)
+        val service = AuthService(users, accounts, sessions, mutableClock)
         val user = activeUser()
         `when`(users.findUser(user.id)).thenReturn(user)
 
@@ -204,7 +155,7 @@ class AuthServiceTest {
     @Test
     fun `access token is invalid after service restart`() {
         val accessToken = issueTokens(auth, activeUser()).accessToken
-        val restarted = AuthService(users, accounts, sessions, exchangeGrants, clock)
+        val restarted = AuthService(users, accounts, sessions, clock)
 
         assertThat(restarted.authenticate(accessToken)).isNull()
     }
@@ -219,11 +170,12 @@ class AuthServiceTest {
 
         assertThat(auth.authenticate(tokens.accessToken)).isEqualTo(AuthenticatedUserPrincipal(user.id))
 
-        auth.logout(LogoutCommand(user.id, tokens.refreshToken))
+        auth.logout(LogoutCommand(tokens.refreshToken))
+        auth.logout(LogoutCommand(tokens.refreshToken))
 
         assertThat(session.revokedAt).isEqualTo(now)
         assertThat(auth.authenticate(tokens.accessToken)).isNull()
-        verify(sessions).findSessionForUpdate(sha256(tokens.refreshToken))
+        verify(sessions, times(2)).findSessionForUpdate(sha256(tokens.refreshToken))
     }
 
     @Test
@@ -248,7 +200,7 @@ class AuthServiceTest {
         assertThat(savedSessions.last().expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
         assertThat(auth.authenticate(refreshedTokens.accessToken))
             .isEqualTo(AuthenticatedUserPrincipal(user.id))
-        assertThrows<IllegalStateException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
+        assertThrows<AuthenticationRequiredException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
         assertThat(savedSessions).hasSize(1)
     }
 
@@ -263,7 +215,7 @@ class AuthServiceTest {
         )
         `when`(sessions.findSessionForUpdate(expiredSession.refreshTokenHash)).thenReturn(expiredSession)
 
-        assertThrows<IllegalStateException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
+        assertThrows<AuthenticationRequiredException> { auth.refresh(RefreshSessionCommand(rawRefreshToken)) }
 
         verify(users, never()).findUser(user.id)
         verify(sessions, never()).saveSession(anyValue())

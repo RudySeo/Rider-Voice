@@ -19,6 +19,7 @@ import org.springframework.web.util.UriComponentsBuilder
 class OAuth2LoginSuccessHandler(
     private val completeProviderLogin: CompleteProviderLoginUseCase,
     private val failureHandler: OAuth2LoginFailureHandler,
+    private val cookies: AuthCookieManager,
     @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
     private val frontendBaseUrl: String,
 ) : AuthenticationSuccessHandler {
@@ -39,7 +40,8 @@ class OAuth2LoginSuccessHandler(
             )
 
             destroyTemporarySession(request)
-            response.sendRedirect(frontendCallback("code", result.code))
+            cookies.writeRefreshToken(response, result.refreshToken)
+            response.sendRedirect(frontendCallback())
         } catch (_: RuntimeException) {
             failureHandler.onAuthenticationFailure(
                 request,
@@ -49,10 +51,9 @@ class OAuth2LoginSuccessHandler(
         }
     }
 
-    private fun frontendCallback(name: String, value: String): String = UriComponentsBuilder
+    private fun frontendCallback(): String = UriComponentsBuilder
         .fromUriString(frontendBaseUrl.trimEnd('/'))
         .path(FRONTEND_CALLBACK_PATH)
-        .queryParam(name, value)
         .build()
         .encode()
         .toUriString()
@@ -60,6 +61,7 @@ class OAuth2LoginSuccessHandler(
 
 @Component
 class OAuth2LoginFailureHandler(
+    private val cookies: AuthCookieManager,
     @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
     private val frontendBaseUrl: String,
 ) : AuthenticationFailureHandler {
@@ -70,6 +72,7 @@ class OAuth2LoginFailureHandler(
         exception: org.springframework.security.core.AuthenticationException,
     ) {
         destroyTemporarySession(request)
+        cookies.clearRefreshToken(response)
         val redirect = UriComponentsBuilder
             .fromUriString(frontendBaseUrl.trimEnd('/'))
             .path(FRONTEND_CALLBACK_PATH)

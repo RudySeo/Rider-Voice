@@ -1,10 +1,7 @@
 package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginResult
 import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserQuery
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
@@ -13,8 +10,6 @@ import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
-import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrant
-import com.ridervoice.api.auth.application.port.out.OAuthExchangeGrantStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
@@ -23,7 +18,6 @@ import com.ridervoice.api.auth.domain.UserRole
 import com.ridervoice.api.auth.domain.UserSession
 import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.common.error.AuthenticationRequiredException
-import com.ridervoice.api.common.error.InvalidOAuthExchangeCodeException
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.AuthenticatedUserPrincipal
 import com.ridervoice.api.common.security.BearerPrincipal
@@ -50,10 +44,8 @@ class AuthService(
     private val users: UserStore,
     private val accounts: OAuthAccountStore,
     private val sessions: UserSessionStore,
-    private val exchangeGrants: OAuthExchangeGrantStore,
     private val clock: Clock = Clock.systemUTC(),
 ) : CompleteProviderLoginUseCase,
-    ExchangeSocialLoginCodeUseCase,
     RefreshSessionUseCase,
     LogoutUseCase,
     GetCurrentUserUseCase,
@@ -63,49 +55,31 @@ class AuthService(
 
     @Transactional
     override fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult {
-        val user = accounts.findOAuthAccount(command.provider, command.providerSubject)?.user
-            ?: createUserWithAccount(command)
-        val rawCode = randomToken()
-        val issuedAt = clock.instant()
-        exchangeGrants.save(
-            hash(rawCode),
-            OAuthExchangeGrant(
-                userId = user.id,
-                expiresAt = issuedAt.plusSeconds(OAUTH_EXCHANGE_EXPIRY_SECONDS),
-            ),
-        )
-        return ProviderLoginResult(rawCode)
-    }
-
-    @Transactional
-    override fun exchange(command: ExchangeSocialLoginCodeCommand): CompleteSocialLoginResult {
         val now = clock.instant()
-        val grant = exchangeGrants.consume(hash(command.code), now)
-            ?: throw InvalidOAuthExchangeCodeException()
-        val user = users.findUserForUpdate(grant.userId)
-            ?: throw InvalidOAuthExchangeCodeException()
+        val account = accounts.findOAuthAccount(command.provider, command.providerSubject)
+        val user = account?.user?.let { users.findUserForUpdate(it.id) }
+            ?: if (account == null) createUserWithAccount(command) else throw AuthenticationRequiredException()
         if (user.status == UserStatus.PENDING_TERMS) {
             user.agreeToTerms(CURRENT_TERMS_VERSION, now)
         }
         if (user.status != UserStatus.ACTIVE) {
             throw AuthenticationRequiredException("User is not eligible to sign in")
         }
-        val tokens = issueTokens(user).tokens
-        return CompleteSocialLoginResult(
-            user = tokens.user,
-            accessToken = tokens.accessToken,
-            refreshToken = tokens.refreshToken,
-        )
+        return ProviderLoginResult(issueRefreshSession(user, now).rawToken)
     }
 
     @Transactional
     override fun refresh(command: RefreshSessionCommand): AuthTokens {
         val session = sessions.findSessionForUpdate(hash(command.refreshToken))
-            ?: throw IllegalArgumentException("Invalid refresh token")
+            ?: throw AuthenticationRequiredException()
         val now = clock.instant()
-        check(session.isActiveAt(now)) { "Refresh session is inactive" }
+        if (!session.isActiveAt(now)) {
+            throw AuthenticationRequiredException()
+        }
         val user = session.user
-        check(user.status == UserStatus.ACTIVE) { "User is not eligible to refresh a session" }
+        if (user.status != UserStatus.ACTIVE) {
+            throw AuthenticationRequiredException()
+        }
         val next = issueTokens(user)
         session.rotateTo(next.session, now)
         return next.tokens
@@ -114,9 +88,10 @@ class AuthService(
     @Transactional
     override fun logout(command: LogoutCommand) {
         sessions.findSessionForUpdate(hash(command.refreshToken))
-            ?.takeIf { it.user.id == command.userId }
             ?.let { session ->
-                session.revoke(clock.instant())
+                if (session.revokedAt == null) {
+                    session.revoke(clock.instant())
+                }
                 accessTokens.entries.removeIf { it.value.sessionId == session.id }
             }
     }
@@ -154,23 +129,28 @@ class AuthService(
         check(user.status == UserStatus.ACTIVE) { "Only an active user can start a session" }
         val issuedAt = clock.instant()
         val access = randomToken()
-        val refresh = randomToken()
-        val session = sessions.saveSession(
-            UserSession(
-                user = user,
-                refreshTokenHash = hash(refresh),
-                expiresAt = issuedAt.plus(Duration.ofDays(REFRESH_TOKEN_EXPIRY_DAYS)),
-            ),
-        )
+        val refresh = issueRefreshSession(user, issuedAt)
         accessTokens[access] = AccessTokenRecord(
             userId = user.id,
-            sessionId = session.id,
+            sessionId = refresh.session.id,
             expiresAt = issuedAt.plus(Duration.ofMinutes(ACCESS_TOKEN_EXPIRY_MINUTES)),
         )
         return IssuedSession(
-            tokens = AuthTokens(access, refresh, userSummary(user)),
-            session = session,
+            tokens = AuthTokens(access, refresh.rawToken, userSummary(user)),
+            session = refresh.session,
         )
+    }
+
+    private fun issueRefreshSession(user: User, issuedAt: Instant): IssuedRefreshSession {
+        val rawToken = randomToken()
+        val session = sessions.saveSession(
+            UserSession(
+                user = user,
+                refreshTokenHash = hash(rawToken),
+                expiresAt = issuedAt.plus(Duration.ofDays(REFRESH_TOKEN_EXPIRY_DAYS)),
+            ),
+        )
+        return IssuedRefreshSession(rawToken, session)
     }
 
     private fun userSummary(user: User) = UserSummary(user.id, user.status.name, user.role, user.termsVersion)
@@ -179,7 +159,6 @@ class AuthService(
 
     private companion object {
         const val CURRENT_TERMS_VERSION = "2026-07-01"
-        const val OAUTH_EXCHANGE_EXPIRY_SECONDS = 60L
         const val ACCESS_TOKEN_EXPIRY_MINUTES = 15L
         const val REFRESH_TOKEN_EXPIRY_DAYS = 30L
     }
@@ -193,5 +172,10 @@ private data class AccessTokenRecord(
 
 private data class IssuedSession(
     val tokens: AuthTokens,
+    val session: UserSession,
+)
+
+private data class IssuedRefreshSession(
+    val rawToken: String,
     val session: UserSession,
 )

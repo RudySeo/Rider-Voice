@@ -36,17 +36,17 @@
 
 **선택**: 카카오 로그인 시작, 요청 위조 방지 값(`state`), 인증 코드 교환과 사용자 정보 조회는 Spring Security OAuth2 Client로 처리한다. 카카오 사용자 정보에서는 `id`만 계정 식별값으로 사용한다.
 
-로그인 과정에서만 임시 HTTP session을 사용하고 완료되면 폐기한다. 성공 시 서비스 토큰을 URL에 넣지 않고, 60초 동안 한 번만 사용할 수 있는 교환 코드를 고정된 frontend callback 주소로 전달한다.
+모든 카카오 인가 요청에는 `prompt=login`을 사용해 기존 카카오 브라우저 세션과 관계없이 계정을 다시 인증한다. 로그인 과정에서만 임시 HTTP session을 사용하고 완료되면 폐기한다. 성공 시 refresh token을 `HttpOnly`, `SameSite=Lax` cookie로 설정하고 고정된 frontend callback 주소로 이동한다. 서비스 token은 URL에 넣지 않는다.
 
-**선택한 이유**: OAuth 보안 흐름을 직접 구현하는 범위를 줄이고 웹과 이후 클라이언트가 같은 Rider Voice 인증 방식을 사용하게 하기 위해서다.
+**선택한 이유**: OAuth 보안 흐름을 직접 구현하는 범위를 줄이고 웹과 이후 클라이언트가 같은 Rider Voice 인증 방식을 사용하게 하며, 로그아웃한 사용자가 이전 카카오 계정으로 자동 로그인되지 않고 원하는 계정으로 다시 인증할 수 있게 하기 위해서다.
 
-**감수할 점**: 로그인용 임시 session과 교환 코드 저장소가 필요하다. REST API는 이 임시 session을 로그인 상태로 받아들이지 않도록 분리해야 한다.
+**감수할 점**: REST API는 로그인용 임시 session을 로그인 상태로 받아들이지 않도록 분리해야 한다. refresh cookie를 사용하는 endpoint는 cookie 속성과 만료를 일관되게 관리해야 한다. 카카오 세션이 남아 있어도 로그인할 때마다 재인증 단계가 추가된다.
 
 ## ADR-005: Rider Voice 전용 토큰을 사용한다
 
-**선택**: 로그인 화면에서 계속 진행하면 현재 필수 약관에 동의한다는 점을 알린다. 교환 코드를 제출하면 신규·약관 미동의 사용자의 약관 버전과 동의 시각을 기록하고, Rider Voice access token과 회전되는 refresh token을 발급한다. 별도의 onboarding token은 사용하지 않는다.
+**선택**: 로그인 화면에서 계속 진행하면 현재 필수 약관에 동의한다는 점을 알린다. OAuth callback을 정상 완료하면 신규·약관 미동의 사용자의 약관 버전과 동의 시각을 기록하고 Rider Voice refresh session을 만든다. frontend는 `HttpOnly` refresh cookie로 access token을 발급받는다. 별도의 onboarding token과 OAuth 교환 코드는 사용하지 않는다.
 
-access token은 15분, refresh token은 30일 동안 유효하다. refresh token은 원문 대신 hash로 저장하고 사용할 때마다 교체한다. 두 토큰 모두 URL에 넣지 않는다.
+access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. refresh token은 30일 동안 유효하며 backend에는 원문 대신 hash로 저장하고 browser에는 `HttpOnly` cookie로 보관하며 사용할 때마다 교체한다. 두 토큰 모두 URL과 Web Storage에 넣지 않는다.
 
 **선택한 이유**: 카카오 로그인과 Rider Voice의 로그인 상태를 분리하고, 서비스가 refresh session을 직접 폐기하거나 교체할 수 있게 하기 위해서다.
 
@@ -144,8 +144,8 @@ access token은 15분, refresh token은 30일 동안 유효하다. refresh token
 
 **선택**: 기존 Spring Boot 프로젝트는 그대로 두고 `/frontend`에 React, Vite와 TypeScript 기반 SPA를 둔다. TanStack Query, React Router, React Hook Form, Zod, CSS Modules, Vitest와 Testing Library를 사용한다. 실행 중인 OpenAPI에서 API 타입을 생성한다.
 
-access token은 JavaScript 메모리에, refresh token은 탭 단위 `sessionStorage`에 보관한다. 브라우저의 영구 저장소에는 서비스 토큰을 저장하지 않는다.
+access token은 JavaScript 메모리에 보관하고 refresh token은 backend가 설정한 `HttpOnly` cookie에 보관한다. Web Storage에는 서비스 토큰을 저장하지 않는다.
 
 **선택한 이유**: 서버 계약을 유지하면서 공개 조회, 로그인 고지, 음식점 등록과 리뷰 관리 흐름을 실제 브라우저에서 확인하기 위해서다.
 
-**감수할 점**: 탭을 닫으면 로그인 상태가 사라지고 frontend와 backend를 함께 실행해야 한다. `sessionStorage`는 XSS를 막아 주는 보안 수단이 아니다. 이 화면은 로컬 prototype이며 운영 배포, 관리자 UI와 실제 카카오 브라우저 E2E는 다루지 않는다.
+**감수할 점**: 앱을 열 때마다 refresh API로 로그인 상태를 복구해야 하고 frontend와 backend를 함께 실행해야 한다. `HttpOnly` cookie는 JavaScript token 탈취 위험을 줄이지만 cookie 설정과 만료를 backend가 책임져야 한다. 이 화면은 로컬 prototype이며 운영 배포, 관리자 UI와 실제 카카오 브라우저 E2E는 다루지 않는다.

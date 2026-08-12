@@ -84,7 +84,7 @@ frontend/src
 
 의존 방향은 `app -> pages -> features -> shared`다. 화면이 DB나 카카오 API를 직접 호출하지 않고 Vite의 `/api` proxy를 통해 Spring Boot 서버만 호출한다. API 타입은 실행 중인 `/v3/api-docs`에서 생성하며 생성 파일을 직접 수정하지 않는다.
 
-access token은 JavaScript 메모리에, refresh token은 탭 단위 `sessionStorage`에 둔다. `localStorage`, IndexedDB, cookie, URL, console과 analytics에는 서비스 토큰을 기록하지 않는다. 새로고침할 때는 refresh token으로 access token을 한 번 복구하고, 갱신·로그아웃·인증 실패 시 두 토큰을 함께 교체하거나 제거한다.
+access token은 JavaScript 메모리에 두고 refresh token은 backend가 설정한 `HttpOnly` cookie에 둔다. `localStorage`, `sessionStorage`, IndexedDB, URL, console과 analytics에는 서비스 토큰을 기록하지 않는다. 새로고침할 때는 cookie의 refresh token으로 access token을 한 번 복구하고, 갱신 시 refresh cookie를 회전시키며 로그아웃 시 cookie와 메모리 access token을 제거한다.
 
 ## 4. 로그인과 권한
 
@@ -92,27 +92,28 @@ access token은 JavaScript 메모리에, refresh token은 탭 단위 `sessionSto
 
 ```text
 카카오 로그인 시작
-  -> 카카오 인증과 사용자 동의
+  -> 기존 카카오 세션과 관계없이 계정 재인증과 사용자 동의
   -> callback에서 카카오 사용자 id 확인
-  -> 60초 단일 사용 교환 코드 생성
-  -> 고정된 frontend callback 주소로 이동
-  -> frontend가 교환 코드를 API에 제출
-  -> 약관 기록 후 Rider Voice access/refresh token 발급
+  -> 약관 기록 후 Rider Voice refresh session 생성
+  -> HttpOnly refresh cookie를 설정하고 고정된 frontend callback 주소로 이동
+  -> frontend가 cookie로 refresh API를 호출
+  -> Rider Voice access token을 응답 body로 발급하고 refresh cookie 회전
 ```
 
 - 카카오 사용자 정보에서는 `id`만 외부 계정 식별값으로 사용한다.
+- 모든 카카오 인가 요청에 `prompt=login`을 사용해 이전 브라우저 세션의 계정으로 자동 로그인하지 않고 계정을 다시 인증한다.
 - 요청 위조 방지 값(`state`)을 위해 로그인 중에만 임시 HTTP session을 사용하고 성공·실패 후 폐기한다.
 - OAuth session은 REST API 로그인 상태로 사용할 수 없다.
 - 카카오 access token은 사용자 정보를 확인한 뒤 저장하지 않는다.
 - 카카오 client secret이 없으면 `none`, 있으면 `client_secret_post` 방식으로 카카오에 인증한다.
 - 로그인 화면은 계속 진행하면 현재 Rider Voice 필수 약관에 동의한다는 점을 알린다.
-- 신규·약관 미동의 사용자는 유효한 교환 코드를 제출할 때 현재 약관 버전과 동의 시각을 기록하고 활성화한다.
-- 교환 코드는 원문 대신 hash로 저장하고 60초 뒤 만료되며 한 번만 사용할 수 있다.
-- 잘못되거나 만료되거나 다시 사용한 코드는 같은 인증 실패로 처리한다.
+- 신규·약관 미동의 사용자는 OAuth callback을 정상 완료할 때 현재 약관 버전과 동의 시각을 기록하고 활성화한다.
+- refresh token은 `HttpOnly`, `SameSite=Lax`, 인증 경로 전용 cookie로 전달하며 JavaScript가 읽을 수 없다.
+- 잘못되거나 만료되거나 다시 사용한 refresh token은 같은 인증 실패로 처리한다.
 - access token과 refresh token은 URL에 넣지 않는다.
 - 외부 provider 오류, token, secret과 내부 예외는 사용자에게 노출하지 않는다.
 
-활성 사용자는 15분 access token과 30일 refresh token을 사용한다. refresh token은 hash로 저장하고 갱신할 때마다 교체한다. 로그아웃은 Rider Voice session만 종료하며 카카오 로그아웃은 호출하지 않는다.
+활성 사용자는 15분 access token과 30일 refresh token을 사용한다. refresh token은 backend에 hash로 저장하고 browser에는 `HttpOnly` cookie로 보관하며 갱신할 때마다 교체한다. 로그아웃은 Rider Voice session과 refresh cookie만 종료하며 카카오 로그아웃은 호출하지 않는다. 다음 로그인에서 카카오 계정을 다시 인증하므로 사용자는 다른 카카오 계정을 선택할 수 있다.
 
 사용자 권한은 `USER`와 `ADMIN`이다. access token을 확인할 때 DB의 현재 권한도 함께 읽어 관리자 권한 변경이 기존 토큰에도 반영되게 한다.
 
@@ -205,7 +206,7 @@ PickupLocation 1
 
 자동 테스트에서는 다음 경계를 우선 확인한다.
 
-- OAuth 요청 위조 방지, 60초 교환 코드, 약관 기록과 토큰 회전
+- OAuth 요청 위조 방지, refresh cookie 속성, 약관 기록과 토큰 회전
 - 음식점·장소·외부 참조의 중복 및 동시 등록
 - 활성 리뷰 중복, 삭제·전체 제외 후 90일 제한
 - 브랜드·장소 작성자 4명과 5명 경계 및 `NOT_OBSERVED`

@@ -61,7 +61,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
-- 60초 단일 사용 OAuth 교환 코드와 `POST /api/v1/auth/oauth2/exchange`
+- OAuth callback의 `HttpOnly` refresh cookie 설정과 cookie 기반 token 회전
 - 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
 
@@ -73,7 +73,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 루트 Spring Boot 프로젝트는 그대로 유지하고 `/frontend`에 로컬 React SPA를 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인과 약관 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 브라우저에서 검증합니다. 관리자·신고 UI, 운영 배포와 실제 카카오 계정을 사용하는 브라우저 E2E는 포함하지 않습니다.
 
-OAuth 성공 시 backend callback은 access/refresh token을 URL에 전달하지 않습니다. 고정된 `http://localhost:5173/auth/callback`에 60초 단일 사용 교환 코드만 전달하고, frontend가 `POST /api/v1/auth/oauth2/exchange`를 호출해 token을 JSON으로 받습니다. 신규·약관 미동의 사용자는 이 교환에서 현재 약관 동의가 기록되고 활성화됩니다. access token은 JavaScript module memory에, refresh token은 탭 단위 `sessionStorage`에 보관합니다. 새로고침 시 저장된 refresh token으로 access token을 한 번 복구하며 `localStorage`, cookie와 URL에는 service token을 저장하지 않습니다.
+OAuth 성공 시 backend callback은 신규·약관 미동의 사용자의 현재 약관 동의를 기록하고 refresh token을 `HttpOnly`, `SameSite=Lax` cookie로 설정한 뒤 고정된 `http://localhost:5173/auth/callback`으로 이동합니다. frontend는 `POST /api/v1/auth/refresh`를 자동 호출해 access token만 JSON으로 받고 refresh cookie는 회전됩니다. access token은 JavaScript module memory에만 보관하며 service token을 Web Storage나 URL에 저장하지 않습니다.
 
 모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
 
@@ -85,7 +85,6 @@ OAuth 성공 시 backend callback은 access/refresh token을 URL에 전달하지
 # OAuth와 service token
 GET    /api/v1/auth/oauth2/authorization/kakao
 GET    /api/v1/auth/oauth2/callback/kakao
-POST   /api/v1/auth/oauth2/exchange
 POST   /api/v1/auth/refresh
 POST   /api/v1/auth/logout
 GET    /api/v1/users/me

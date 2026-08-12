@@ -11,3 +11,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+
+ridervoice:
+  auth:
+    refresh-cookie:
+      secure: false

@@ -25,14 +25,23 @@ class OpenApiConfiguration {
                 .version("v1"),
         )
         .components(
-            Components().addSecuritySchemes(
-                BEARER_AUTH,
-                SecurityScheme()
-                    .type(SecurityScheme.Type.HTTP)
-                    .scheme("bearer")
-                    .bearerFormat("opaque")
-                    .description("ROLE_USER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
-            ),
+            Components()
+                .addSecuritySchemes(
+                    BEARER_AUTH,
+                    SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("opaque")
+                        .description("ROLE_USER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
+                )
+                .addSecuritySchemes(
+                    REFRESH_COOKIE_AUTH,
+                    SecurityScheme()
+                        .type(SecurityScheme.Type.APIKEY)
+                        .`in`(SecurityScheme.In.COOKIE)
+                        .name("rider_voice_refresh")
+                        .description("access token 갱신과 로그아웃에 사용하는 HttpOnly refresh cookie"),
+                ),
         )
 
     @Bean
@@ -88,5 +97,6 @@ class OpenApiConfiguration {
 
     companion object {
         const val BEARER_AUTH = "bearerAuth"
+        const val REFRESH_COOKIE_AUTH = "refreshCookie"
     }
 }

@@ -68,23 +68,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/oauth2/exchange": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** OAuth 단일 사용 코드 교환 */
-        post: operations["exchange"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -464,7 +447,7 @@ export type paths = {
         };
         /**
          * 카카오 OAuth 로그인 시작
-         * @description 카카오 authorization endpoint로 redirect하고 state를 임시 HTTP session에 저장합니다.
+         * @description prompt=login으로 카카오 계정을 다시 인증하도록 authorization endpoint로 redirect하고 state를 임시 HTTP session에 저장합니다.
          */
         get: {
             parameters: {
@@ -501,7 +484,7 @@ export type paths = {
         };
         /**
          * 카카오 OAuth callback
-         * @description OAuth 로그인을 완료한 뒤 60초 단일 사용 교환 코드 또는 일반화된 실패 값을 설정된 frontend callback URL로 redirect합니다.
+         * @description OAuth 로그인을 완료한 뒤 HttpOnly refresh cookie를 설정하고 고정된 frontend callback URL로 redirect합니다.
          */
         get: {
             parameters: {
@@ -515,9 +498,11 @@ export type paths = {
             };
             requestBody?: never;
             responses: {
-                /** @description 고정된 frontend callback URL로 이동 */
+                /** @description refresh cookie 설정 후 고정된 frontend callback URL로 이동 */
                 302: {
                     headers: {
+                        /** @description HttpOnly Rider Voice refresh token cookie */
+                        "Set-Cookie"?: string;
                         [name: string]: unknown;
                     };
                     content?: never;
@@ -721,13 +706,8 @@ export type components = {
             /** Format: date-time */
             decidedAt?: string | null;
         };
-        TokenRequest: {
-            /** @description 서비스 refresh token */
-            refreshToken: string;
-        };
-        AuthTokensResponse: {
+        AccessSessionResponse: {
             accessToken?: string;
-            refreshToken?: string;
             user?: components["schemas"]["UserResponse"];
         };
         UserResponse: {
@@ -737,13 +717,6 @@ export type components = {
             /** @enum {string} */
             role?: "USER" | "ADMIN";
             termsVersion?: string | null;
-        };
-        OAuthExchangeCodeRequest: {
-            /**
-             * @description OAuth callback에서 전달받은 60초 단일 사용 교환 코드
-             * @example single-use-exchange-code
-             */
-            code: string;
         };
         MergeRestaurantRequest: {
             /** Format: int64 */
@@ -1399,11 +1372,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TokenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -1411,31 +1380,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuthTokensResponse"];
-                };
-            };
-        };
-    };
-    exchange: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthExchangeCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthTokensResponse"];
+                    "application/json": components["schemas"]["AccessSessionResponse"];
                 };
             };
         };
@@ -1447,11 +1392,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TokenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description 로그아웃 완료 */
             204: {

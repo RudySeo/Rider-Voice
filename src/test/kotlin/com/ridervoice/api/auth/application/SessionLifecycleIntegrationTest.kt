@@ -1,7 +1,6 @@
 package com.ridervoice.api.auth.application
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
@@ -35,11 +34,10 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
     private lateinit var sessions: UserSessionRepository
 
     @Test
-    fun `OAuth exchange records current terms activates a pending user and creates a service session`() {
+    fun `OAuth callback completion records current terms and creates a refresh session`() {
         val subject = "pending-${UUID.randomUUID()}"
-        val code = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject)).code
-
-        val result = auth.exchange(ExchangeSocialLoginCodeCommand(code))
+        val login = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject))
+        val result = auth.refresh(RefreshSessionCommand(login.refreshToken))
 
         val persistedUser = users.findById(result.user.id).orElseThrow()
         assertThat(persistedUser.status).isEqualTo(UserStatus.ACTIVE)
@@ -47,7 +45,7 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
         assertThat(persistedUser.termsAgreedAt).isNotNull()
         assertThat(result.accessToken).isNotBlank()
         assertThat(result.refreshToken).isNotBlank()
-        assertThat(sessions.findAll().count { it.user.id == persistedUser.id }).isEqualTo(1)
+        assertThat(sessions.findAll().count { it.user.id == persistedUser.id }).isEqualTo(2)
         assertThat(auth.authenticate(result.accessToken)).isNotNull()
     }
 

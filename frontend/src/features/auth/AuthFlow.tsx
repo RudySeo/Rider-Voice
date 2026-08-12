@@ -15,7 +15,6 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 
-import type { components } from '@/shared/api/generated'
 import {
   createApiSession,
   type ApiSession,
@@ -25,8 +24,6 @@ import { ApiError } from '@/shared/api/errors'
 
 import styles from './AuthFlow.module.css'
 
-type OAuthExchangeResponse = components['schemas']['AuthTokensResponse']
-
 export const OAUTH_LOGIN_PATH =
   '/api/v1/auth/oauth2/authorization/kakao' as const
 // Remove return paths saved by older frontend versions after a successful login.
@@ -35,9 +32,7 @@ export const LOGIN_RETURN_PATH_KEY = 'riderVoice.loginReturnPath' as const
 export type AuthSession = Pick<
   ApiSession,
   'getState' | 'subscribe' | 'restore' | 'logout'
-> & {
-  exchange(code: string): Promise<OAuthExchangeResponse>
-}
+>
 
 type AuthContextValue = {
   session: AuthSession
@@ -183,8 +178,8 @@ export function AuthNavigation() {
       </button>
       {logoutFailed ? (
         <span className={styles.visuallyHidden} role="alert">
-          로그아웃 요청을 완료하지 못했지만 이 기기의 로그인 정보는
-          삭제했습니다.
+          현재 화면의 로그인 정보는 정리했지만 서버 로그아웃을 완료하지
+          못했습니다. 연결을 확인한 뒤 다시 로그인해 주세요.
         </span>
       ) : null}
     </div>
@@ -194,20 +189,19 @@ export function AuthNavigation() {
 const GENERIC_CALLBACK_ERROR = '잠시 후 카카오 로그인을 다시 시작해 주세요.'
 
 type CallbackState =
-  | { status: 'exchanging' }
+  | { status: 'restoring' }
   | { status: 'failed'; message: string }
 
 export function OAuthCallback() {
   const { session } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const code = searchParams.get('code')
   const oauthError = searchParams.get('error')
-  const invalidCallback = oauthError === 'oauth_failed' || !code?.trim()
+  const invalidCallback = oauthError !== null
   const [callbackState, setCallbackState] = useState<CallbackState>(
     invalidCallback
       ? { status: 'failed', message: GENERIC_CALLBACK_ERROR }
-      : { status: 'exchanging' },
+      : { status: 'restoring' },
   )
   const started = useRef(false)
 
@@ -217,12 +211,12 @@ export function OAuthCallback() {
     }
     started.current = true
 
-    if (invalidCallback || !code) {
+    if (invalidCallback) {
       return
     }
 
     void session
-      .exchange(code)
+      .restore()
       .then(() => {
         sessionStorage.removeItem(LOGIN_RETURN_PATH_KEY)
         navigate('/', { replace: true })
@@ -235,7 +229,7 @@ export function OAuthCallback() {
         })
         navigate('/auth/callback', { replace: true })
       })
-  }, [code, invalidCallback, navigate, session])
+  }, [invalidCallback, navigate, session])
 
   if (callbackState.status === 'failed') {
     return (
@@ -252,7 +246,7 @@ export function OAuthCallback() {
     <section className={styles.panel}>
       <h1>로그인을 확인하고 있습니다</h1>
       <p className={styles.status} role="status">
-        안전하게 로그인 정보를 교환하는 중입니다…
+        로그인 상태를 확인하는 중입니다…
       </p>
     </section>
   )

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
+import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.PathItem
 import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springframework.context.annotation.Bean
@@ -32,7 +33,10 @@ class AuthOpenApiConfiguration {
                 Operation()
                     .tags(listOf(AUTHENTICATION_TAG))
                     .summary("카카오 OAuth 로그인 시작")
-                    .description("카카오 authorization endpoint로 redirect하고 state를 임시 HTTP session에 저장합니다.")
+                    .description(
+                        "prompt=login으로 카카오 계정을 다시 인증하도록 authorization endpoint로 redirect하고 " +
+                            "state를 임시 HTTP session에 저장합니다.",
+                    )
                     .responses(
                         ApiResponses().addApiResponse(
                             "302",
@@ -48,8 +52,8 @@ class AuthOpenApiConfiguration {
                     .tags(listOf(AUTHENTICATION_TAG))
                     .summary("카카오 OAuth callback")
                     .description(
-                        "OAuth 로그인을 완료한 뒤 60초 단일 사용 교환 코드 또는 일반화된 실패 값을 " +
-                            "설정된 frontend callback URL로 redirect합니다.",
+                        "OAuth 로그인을 완료한 뒤 HttpOnly refresh cookie를 설정하고 " +
+                            "고정된 frontend callback URL로 redirect합니다.",
                     )
                     .addParametersItem(callbackParameter("code"))
                     .addParametersItem(callbackParameter("state"))
@@ -58,7 +62,12 @@ class AuthOpenApiConfiguration {
                             .addApiResponse(
                                 "302",
                                 ApiResponse()
-                                    .description("고정된 frontend callback URL로 이동"),
+                                    .description("refresh cookie 설정 후 고정된 frontend callback URL로 이동")
+                                    .addHeaderObject(
+                                        "Set-Cookie",
+                                        Header().description("HttpOnly Rider Voice refresh token cookie")
+                                            .schema(StringSchema()),
+                                    ),
                             ),
                     ),
             ),

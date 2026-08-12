@@ -93,13 +93,14 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 
     @Test
-    fun `authorization endpoint redirects with state stored in a temporary session`() {
+    fun `authorization endpoint requires Kakao reauthentication and stores state in a temporary session`() {
         val result = beginAuthorization()
 
         val location = result.response.getHeader("Location")!!
         val session = result.request.getSession(false)
         assertThat(result.response.status).isEqualTo(302)
         assertThat(location).startsWith(providerBaseUri("/oauth/authorize"))
+        assertThat(queryParameter(location, "prompt")).isEqualTo("login")
         assertThat(queryParameter(location, "state")).isNotBlank()
         assertThat(session).isNotNull
         assertThat(session!!.attributeNames.toList())
@@ -107,7 +108,7 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 
     @Test
-    fun `valid callback creates exchange code redirects to fixed frontend and destroys temporary session`() {
+    fun `valid callback sets an HttpOnly refresh cookie redirects without tokens and destroys temporary session`() {
         val authorization = beginAuthorization()
         val session = authorization.request.getSession(false) as MockHttpSession
         val state = queryParameter(authorization.response.getHeader("Location")!!, "state")
@@ -118,13 +119,26 @@ class OAuth2SecurityFlowMockMvcTest {
             this.session = session
         }.andExpect {
             status { isFound() }
-            redirectedUrl("http://localhost:5173/auth/callback?code=oauth-exchange-code")
+            redirectedUrl("http://localhost:5173/auth/callback")
+            header {
+                string(
+                    "Set-Cookie",
+                    org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("rider_voice_refresh=service-refresh-token"),
+                        org.hamcrest.Matchers.containsString("HttpOnly"),
+                        org.hamcrest.Matchers.containsString("Secure"),
+                        org.hamcrest.Matchers.containsString("SameSite=Lax"),
+                        org.hamcrest.Matchers.containsString("Path=/api/v1/auth"),
+                        org.hamcrest.Matchers.containsString("Max-Age=2592000"),
+                    ),
+                )
+            }
         }.andReturn()
 
         val login = context.getBean(RecordingProviderLoginUseCase::class.java)
         assertThat(login.command).isEqualTo(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "123456789"))
         assertThat(callback.response.getHeader("Location"))
-            .doesNotContain("service-access-token", "service-refresh-token", "onboarding-token")
+            .doesNotContain("service-refresh-token", "onboarding-token", "code=")
         assertThat(callback.request.getSession(false)).isNull()
         assertThat(session.isInvalid).isTrue()
     }
@@ -196,6 +210,7 @@ class OAuth2SecurityFlowMockMvcTest {
     SecurityProblemHandler::class,
     OAuth2LoginSuccessHandler::class,
     OAuth2LoginFailureHandler::class,
+    AuthCookieManager::class,
     AuthResponseMapper::class,
     OAuth2SecurityFlowFixtureController::class,
     RecordingProviderLoginUseCase::class,
@@ -236,7 +251,7 @@ private class OAuth2SecurityFlowTestConfiguration {
 @TestComponent
 private class RecordingProviderLoginUseCase : CompleteProviderLoginUseCase {
     lateinit var command: CompleteSocialLoginCommand
-    var result = ProviderLoginResult("oauth-exchange-code")
+    var result = ProviderLoginResult("service-refresh-token")
 
     override fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult {
         this.command = command

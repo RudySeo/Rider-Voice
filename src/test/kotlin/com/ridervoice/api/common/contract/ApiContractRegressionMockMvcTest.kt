@@ -1,14 +1,13 @@
 package com.ridervoice.api.common.contract
 
-import com.ridervoice.api.auth.application.port.`in`.ExchangeSocialLoginCodeUseCase
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
 import com.ridervoice.api.auth.presentation.AuthController
+import com.ridervoice.api.auth.presentation.AuthCookieManager
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
-import com.ridervoice.api.auth.presentation.OAuthExchangeController
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.GlobalExceptionHandler
@@ -94,7 +93,6 @@ import java.time.Instant
 @WebMvcTest(
     controllers = [
         AuthController::class,
-        OAuthExchangeController::class,
         UserController::class,
         RestaurantSearchController::class,
         AddressSearchController::class,
@@ -113,6 +111,7 @@ import java.time.Instant
     AuthOpenApiConfiguration::class,
     GlobalExceptionHandler::class,
     AuthResponseMapper::class,
+    AuthCookieManager::class,
     RestaurantSearchHttpMapper::class,
     RestaurantDetailHttpMapper::class,
     ReviewHttpMapper::class,
@@ -141,7 +140,6 @@ class ApiContractRegressionMockMvcTest {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @MockitoBean private lateinit var exchangeSocialLoginCode: ExchangeSocialLoginCodeUseCase
     @MockitoBean private lateinit var refreshSession: RefreshSessionUseCase
     @MockitoBean private lateinit var logout: LogoutUseCase
     @MockitoBean private lateinit var getCurrentUser: GetCurrentUserUseCase
@@ -176,13 +174,18 @@ class ApiContractRegressionMockMvcTest {
         val paths = document.required("paths")
 
         assertThat(paths.propertyNames().asSequence().toSet()).isEqualTo(EXPECTED_PATHS)
-        assertThat(apiOperations(paths)).containsExactlyInAnyOrderElementsOf(PUBLIC_OPERATIONS + BEARER_OPERATIONS)
+        assertThat(apiOperations(paths)).containsExactlyInAnyOrderElementsOf(
+            PUBLIC_OPERATIONS + COOKIE_OPERATIONS + BEARER_OPERATIONS,
+        )
 
         PUBLIC_OPERATIONS.forEach { (path, method) ->
             assertThat(operation(paths, path, method).has("security")).isFalse()
         }
         BEARER_OPERATIONS.forEach { (path, method) ->
             assertSecurity(paths, path, method, "bearerAuth")
+        }
+        COOKIE_OPERATIONS.forEach { (path, method) ->
+            assertSecurity(paths, path, method, "refreshCookie")
         }
         assertThat(document.at("/components/securitySchemes/bearerAuth/bearerFormat").stringValue())
             .isEqualTo("opaque")
@@ -318,8 +321,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val response = mockMvc.post("/api/v1/auth/refresh") {
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"refreshToken":"$rawToken"}"""
+            cookie(jakarta.servlet.http.Cookie("rider_voice_refresh", rawToken))
         }.andExpect {
             status { isInternalServerError() }
             content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -449,7 +451,6 @@ class ApiContractRegressionMockMvcTest {
         val EXPECTED_PATHS = setOf(
             "/api/v1/auth/oauth2/authorization/kakao",
             "/api/v1/auth/oauth2/callback/kakao",
-            "/api/v1/auth/oauth2/exchange",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
             "/api/v1/users/me",
@@ -480,15 +481,17 @@ class ApiContractRegressionMockMvcTest {
         val PUBLIC_OPERATIONS = setOf(
             "/api/v1/auth/oauth2/authorization/kakao" to "get",
             "/api/v1/auth/oauth2/callback/kakao" to "get",
-            "/api/v1/auth/oauth2/exchange" to "post",
-            "/api/v1/auth/refresh" to "post",
             "/api/v1/restaurants/search" to "get",
             "/api/v1/restaurants/{restaurantId}" to "get",
             "/api/v1/restaurants/{restaurantId}/reviews" to "get",
         )
 
-        val BEARER_OPERATIONS = setOf(
+        val COOKIE_OPERATIONS = setOf(
+            "/api/v1/auth/refresh" to "post",
             "/api/v1/auth/logout" to "post",
+        )
+
+        val BEARER_OPERATIONS = setOf(
             "/api/v1/users/me" to "get",
             "/api/v1/addresses/search" to "get",
             "/api/v1/reviews" to "post",
@@ -513,9 +516,6 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val REQUEST_REFS = mapOf(
-            ("/api/v1/auth/oauth2/exchange" to "post") to "OAuthExchangeCodeRequest",
-            ("/api/v1/auth/refresh" to "post") to "TokenRequest",
-            ("/api/v1/auth/logout" to "post") to "TokenRequest",
             ("/api/v1/reviews" to "post") to "CreateReviewRequest",
             ("/api/v1/reviews/{reviewId}" to "patch") to "UpdateReviewRequest",
             ("/api/v1/reviews/{reviewId}/reports" to "post") to "CreateReviewReportRequest",
@@ -532,8 +532,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val RESPONSE_REFS = mapOf(
-            ("/api/v1/auth/oauth2/exchange" to "post") to ("200" to "AuthTokensResponse"),
-            ("/api/v1/auth/refresh" to "post") to ("200" to "AuthTokensResponse"),
+            ("/api/v1/auth/refresh" to "post") to ("200" to "AccessSessionResponse"),
             ("/api/v1/users/me" to "get") to ("200" to "UserResponse"),
             ("/api/v1/restaurants/search" to "get") to ("200" to "RestaurantSearchResponse"),
             ("/api/v1/restaurants/{restaurantId}" to "get") to ("200" to "RestaurantDetailResponse"),
@@ -567,7 +566,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val EXPECTED_SCHEMA_NAMES = setOf(
-            "ProblemDetail", "OAuthExchangeCodeRequest", "TokenRequest", "AuthTokensResponse", "UserResponse",
+            "ProblemDetail", "AccessSessionResponse", "UserResponse",
             "RestaurantSearchResponse", "RestaurantSearchCandidateResponse",
             "AddressSearchResponse", "AddressSearchCandidateResponse", "RestaurantDetailResponse",
             "RestaurantPickupLocationResponse", "RestaurantBrandReportResponse",

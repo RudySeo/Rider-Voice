@@ -2,12 +2,7 @@ import type { components } from './generated'
 import { ApiClient } from './client'
 import { ApiError } from './errors'
 
-type AuthTokensResponse = components['schemas']['AuthTokensResponse']
-type OAuthExchangeResponse = AuthTokensResponse
-
-export const SESSION_STORAGE_KEYS = {
-  refreshToken: 'riderVoice.refreshToken',
-} as const
+type AccessSessionResponse = components['schemas']['AccessSessionResponse']
 
 export type AuthState =
   | { status: 'anonymous' }
@@ -16,7 +11,6 @@ export type AuthState =
 type SessionOptions = {
   baseUrl?: string
   fetchFn?: typeof fetch
-  storage?: Storage
 }
 
 let accessToken: string | null = null
@@ -27,34 +21,25 @@ export const resetApiSessionForTests = (): void => {
   accessToken = null
 }
 
-const requireTokens = (
-  response: AuthTokensResponse,
-): { accessToken: string; refreshToken: string } => {
+const requireAccessToken = (response: AccessSessionResponse): string => {
   if (
     typeof response.accessToken !== 'string' ||
-    response.accessToken.length === 0 ||
-    typeof response.refreshToken !== 'string' ||
-    response.refreshToken.length === 0
+    response.accessToken.length === 0
   ) {
     throw new ApiError(500, 'INVALID_API_RESPONSE')
   }
-  return {
-    accessToken: response.accessToken,
-    refreshToken: response.refreshToken,
-  }
+  return response.accessToken
 }
 
 export class ApiSession {
   readonly client: ApiClient
 
-  private readonly storage: Storage
   private state: AuthState
   private readonly listeners = new Set<(state: AuthState) => void>()
   private refreshPromise: Promise<void> | null = null
   private restorePromise: Promise<void> | null = null
 
   constructor(options: SessionOptions = {}) {
-    this.storage = options.storage ?? sessionStorage
     this.state = { status: 'anonymous' }
     this.client = new ApiClient({
       baseUrl: options.baseUrl,
@@ -73,29 +58,9 @@ export class ApiSession {
     return () => this.listeners.delete(listener)
   }
 
-  async exchange(code: string): Promise<OAuthExchangeResponse> {
-    const response = await this.client.request(
-      '/api/v1/auth/oauth2/exchange',
-      {
-        method: 'post',
-        body: { code },
-        auth: 'none',
-      },
-    )
-
-    this.applyServiceTokens(requireTokens(response))
-    return response
-  }
-
   async restore(): Promise<void> {
-    if (!this.storage.getItem(SESSION_STORAGE_KEYS.refreshToken)) {
-      accessToken = null
-      return
-    }
     if (!this.restorePromise) {
-      this.restorePromise = this.refresh().finally(() => {
-        this.restorePromise = null
-      })
+      this.restorePromise = this.refresh()
     }
     return this.restorePromise
   }
@@ -110,17 +75,11 @@ export class ApiSession {
   }
 
   async logout(): Promise<void> {
-    const refreshToken = this.storage.getItem(
-      SESSION_STORAGE_KEYS.refreshToken,
-    )
     try {
-      if (refreshToken) {
-        await this.client.request('/api/v1/auth/logout', {
-          method: 'post',
-          body: { refreshToken },
-          auth: 'access',
-        })
-      }
+      await this.client.request('/api/v1/auth/logout', {
+        method: 'post',
+        auth: 'none',
+      })
     } finally {
       this.clear()
     }
@@ -128,41 +87,24 @@ export class ApiSession {
 
   clear(): void {
     accessToken = null
-    this.storage.removeItem(SESSION_STORAGE_KEYS.refreshToken)
     this.setState({ status: 'anonymous' })
   }
 
   private async performRefresh(): Promise<void> {
-    const refreshToken = this.storage.getItem(
-      SESSION_STORAGE_KEYS.refreshToken,
-    )
-    if (!refreshToken) {
-      this.clear()
-      throw new ApiError(401, 'INVALID_REFRESH_TOKEN')
-    }
-
     try {
       const response = await this.client.request('/api/v1/auth/refresh', {
         method: 'post',
-        body: { refreshToken },
         auth: 'none',
       })
-      this.applyServiceTokens(requireTokens(response))
+      this.applyAccessToken(requireAccessToken(response))
     } catch (error) {
       this.clear()
       throw error
     }
   }
 
-  private applyServiceTokens(tokens: {
-    accessToken: string
-    refreshToken: string
-  }): void {
-    accessToken = tokens.accessToken
-    this.storage.setItem(
-      SESSION_STORAGE_KEYS.refreshToken,
-      tokens.refreshToken,
-    )
+  private applyAccessToken(token: string): void {
+    accessToken = token
     this.setState({ status: 'authenticated' })
   }
 
