@@ -153,9 +153,3 @@ erDiagram
 | 운영 | `review_reports` | 리뷰 신고와 처리 결과 | `(reporter_user_id, review_id)` |
 | 운영 | `restaurant_info_reports` | 음식점 정보 신고와 처리 결과 | `(reporter_user_id, restaurant_id)` |
 | 운영 | `moderation_audits` | 관리자 변경 전후 감사 기록 | - |
-
-`reviews.comment_moderation_status`는 의견이 없으면 `NONE`, 즉시 공개 상태면 `PUBLISHED`, 신고로 임시 숨김이면 `HIDDEN_REPORTED`, 관리자 사후 조치로 숨김이면 `REJECTED`를 사용한다. `PENDING`은 기존 데이터 호환을 위해 enum에만 남기고 새 리뷰에는 저장하지 않는다.
-
-`restaurants.brand_name`은 저장 전에 NFKC와 공백을 정리하고 MySQL `utf8mb4_0900_ai_ci` collation으로 비교한다. 따라서 같은 픽업 장소에서는 대소문자만 다른 브랜드명도 중복으로 처리하며 별도 정규화 이름 컬럼은 저장하지 않는다.
-
-`restaurants.kakao_place_id`는 카카오 검색으로 연결된 음식점에만 저장한다. nullable이므로 주소로 수동 등록한 여러 음식점은 모두 `NULL`을 사용할 수 있고, 값이 있으면 unique 제약으로 같은 카카오 장소의 중복 등록을 막는다.
