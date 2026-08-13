@@ -1,12 +1,9 @@
 package com.ridervoice.api.moderation.application.port.out
 
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
-import java.time.Instant
 
 interface RestaurantAdministrationRepository {
     fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant>
-
-    fun findReviewsForUpdate(restaurantIds: Set<Long>): List<AdminRestaurantReview>
 
     fun pickupLocationExists(pickupLocationId: Long): Boolean
 
@@ -15,8 +12,6 @@ interface RestaurantAdministrationRepository {
         brandName: String,
         excludedRestaurantId: Long,
     ): Boolean
-
-    fun merge(command: RestaurantMergePersistenceCommand): StoredAdminRestaurant
 
     fun relinkPickupLocation(command: RestaurantPickupRelinkPersistenceCommand): StoredAdminRestaurant
     fun rename(command: RestaurantRenamePersistenceCommand): StoredAdminRestaurant
@@ -29,24 +24,6 @@ data class StoredAdminRestaurant(
     val brandName: String,
     val pickupLocationId: Long,
     val status: RestaurantStatus,
-    val canonicalRestaurantId: Long?,
-)
-
-data class AdminRestaurantReview(
-    val reviewId: Long,
-    val authorUserId: Long,
-    val restaurantId: Long,
-    val submittedAt: Instant,
-    val active: Boolean,
-)
-
-data class RestaurantMergePersistenceCommand(
-    val duplicateRestaurantId: Long,
-    val canonicalRestaurantId: Long,
-    val activeReviewIds: Set<Long>,
-    val transferReviews: Boolean = true,
-    val transferExternalReferences: Boolean = true,
-    val transferPlatforms: Boolean = true,
 )
 
 data class RestaurantPickupRelinkPersistenceCommand(

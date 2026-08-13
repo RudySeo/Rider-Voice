@@ -175,12 +175,6 @@ internal class RestaurantInfoReportPersistenceAdapter(
     override fun findForUpdate(reportId: Long): StoredRestaurantInfoReport? =
         reports.findByIdForUpdate(reportId).orElse(null)?.toSnapshot()
 
-    override fun findOtherPendingForUpdate(
-        restaurantId: Long,
-        excludedReportId: Long,
-    ): List<StoredRestaurantInfoReport> =
-        reports.findOtherPendingForUpdate(restaurantId, excludedReportId, ReportStatus.PENDING).map { it.toSnapshot() }
-
     override fun saveDecision(
         command: RestaurantInfoReportDecisionPersistenceCommand,
     ): StoredRestaurantInfoReport {

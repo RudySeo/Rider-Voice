@@ -142,15 +142,6 @@ class Review(
         currentSlot = null
     }
 
-    fun supersede() {
-        check(isActive) { "Only an active review can be superseded" }
-        currentSlot = null
-    }
-
-    fun relinkToRestaurant(restaurant: Restaurant) {
-        this.restaurant = restaurant
-    }
-
     private companion object {
         const val ACTIVE_SLOT = 1
 

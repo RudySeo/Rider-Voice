@@ -3,6 +3,7 @@ package com.ridervoice.api.restaurant.application
 import com.ridervoice.api.common.error.BadRequestException
 import com.ridervoice.api.common.error.ExternalProviderUnavailableException
 import com.ridervoice.api.common.error.ResourceNotFoundException
+import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.restaurant.application.model.ExternalAddressCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalRestaurantCandidate
 import com.ridervoice.api.restaurant.application.model.ProviderSearchResult
@@ -26,15 +27,12 @@ import com.ridervoice.api.restaurant.application.port.`in`.ValidatedAddressSelec
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import org.springframework.dao.DataIntegrityViolationException
@@ -66,7 +64,7 @@ internal class RestaurantTargetResolutionService(
     private fun validateKakao(command: KakaoRestaurantTargetCommand): ValidatedRestaurantTarget {
         val query = RestaurantNormalization.displayText(command.query)
         val candidates = availableCandidates(keywordSearch.search(query, SEARCH_LIMIT), "Kakao place")
-        val selected = candidates.firstOrNull { it.externalPlaceId == command.kakaoPlaceId.trim() }
+        val selected = candidates.firstOrNull { it.kakaoPlaceId == command.kakaoPlaceId.trim() }
             ?: throw BadRequestException("Selected Kakao place was not present in the repeated search")
         return ValidatedKakaoRestaurantTarget(selected)
     }
@@ -143,7 +141,6 @@ internal interface RestaurantTargetWriter {
 internal class TransactionalRestaurantTargetWriter(
     private val pickupLocations: PickupLocationRepository,
     private val restaurants: RestaurantRepository,
-    private val externalReferences: RestaurantExternalReferenceRepository,
     private val platforms: RestaurantPlatformRepository,
 ) : RestaurantTargetWriter, ResolveValidatedRestaurantTargetUseCase {
 
@@ -173,14 +170,14 @@ internal class TransactionalRestaurantTargetWriter(
     private fun resolveExisting(
         target: ValidatedExistingRestaurantTarget,
     ): ResolvedRestaurantTargetResult {
-        val restaurant = restaurants.findCanonicalById(target.restaurantId)
+        val restaurant = restaurants.findActiveById(target.restaurantId)
             ?: throw ResourceNotFoundException("Restaurant target was not found")
         return ResolvedRestaurantTargetResult(restaurant.id)
     }
 
     @Transactional
     override fun resolveKakao(candidate: ExternalRestaurantCandidate): ResolvedRestaurantTargetResult {
-        findByExternalReference(candidate.externalPlaceId)?.let { return it }
+        restaurants.findByKakaoPlaceId(candidate.kakaoPlaceId)?.let { return activeResult(it) }
 
         val location = findOrCreateLocation(
             standardAddress = candidate.standardAddress,
@@ -189,18 +186,8 @@ internal class TransactionalRestaurantTargetWriter(
             longitude = candidate.longitude,
             source = PickupLocationSource.KAKAO,
         )
-        val restaurant = findOrCreateRestaurant(location, candidate.name)
-        val reference = externalReferences.findByProviderAndExternalPlaceId(
-            RestaurantExternalProvider.KAKAO,
-            candidate.externalPlaceId,
-        ) ?: externalReferences.save(
-            RestaurantExternalReference(
-                restaurant = canonicalRestaurant(restaurant),
-                provider = RestaurantExternalProvider.KAKAO,
-                externalPlaceId = candidate.externalPlaceId,
-            ),
-        )
-        return canonicalResult(reference.restaurant)
+        val restaurant = findOrCreateRestaurant(location, candidate.name, candidate.kakaoPlaceId)
+        return activeResult(restaurant)
     }
 
     @Transactional
@@ -209,7 +196,7 @@ internal class TransactionalRestaurantTargetWriter(
     ): ResolvedRestaurantTargetResult {
         val location = pickupLocations.findById(command.pickupLocationId)
             ?: throw ResourceNotFoundException("Pickup location target was not found")
-        val restaurant = canonicalRestaurant(findOrCreateRestaurant(location, command.name))
+        val restaurant = activeRestaurant(findOrCreateRestaurant(location, command.name))
         addMissingPlatforms(restaurant, command.platforms)
         return ResolvedRestaurantTargetResult(restaurant.id)
     }
@@ -226,16 +213,10 @@ internal class TransactionalRestaurantTargetWriter(
             longitude = candidate.longitude,
             source = PickupLocationSource.MANUAL_ADDRESS,
         )
-        val restaurant = canonicalRestaurant(findOrCreateRestaurant(location, command.name))
+        val restaurant = activeRestaurant(findOrCreateRestaurant(location, command.name))
         addMissingPlatforms(restaurant, command.platforms)
         return ResolvedRestaurantTargetResult(restaurant.id)
     }
-
-    private fun findByExternalReference(externalPlaceId: String): ResolvedRestaurantTargetResult? =
-        externalReferences.findByProviderAndExternalPlaceId(
-            RestaurantExternalProvider.KAKAO,
-            externalPlaceId,
-        )?.let { canonicalResult(it.restaurant) }
 
     private fun findOrCreateLocation(
         standardAddress: String,
@@ -254,18 +235,33 @@ internal class TransactionalRestaurantTargetWriter(
         return pickupLocations.findByLocationKey(candidate.locationKey) ?: pickupLocations.save(candidate)
     }
 
-    private fun findOrCreateRestaurant(location: PickupLocation, name: String): Restaurant {
-        val candidate = Restaurant(name, location)
-        return restaurants.findByPickupLocationIdAndBrandName(location.id, candidate.brandName)
-            ?: restaurants.save(candidate)
+    private fun findOrCreateRestaurant(
+        location: PickupLocation,
+        name: String,
+        kakaoPlaceId: String? = null,
+    ): Restaurant {
+        val candidate = Restaurant(name, location, kakaoPlaceId)
+        val existing = restaurants.findByPickupLocationIdAndBrandName(location.id, candidate.brandName)
+            ?: return restaurants.save(candidate)
+        if (kakaoPlaceId == null) return existing
+
+        try {
+            existing.linkKakaoPlaceId(kakaoPlaceId)
+        } catch (exception: IllegalStateException) {
+            throw StateConflictException(
+                "Restaurant is already linked to another Kakao place",
+                exception,
+            )
+        }
+        return restaurants.save(existing)
     }
 
-    private fun canonicalRestaurant(restaurant: Restaurant): Restaurant =
-        restaurants.findCanonicalById(restaurant.id)
-            ?: throw ResourceNotFoundException("Canonical restaurant target was not found")
+    private fun activeRestaurant(restaurant: Restaurant): Restaurant =
+        restaurants.findActiveById(restaurant.id)
+            ?: throw ResourceNotFoundException("Active restaurant target was not found")
 
-    private fun canonicalResult(restaurant: Restaurant): ResolvedRestaurantTargetResult =
-        ResolvedRestaurantTargetResult(canonicalRestaurant(restaurant).id)
+    private fun activeResult(restaurant: Restaurant): ResolvedRestaurantTargetResult =
+        ResolvedRestaurantTargetResult(activeRestaurant(restaurant).id)
 
     private fun addMissingPlatforms(restaurant: Restaurant, requested: Set<DeliveryPlatform>) {
         val existing = platforms.findPlatforms(restaurant.id)

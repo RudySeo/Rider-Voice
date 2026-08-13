@@ -21,21 +21,22 @@ import jakarta.persistence.UniqueConstraint
             name = "uk_restaurants_pickup_location_brand_name",
             columnNames = ["pickup_location_id", "brand_name"],
         ),
+        UniqueConstraint(
+            name = "uk_restaurants_kakao_place_id",
+            columnNames = ["kakao_place_id"],
+        ),
     ],
     indexes = [
         Index(
             name = "idx_restaurants_status_brand_name",
             columnList = "status, brand_name",
         ),
-        Index(
-            name = "idx_restaurants_canonical",
-            columnList = "canonical_restaurant_id",
-        ),
     ],
 )
 class Restaurant(
     brandName: String,
     pickupLocation: PickupLocation,
+    kakaoPlaceId: String? = null,
 ) : BaseEntity() {
 
     @field:Column(name = "brand_name", nullable = false, length = 255)
@@ -51,32 +52,29 @@ class Restaurant(
     final var pickupLocation: PickupLocation = pickupLocation
         private set
 
+    @field:Column(name = "kakao_place_id", length = 255)
+    final var kakaoPlaceId: String? = kakaoPlaceId?.trim()
+        private set
+
     @field:Enumerated(EnumType.STRING)
     @field:Column(nullable = false, length = 20)
     final var status: RestaurantStatus = RestaurantStatus.ACTIVE
         private set
 
-    @field:ManyToOne(fetch = FetchType.LAZY)
-    @field:JoinColumn(
-        name = "canonical_restaurant_id",
-        foreignKey = ForeignKey(name = "fk_restaurants_canonical_restaurant"),
-    )
-    final var canonicalRestaurant: Restaurant? = null
-        private set
-
     init {
         require(this.brandName.isNotEmpty()) { "Restaurant brand name must not be blank" }
+        require(this.kakaoPlaceId == null || this.kakaoPlaceId!!.isNotEmpty()) {
+            "Kakao place ID must not be blank"
+        }
     }
 
-    fun mergeInto(canonicalRestaurant: Restaurant) {
-        check(status == RestaurantStatus.ACTIVE) { "Only an active restaurant can be merged" }
-        require(canonicalRestaurant !== this) { "Restaurant cannot be merged into itself" }
-        require(canonicalRestaurant.status == RestaurantStatus.ACTIVE) {
-            "Canonical restaurant must be active"
+    fun linkKakaoPlaceId(kakaoPlaceId: String) {
+        val normalized = kakaoPlaceId.trim()
+        require(normalized.isNotEmpty()) { "Kakao place ID must not be blank" }
+        check(this.kakaoPlaceId == null || this.kakaoPlaceId == normalized) {
+            "Restaurant is already linked to another Kakao place"
         }
-
-        this.canonicalRestaurant = canonicalRestaurant
-        status = RestaurantStatus.MERGED
+        this.kakaoPlaceId = normalized
     }
 
     fun rename(brandName: String) {

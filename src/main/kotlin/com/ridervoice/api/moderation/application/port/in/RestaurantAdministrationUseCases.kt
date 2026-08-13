@@ -1,31 +1,10 @@
 package com.ridervoice.api.moderation.application.port.`in`
 
-import com.ridervoice.api.moderation.application.model.RestaurantMergeResult
 import com.ridervoice.api.moderation.application.model.RestaurantPickupRelinkResult
 import com.ridervoice.api.moderation.application.model.RestaurantRenameResult
 import com.ridervoice.api.moderation.application.model.RestaurantStatusChangeResult
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import java.math.BigDecimal
-
-fun interface MergeRestaurantUseCase {
-    fun merge(command: MergeRestaurantCommand): RestaurantMergeResult
-}
-
-data class MergeRestaurantCommand(
-    val adminUserId: Long,
-    val duplicateRestaurantId: Long,
-    val canonicalRestaurantId: Long,
-    val reason: String?,
-) {
-    init {
-        require(adminUserId > 0) { "Administrator user ID must be positive" }
-        require(duplicateRestaurantId > 0) { "Duplicate restaurant ID must be positive" }
-        require(canonicalRestaurantId > 0) { "Canonical restaurant ID must be positive" }
-        require(duplicateRestaurantId != canonicalRestaurantId) {
-            "A restaurant cannot be merged into itself"
-        }
-    }
-}
 
 fun interface RelinkRestaurantPickupLocationUseCase {
     fun relinkPickupLocation(

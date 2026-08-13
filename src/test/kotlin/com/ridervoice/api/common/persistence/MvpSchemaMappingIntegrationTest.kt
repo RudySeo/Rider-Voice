@@ -97,7 +97,18 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             """.trimIndent(),
             String::class.java,
         )
-        assertThat(restaurantColumns).contains("brand_name").doesNotContain("normalized_name")
+        assertThat(restaurantColumns)
+            .contains("brand_name", "kakao_place_id")
+            .doesNotContain("normalized_name", "canonical_restaurant_id")
+        val databaseTables = jdbc.queryForList(
+            """
+            select table_name
+            from information_schema.tables
+            where table_schema = database()
+            """.trimIndent(),
+            String::class.java,
+        )
+        assertThat(databaseTables).doesNotContain("restaurant_external_references")
         assertThat(
             jdbc.queryForObject(
                 """
@@ -208,7 +219,6 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             "UserSession",
             "PickupLocation",
             "Restaurant",
-            "RestaurantExternalReference",
             "RestaurantPlatform",
             "Review",
             "ReviewReport",
@@ -221,8 +231,6 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             Triple("user_sessions", "user_id", "users"),
             Triple("user_sessions", "rotated_to_session_id", "user_sessions"),
             Triple("restaurants", "pickup_location_id", "pickup_locations"),
-            Triple("restaurants", "canonical_restaurant_id", "restaurants"),
-            Triple("restaurant_external_references", "restaurant_id", "restaurants"),
             Triple("restaurant_platforms", "restaurant_id", "restaurants"),
             Triple("reviews", "author_user_id", "users"),
             Triple("reviews", "restaurant_id", "restaurants"),
@@ -244,10 +252,8 @@ class MvpSchemaMappingIntegrationTest : MySqlIntegrationTest() {
             IndexSpec("pickup_locations", "uk_pickup_locations_location_key", true, listOf("location_key")),
             IndexSpec("pickup_locations", "idx_pickup_locations_normalized_address", false, listOf("normalized_address")),
             IndexSpec("restaurants", "uk_restaurants_pickup_location_brand_name", true, listOf("pickup_location_id", "brand_name")),
+            IndexSpec("restaurants", "uk_restaurants_kakao_place_id", true, listOf("kakao_place_id")),
             IndexSpec("restaurants", "idx_restaurants_status_brand_name", false, listOf("status", "brand_name")),
-            IndexSpec("restaurants", "idx_restaurants_canonical", false, listOf("canonical_restaurant_id")),
-            IndexSpec("restaurant_external_references", "uk_restaurant_external_references_provider_place", true, listOf("provider", "external_place_id")),
-            IndexSpec("restaurant_external_references", "idx_restaurant_external_references_restaurant", false, listOf("restaurant_id")),
             IndexSpec("restaurant_platforms", "idx_restaurant_platforms_restaurant", false, listOf("restaurant_id")),
             IndexSpec("reviews", "uk_reviews_author_restaurant_current_slot", true, listOf("author_user_id", "restaurant_id", "current_slot")),
             IndexSpec("reviews", "idx_reviews_author_restaurant_created", false, listOf("author_user_id", "restaurant_id", "created_at", "id")),

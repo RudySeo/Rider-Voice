@@ -65,10 +65,10 @@ class RestaurantDetailApiContractMockMvcTest {
     private lateinit var getRestaurantDetail: GetPublicRestaurantDetailUseCase
 
     @Test
-    fun `restaurant detail is public and always returns canonical data with verification notice`() {
-        `when`(getRestaurantDetail.get(10L)).thenReturn(detailResult())
+    fun `restaurant detail is public and always returns direct data with verification notice`() {
+        `when`(getRestaurantDetail.get(20L)).thenReturn(detailResult())
 
-        mockMvc.get("/api/v1/restaurants/10").andExpect {
+        mockMvc.get("/api/v1/restaurants/20").andExpect {
             status { isOk() }
             jsonPath("$.restaurantId") { value(20) }
             jsonPath("$.name") { value("대표 브랜드") }

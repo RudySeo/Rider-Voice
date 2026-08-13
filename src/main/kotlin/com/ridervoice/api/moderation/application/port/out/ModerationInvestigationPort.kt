@@ -6,7 +6,6 @@ import com.ridervoice.api.moderation.application.model.ModerationAuditCursor
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -56,22 +55,16 @@ data class StoredAdminReviewDetail(
     val updatedAt: Instant,
 )
 
-data class StoredAdminExternalReference(
-    val provider: RestaurantExternalProvider,
-    val externalPlaceId: String,
-)
-
 data class StoredAdminRestaurantDetail(
     val restaurantId: Long,
     val name: String,
     val status: RestaurantStatus,
-    val canonicalRestaurantId: Long?,
     val pickupLocationId: Long,
     val standardAddress: String,
     val detailAddress: String?,
     val latitude: BigDecimal,
     val longitude: BigDecimal,
-    val externalReferences: List<StoredAdminExternalReference>,
+    val kakaoPlaceId: String?,
     val platforms: Set<DeliveryPlatform>,
     val pendingReportCount: Long,
     val createdAt: Instant,

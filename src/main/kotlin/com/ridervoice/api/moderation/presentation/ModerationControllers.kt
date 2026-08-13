@@ -8,7 +8,6 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
@@ -16,7 +15,6 @@ import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPicku
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
 import com.ridervoice.api.moderation.presentation.dto.ModerationPageRequest
-import com.ridervoice.api.moderation.presentation.dto.MergeRestaurantRequest
 import com.ridervoice.api.moderation.presentation.dto.PendingRestaurantInfoReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.PendingReviewReportPageResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantInfoReportDecisionRequest
@@ -27,7 +25,6 @@ import com.ridervoice.api.moderation.presentation.dto.ChangeRestaurantStatusRequ
 import com.ridervoice.api.moderation.presentation.dto.RestaurantRenameResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantStatusChangeResponse
 import com.ridervoice.api.moderation.presentation.dto.RelinkRestaurantVerifiedAddressRequest
-import com.ridervoice.api.moderation.presentation.dto.RestaurantMergeResponse
 import com.ridervoice.api.moderation.presentation.dto.RestaurantPickupRelinkResponse
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportDecisionRequest
 import com.ridervoice.api.moderation.presentation.dto.ReviewReportResponse
@@ -205,7 +202,7 @@ class AdminModerationController(
 @Validated
 @RestController
 @RequestMapping("/api/v1/admin/restaurants")
-@Tag(name = "Restaurant Admin", description = "관리자 음식점 병합과 픽업 장소 정정 API")
+@Tag(name = "Restaurant Admin", description = "관리자 음식점 정보 정정 API")
 @SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)
 @ApiResponses(
     ApiResponse(
@@ -230,24 +227,12 @@ class AdminModerationController(
     ),
 )
 class AdminRestaurantController(
-    private val mergeRestaurant: MergeRestaurantUseCase,
     private val relinkRestaurant: RelinkRestaurantPickupLocationUseCase,
     private val renameRestaurant: RenameRestaurantUseCase,
     private val changeRestaurantStatus: ChangeRestaurantStatusUseCase,
     private val relinkVerifiedAddress: RelinkRestaurantVerifiedAddressUseCase,
     private val mapper: RestaurantAdministrationHttpMapper,
 ) {
-    @Operation(summary = "중복 음식점을 canonical 음식점으로 병합")
-    @ApiResponse(responseCode = "200", description = "음식점 병합 완료")
-    @PostMapping("/{restaurantId}/merge")
-    fun merge(
-        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
-        @PathVariable @Positive restaurantId: Long,
-        @Valid @RequestBody request: MergeRestaurantRequest,
-    ): RestaurantMergeResponse = mapper.toResponse(
-        mergeRestaurant.merge(mapper.toMergeCommand(principal.userId, restaurantId, request)),
-    )
-
     @Operation(summary = "음식점 픽업 장소 재연결")
     @ApiResponse(responseCode = "200", description = "픽업 장소 재연결 완료")
     @PatchMapping("/{restaurantId}/pickup-location")

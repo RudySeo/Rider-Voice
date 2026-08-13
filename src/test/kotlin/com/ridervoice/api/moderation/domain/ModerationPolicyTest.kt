@@ -244,9 +244,7 @@ class ModerationPolicyTest {
     }
 
     @Test
-    fun `restaurant merge and pickup relink have distinct required audit actions`() {
-        assertThat(ModerationAuditPolicy.actionFor(RestaurantAdminAction.MERGE_DUPLICATE))
-            .isEqualTo(ModerationAuditAction.DUPLICATE_RESTAURANT_MERGED)
+    fun `restaurant pickup relink has its required audit action`() {
         assertThat(ModerationAuditPolicy.actionFor(RestaurantAdminAction.RELINK_PICKUP_LOCATION))
             .isEqualTo(ModerationAuditAction.RESTAURANT_PICKUP_RELINKED)
     }

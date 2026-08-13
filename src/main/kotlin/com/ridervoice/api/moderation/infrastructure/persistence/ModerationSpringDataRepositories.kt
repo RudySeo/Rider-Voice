@@ -150,22 +150,6 @@ internal interface SpringDataRestaurantInfoReportRepository : JpaRepository<Rest
     @Query("select report from RestaurantInfoReport report where report.id = :reportId")
     fun findByIdForUpdate(@Param("reportId") reportId: Long): Optional<RestaurantInfoReport>
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query(
-        """
-        select report
-        from RestaurantInfoReport report
-        where report.restaurant.id = :restaurantId
-          and report.status = :status
-          and report.id <> :excludedReportId
-        order by report.id
-        """,
-    )
-    fun findOtherPendingForUpdate(
-        @Param("restaurantId") restaurantId: Long,
-        @Param("excludedReportId") excludedReportId: Long,
-        @Param("status") status: ReportStatus,
-    ): List<RestaurantInfoReport>
 }
 
 internal interface SpringDataModerationAuditRepository : JpaRepository<ModerationAudit, Long>

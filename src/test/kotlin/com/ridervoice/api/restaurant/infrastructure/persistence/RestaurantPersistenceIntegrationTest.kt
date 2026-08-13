@@ -1,13 +1,10 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.support.MySqlIntegrationTest
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -32,37 +29,22 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
     private lateinit var restaurants: RestaurantRepository
 
     @Autowired
-    private lateinit var externalReferences: RestaurantExternalReferenceRepository
-
-    @Autowired
     private lateinit var entityManager: EntityManager
 
     @Test
-    fun `adapter persists exact identities searches active restaurants and resolves canonical chains`() {
+    fun `adapter persists exact identities and searches active restaurants`() {
         val location = pickupLocations.save(pickupLocation())
-        val canonical = restaurants.save(Restaurant("Rider Voice 대표 브랜드", location))
-        val duplicate = restaurants.save(Restaurant("중복 브랜드", location))
-        externalReferences.save(
-            RestaurantExternalReference(canonical, RestaurantExternalProvider.KAKAO, "integration-place"),
-        )
-        duplicate.mergeInto(canonical)
-        restaurants.save(duplicate)
+        val restaurant = restaurants.save(Restaurant("Rider Voice 대표 브랜드", location, "integration-place"))
         entityManager.clear()
 
         assertThat(pickupLocations.findByLocationKey(location.locationKey)?.id).isEqualTo(location.id)
         assertThat(
-            restaurants.findByPickupLocationIdAndBrandName(location.id, canonical.brandName.lowercase())?.id,
-        ).isEqualTo(canonical.id)
-        assertThat(restaurants.findCanonicalById(duplicate.id)?.id).isEqualTo(canonical.id)
-        assertThat(
-            externalReferences.findByProviderAndExternalPlaceId(
-                RestaurantExternalProvider.KAKAO,
-                "integration-place",
-            )?.restaurant?.id,
-        ).isEqualTo(canonical.id)
+            restaurants.findByPickupLocationIdAndBrandName(location.id, restaurant.brandName.lowercase())?.id,
+        ).isEqualTo(restaurant.id)
+        assertThat(restaurants.findActiveById(restaurant.id)?.id).isEqualTo(restaurant.id)
+        assertThat(restaurants.findByKakaoPlaceId("integration-place")?.id).isEqualTo(restaurant.id)
         assertThat(restaurants.searchActive("rider voice", 20).map { it.restaurantId })
-            .contains(canonical.id)
-            .doesNotContain(duplicate.id)
+            .contains(restaurant.id)
     }
 
     @Test
@@ -83,18 +65,12 @@ class RestaurantPersistenceIntegrationTest : MySqlIntegrationTest() {
     }
 
     @Test
-    fun `provider place identity is globally unique`() {
+    fun `Kakao place identity is globally unique`() {
         val location = pickupLocations.save(pickupLocation())
-        val first = restaurants.save(Restaurant("첫 브랜드", location))
-        val second = restaurants.save(Restaurant("두 번째 브랜드", location))
-        externalReferences.save(
-            RestaurantExternalReference(first, RestaurantExternalProvider.KAKAO, "same-place"),
-        )
+        restaurants.save(Restaurant("첫 브랜드", location, "same-place"))
 
         assertThatThrownBy {
-            externalReferences.save(
-                RestaurantExternalReference(second, RestaurantExternalProvider.KAKAO, "same-place"),
-            )
+            restaurants.save(Restaurant("두 번째 브랜드", location, "same-place"))
         }.isInstanceOf(DataIntegrityViolationException::class.java)
     }
 

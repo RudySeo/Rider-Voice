@@ -16,7 +16,7 @@ class PublicRestaurantDetailService(
 ) : GetPublicRestaurantDetailUseCase, ResolveReadableRestaurantUseCase {
 
     override fun get(restaurantId: Long): PublicRestaurantDetailResult {
-        val detail = restaurantDetails.findCanonicalDetail(restaurantId)
+        val detail = restaurantDetails.findDetail(restaurantId)
             ?: throw ResourceNotFoundException("Restaurant not found")
 
         return PublicRestaurantDetailResult(
@@ -37,7 +37,7 @@ class PublicRestaurantDetailService(
         )
     }
 
-    override fun resolve(restaurantId: Long): Long = restaurantDetails.findCanonicalDetail(restaurantId)?.restaurantId
+    override fun resolve(restaurantId: Long): Long = restaurantDetails.findDetail(restaurantId)?.restaurantId
         ?: throw ResourceNotFoundException("Restaurant not found")
 
     companion object {

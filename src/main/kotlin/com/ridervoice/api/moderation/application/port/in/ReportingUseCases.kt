@@ -117,5 +117,4 @@ data class RelinkVerifiedAddressCorrection(
     val selectedStandardAddress: String,
     val detailAddress: String?,
 ) : RestaurantInfoCorrectionCommand
-data class MergeRestaurantCorrection(val canonicalRestaurantId: Long) : RestaurantInfoCorrectionCommand
 data object CloseRestaurantCorrection : RestaurantInfoCorrectionCommand

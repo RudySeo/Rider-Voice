@@ -4,14 +4,11 @@ import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.port.out.RestaurantDetailQuery
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
@@ -42,7 +39,6 @@ internal class RestaurantPersistenceAdapter(
         restaurants.searchActive(
             normalizedQuery = RestaurantNormalization.normalizedText(query),
             status = RestaurantStatus.ACTIVE,
-            externalProvider = RestaurantExternalProvider.KAKAO,
             pageable = PageRequest.of(0, limit),
         )
 
@@ -52,47 +48,17 @@ internal class RestaurantPersistenceAdapter(
     override fun findById(restaurantId: Long): Restaurant? =
         restaurants.findById(restaurantId).orElse(null)
 
-    override fun findCanonicalById(restaurantId: Long): Restaurant? {
-        val canonicalId = findCanonicalId(restaurantId) ?: return null
-        return restaurants.findById(canonicalId).orElse(null)
-    }
+    override fun findActiveById(restaurantId: Long): Restaurant? =
+        restaurants.findByIdAndStatus(restaurantId, RestaurantStatus.ACTIVE).orElse(null)
 
-    override fun findCanonicalDetail(restaurantId: Long): StoredRestaurantDetail? {
-        val canonicalId = findReadableCanonicalId(restaurantId) ?: return null
-        return restaurants.findDetailById(
-            canonicalId,
+    override fun findByKakaoPlaceId(kakaoPlaceId: String): Restaurant? =
+        restaurants.findByKakaoPlaceId(kakaoPlaceId.trim()).orElse(null)
+
+    override fun findDetail(restaurantId: Long): StoredRestaurantDetail? =
+        restaurants.findDetailById(
+            restaurantId,
             setOf(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED),
         ).orElse(null)
-    }
-
-    private fun findReadableCanonicalId(restaurantId: Long): Long? {
-        val visitedIds = mutableSetOf<Long>()
-        var currentId = restaurantId
-        while (visitedIds.add(currentId)) {
-            val targetId = restaurants.findReadableCanonicalTargetIdById(currentId, RestaurantStatus.MERGED)
-                .orElse(null) ?: return null
-            if (targetId == currentId) return currentId
-            currentId = targetId
-        }
-        return null
-    }
-
-    private fun findCanonicalId(restaurantId: Long): Long? {
-        val visitedIds = mutableSetOf<Long>()
-        var currentId = restaurantId
-
-        while (visitedIds.add(currentId)) {
-            val targetId = restaurants.findCanonicalTargetIdById(currentId, RestaurantStatus.ACTIVE)
-                .orElse(null)
-                ?: return null
-            if (targetId == currentId) {
-                return currentId
-            }
-            currentId = targetId
-        }
-
-        return null
-    }
 
     override fun findByPickupLocationIdAndBrandName(
         pickupLocationId: Long,
@@ -103,23 +69,6 @@ internal class RestaurantPersistenceAdapter(
     ).orElse(null)
 
     override fun save(restaurant: Restaurant): Restaurant = restaurants.saveAndFlush(restaurant)
-}
-
-@Component
-internal class RestaurantExternalReferencePersistenceAdapter(
-    private val externalReferences: SpringDataRestaurantExternalReferenceRepository,
-) : RestaurantExternalReferenceRepository {
-
-    override fun findByProviderAndExternalPlaceId(
-        provider: RestaurantExternalProvider,
-        externalPlaceId: String,
-    ): RestaurantExternalReference? = externalReferences.findByProviderAndExternalPlaceId(
-        provider,
-        externalPlaceId,
-    ).orElse(null)
-
-    override fun save(reference: RestaurantExternalReference): RestaurantExternalReference =
-        externalReferences.saveAndFlush(reference)
 }
 
 @Component

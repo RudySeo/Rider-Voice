@@ -165,12 +165,12 @@ class ModerationPersistenceContractTest {
         }
         val audit = ModerationAudit(
             actor = fixture.admin,
-            action = ModerationAuditAction.DUPLICATE_RESTAURANT_MERGED,
+            action = ModerationAuditAction.RESTAURANT_RENAMED,
             targetType = ModerationTargetType.RESTAURANT,
             targetId = fixture.restaurant.id,
-            reason = "중복 확인",
+            reason = "상호 정정",
             beforeState = "{\"status\":\"ACTIVE\"}",
-            afterState = "{\"status\":\"MERGED\"}",
+            afterState = "{\"status\":\"ACTIVE\"}",
             occurredAt = fixture.decidedAt,
         ).also {
             it.id = 303L
@@ -226,7 +226,7 @@ class ModerationPersistenceContractTest {
         assertThat(storedAudit.auditId).isEqualTo(303L)
         assertThat(storedAudit.actorUserId).isEqualTo(8L)
         assertThat(storedAudit.beforeState).isEqualTo("{\"status\":\"ACTIVE\"}")
-        assertThat(storedAudit.afterState).isEqualTo("{\"status\":\"MERGED\"}")
+        assertThat(storedAudit.afterState).isEqualTo("{\"status\":\"ACTIVE\"}")
         assertThat(storedAudit.occurredAt).isEqualTo(fixture.decidedAt)
     }
 

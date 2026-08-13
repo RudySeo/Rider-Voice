@@ -101,7 +101,6 @@ object ModerationTransitionPolicy {
 
 object ModerationAuditPolicy {
     fun actionFor(action: RestaurantAdminAction): ModerationAuditAction = when (action) {
-        RestaurantAdminAction.MERGE_DUPLICATE -> ModerationAuditAction.DUPLICATE_RESTAURANT_MERGED
         RestaurantAdminAction.RELINK_PICKUP_LOCATION -> ModerationAuditAction.RESTAURANT_PICKUP_RELINKED
         RestaurantAdminAction.RENAME -> ModerationAuditAction.RESTAURANT_RENAMED
         RestaurantAdminAction.CLOSE -> ModerationAuditAction.RESTAURANT_CLOSED

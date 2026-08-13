@@ -1,8 +1,6 @@
 package com.ridervoice.api.moderation.infrastructure.persistence
 
-import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReview
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
-import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantRenamePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantStatusPersistenceCommand
@@ -10,10 +8,7 @@ import com.ridervoice.api.moderation.application.port.out.VerifiedPickupLocation
 import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurant
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
-import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
-import com.ridervoice.api.review.domain.Review
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 import org.springframework.stereotype.Component
@@ -26,21 +21,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
     override fun findRestaurantsForUpdate(restaurantIds: Set<Long>): List<StoredAdminRestaurant> {
         if (restaurantIds.isEmpty()) return emptyList()
         return lockedRestaurants(restaurantIds).map { it.toSnapshot() }
-    }
-
-    override fun findReviewsForUpdate(
-        restaurantIds: Set<Long>,
-    ): List<AdminRestaurantReview> {
-        if (restaurantIds.isEmpty()) return emptyList()
-        return lockedReviews(restaurantIds).map { review ->
-            AdminRestaurantReview(
-                reviewId = review.id,
-                authorUserId = review.author.id,
-                restaurantId = review.restaurant.id,
-                submittedAt = review.createdAt,
-                active = review.isActive,
-            )
-        }
     }
 
     override fun pickupLocationExists(pickupLocationId: Long): Boolean =
@@ -64,44 +44,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
         .setParameter("brandName", brandName)
         .setParameter("excludedRestaurantId", excludedRestaurantId)
         .singleResult > 0L
-
-    override fun merge(command: RestaurantMergePersistenceCommand): StoredAdminRestaurant {
-        val restaurants = lockedRestaurants(
-            setOf(command.duplicateRestaurantId, command.canonicalRestaurantId),
-        ).associateBy { it.id }
-        val duplicate = requireNotNull(restaurants[command.duplicateRestaurantId]) {
-            "Locked duplicate restaurant disappeared"
-        }
-        val canonical = requireNotNull(restaurants[command.canonicalRestaurantId]) {
-            "Locked canonical restaurant disappeared"
-        }
-        val restaurantIds = restaurants.keys
-        val reviews = lockedReviews(restaurantIds)
-
-        if (command.transferReviews) {
-            reviews.filter { it.isActive && it.id !in command.activeReviewIds }.forEach(Review::supersede)
-            entityManager.flush()
-            reviews.filter { it.restaurant.id == duplicate.id }.forEach { it.relinkToRestaurant(canonical) }
-        }
-        if (command.transferExternalReferences) {
-            entityManager.createQuery(
-                "select reference from RestaurantExternalReference reference " +
-                    "where reference.restaurant.id = :restaurantId",
-                RestaurantExternalReference::class.java,
-            )
-                .setParameter("restaurantId", duplicate.id)
-                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .resultList
-                .forEach { it.relinkToRestaurant(canonical) }
-        }
-        if (command.transferPlatforms) {
-            transferPlatforms(duplicate, canonical)
-        }
-
-        duplicate.mergeInto(canonical)
-        entityManager.flush()
-        return duplicate.toSnapshot()
-    }
 
     override fun relinkPickupLocation(
         command: RestaurantPickupRelinkPersistenceCommand,
@@ -132,8 +74,6 @@ internal class RestaurantAdministrationPersistenceAdapter(
         when (command.status) {
             com.ridervoice.api.restaurant.domain.RestaurantStatus.ACTIVE -> restaurant.reopen()
             com.ridervoice.api.restaurant.domain.RestaurantStatus.CLOSED -> restaurant.close()
-            com.ridervoice.api.restaurant.domain.RestaurantStatus.MERGED ->
-                error("Merged status must be set through merge")
         }
         entityManager.flush()
         return restaurant.toSnapshot()
@@ -167,52 +107,10 @@ internal class RestaurantAdministrationPersistenceAdapter(
             .setLockMode(LockModeType.PESSIMISTIC_WRITE)
             .resultList
 
-    private fun lockedReviews(restaurantIds: Set<Long>): List<Review> =
-        entityManager.createQuery(
-            """
-            select review
-            from Review review
-            join fetch review.author
-            where review.restaurant.id in :restaurantIds
-            order by review.author.id, review.createdAt, review.id
-            """.trimIndent(),
-            Review::class.java,
-        )
-            .setParameter("restaurantIds", restaurantIds)
-            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-            .resultList
-
-    private fun transferPlatforms(duplicate: Restaurant, canonical: Restaurant) {
-        val canonicalPlatforms = entityManager.createQuery(
-            "select link from RestaurantPlatform link where link.restaurant.id = :restaurantId",
-            RestaurantPlatform::class.java,
-        )
-            .setParameter("restaurantId", canonical.id)
-            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-            .resultList
-            .associateBy { it.platform }
-        val duplicatePlatforms = entityManager.createQuery(
-            "select link from RestaurantPlatform link where link.restaurant.id = :restaurantId",
-            RestaurantPlatform::class.java,
-        )
-            .setParameter("restaurantId", duplicate.id)
-            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-            .resultList
-
-        duplicatePlatforms.forEach { link ->
-            if (link.platform in canonicalPlatforms) {
-                entityManager.remove(link)
-            } else {
-                link.relinkToRestaurant(canonical)
-            }
-        }
-    }
-
     private fun Restaurant.toSnapshot() = StoredAdminRestaurant(
         restaurantId = id,
         brandName = brandName,
         pickupLocationId = pickupLocation.id,
         status = status,
-        canonicalRestaurantId = canonicalRestaurant?.id,
     )
 }

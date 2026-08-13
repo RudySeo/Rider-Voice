@@ -302,11 +302,6 @@ internal class ReportingService(
                 command.reason,
             )
         }
-        val siblingReports = if (correction is PreparedRestaurantCorrection.Merge) {
-            restaurantReports.findOtherPendingForUpdate(report.restaurantId, report.reportId)
-        } else {
-            emptyList()
-        }
         val decidedAt = clock.instant()
         val saved = restaurantReports.saveDecision(
             RestaurantInfoReportDecisionPersistenceCommand(
@@ -328,28 +323,6 @@ internal class ReportingService(
                 occurredAt = decidedAt,
             ),
         )
-        siblingReports.forEach { sibling ->
-            val autoResolved = restaurantReports.saveDecision(
-                RestaurantInfoReportDecisionPersistenceCommand(
-                    sibling.reportId,
-                    RestaurantInfoReportDecision.RESOLVE,
-                    command.adminUserId,
-                    decidedAt,
-                ),
-            )
-            audits.append(
-                ModerationAuditPersistenceCommand(
-                    actorUserId = command.adminUserId,
-                    action = ModerationAuditAction.RESTAURANT_INFO_CORRECTED,
-                    targetType = ModerationTargetType.RESTAURANT_INFO_REPORT,
-                    targetId = sibling.reportId,
-                    reason = AUTO_RESOLVED_TARGET_MERGED,
-                    beforeState = restaurantReportState(sibling),
-                    afterState = restaurantReportState(autoResolved),
-                    occurredAt = decidedAt,
-                ),
-            )
-        }
         return saved.toResult()
     }
 
@@ -411,7 +384,6 @@ internal class ReportingService(
     private companion object {
         const val REPORT_LIMIT = 20L
         const val AUTO_RESOLVED_TARGET_EXCLUDED = "AUTO_RESOLVED_TARGET_EXCLUDED"
-        const val AUTO_RESOLVED_TARGET_MERGED = "AUTO_RESOLVED_TARGET_MERGED"
         val REPORT_WINDOW: Duration = Duration.ofHours(24)
     }
 }

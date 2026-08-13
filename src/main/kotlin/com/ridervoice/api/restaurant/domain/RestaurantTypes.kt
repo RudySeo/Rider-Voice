@@ -9,11 +9,6 @@ enum class PickupLocationSource {
 enum class RestaurantStatus {
     ACTIVE,
     CLOSED,
-    MERGED,
-}
-
-enum class RestaurantExternalProvider {
-    KAKAO,
 }
 
 enum class DeliveryPlatform {

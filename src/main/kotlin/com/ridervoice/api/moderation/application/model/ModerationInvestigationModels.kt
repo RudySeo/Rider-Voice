@@ -4,7 +4,6 @@ import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -41,7 +40,6 @@ data class AdminRestaurantSearchItemResult(
     val restaurantId: Long,
     val name: String,
     val status: RestaurantStatus,
-    val canonicalRestaurantId: Long?,
     val pickupLocationId: Long,
     val standardAddress: String,
     val detailAddress: String?,
@@ -53,22 +51,16 @@ data class AdminRestaurantSearchPageResult(
     val nextCursor: AdminRestaurantCursor?,
 )
 
-data class AdminExternalReferenceResult(
-    val provider: RestaurantExternalProvider,
-    val externalPlaceId: String,
-)
-
 data class AdminRestaurantDetailResult(
     val restaurantId: Long,
     val name: String,
     val status: RestaurantStatus,
-    val canonicalRestaurantId: Long?,
     val pickupLocationId: Long,
     val standardAddress: String,
     val detailAddress: String?,
     val latitude: BigDecimal,
     val longitude: BigDecimal,
-    val externalReferences: List<AdminExternalReferenceResult>,
+    val kakaoPlaceId: String?,
     val platforms: Set<DeliveryPlatform>,
     val pendingReportCount: Long,
     val createdAt: Instant,

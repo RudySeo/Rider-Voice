@@ -11,7 +11,6 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportCom
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsQuery
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
@@ -334,30 +333,6 @@ class ReportingServiceTest {
     }
 
     @Test
-    fun `merge correction automatically resolves sibling restaurant reports`() {
-        val fixture = fixture(reviewTarget()).also {
-            it.restaurantReports.seedPending()
-            it.restaurantReports.siblingReports += restaurantReport().copy(reportId = RESTAURANT_REPORT_ID + 1)
-        }
-
-        fixture.restaurantDecision.decideRestaurantInfoReport(
-            DecideRestaurantInfoReportCommand(
-                ADMIN_ID,
-                RESTAURANT_REPORT_ID,
-                RestaurantInfoReportDecision.RESOLVE,
-                "중복 병합",
-                MergeRestaurantCorrection(99L),
-            ),
-        )
-
-        assertThat(fixture.restaurantReports.savedDecisionCommands.map { it.reportId }).containsExactly(
-            RESTAURANT_REPORT_ID,
-            RESTAURANT_REPORT_ID + 1,
-        )
-        assertThat(fixture.audits.commands.last().reason).isEqualTo("AUTO_RESOLVED_TARGET_MERGED")
-    }
-
-    @Test
     fun `service revalidates active reporter and admin roles in persistence`() {
         val inactiveReporter = fixture(reviewTarget(), activeReporter = false)
         assertThatThrownBy {
@@ -465,11 +440,7 @@ class ReportingServiceTest {
         val audits = FakeAuditRepository()
         val corrections = object : RestaurantInfoCorrectionExecutor {
             override fun prepare(correction: com.ridervoice.api.moderation.application.port.`in`.RestaurantInfoCorrectionCommand) =
-                if (correction is MergeRestaurantCorrection) {
-                    PreparedRestaurantCorrection.Merge(correction.canonicalRestaurantId)
-                } else {
-                    PreparedRestaurantCorrection.Rename("정정 브랜드")
-                }
+                PreparedRestaurantCorrection.Rename("정정 브랜드")
 
             override fun execute(
                 adminUserId: Long,
@@ -598,7 +569,6 @@ class ReportingServiceTest {
         var recentCount = 0L
         var lastCountSince: Instant? = null
         private var stored: StoredRestaurantInfoReport? = null
-        val siblingReports = mutableListOf<StoredRestaurantInfoReport>()
         val savedDecisionCommands = mutableListOf<RestaurantInfoReportDecisionPersistenceCommand>()
 
         fun seedPending() {
@@ -625,14 +595,11 @@ class ReportingServiceTest {
 
         override fun findForUpdate(reportId: Long) = stored?.takeIf { it.reportId == reportId }
 
-        override fun findOtherPendingForUpdate(restaurantId: Long, excludedReportId: Long) = siblingReports
-
         override fun saveDecision(
             command: RestaurantInfoReportDecisionPersistenceCommand,
         ): StoredRestaurantInfoReport {
             savedDecisionCommands += command
-            val current = if (stored?.reportId == command.reportId) requireNotNull(stored)
-            else siblingReports.first { it.reportId == command.reportId }
+            val current = requireNotNull(stored)
             return current.copy(
                 status = ReportStatus.RESOLVED,
                 decision = command.decision,
@@ -640,8 +607,6 @@ class ReportingServiceTest {
                 decidedAt = command.decidedAt,
             ).also { resolved ->
                 if (stored?.reportId == resolved.reportId) stored = resolved
-                val index = siblingReports.indexOfFirst { it.reportId == resolved.reportId }
-                if (index >= 0) siblingReports[index] = resolved
             }
         }
     }

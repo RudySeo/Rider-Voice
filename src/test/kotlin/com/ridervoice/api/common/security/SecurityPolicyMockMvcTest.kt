@@ -179,7 +179,6 @@ class SecurityPolicyMockMvcTest {
             Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-reports/10", Scope.ADMIN),
             Endpoint(HttpMethod.GET, "/api/v1/admin/restaurant-reports", Scope.ADMIN),
             Endpoint(HttpMethod.PATCH, "/api/v1/admin/restaurant-reports/10", Scope.ADMIN),
-            Endpoint(HttpMethod.POST, "/api/v1/admin/restaurants/10/merge", Scope.ADMIN),
             Endpoint(HttpMethod.PATCH, "/api/v1/admin/restaurants/10/pickup-location", Scope.ADMIN),
         )
     }
@@ -252,9 +251,6 @@ private class SecurityPolicyFixtureController {
         "/api/v1/admin/restaurants/{restaurantId}/pickup-location",
     )
     fun adminPatches() = "ok"
-
-    @PostMapping("/api/v1/admin/restaurants/{restaurantId}/merge")
-    fun mergeRestaurant() = "ok"
 
     @GetMapping("/api/v1/denied")
     fun denied() = "denied"

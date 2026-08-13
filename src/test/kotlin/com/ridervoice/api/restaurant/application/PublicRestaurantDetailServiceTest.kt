@@ -17,15 +17,15 @@ import java.math.BigDecimal
 class PublicRestaurantDetailServiceTest {
 
     @Test
-    fun `merged restaurant ID returns canonical restaurant and reports without sibling brands`() {
-        val canonical = detail(restaurantId = 20L)
-        val detailQuery = RecordingDetailQuery(requestedId = 10L, result = canonical)
+    fun `restaurant ID returns its own detail and reports without sibling brands`() {
+        val stored = detail(restaurantId = 20L)
+        val detailQuery = RecordingDetailQuery(requestedId = 20L, result = stored)
         val reports = RecordingReportProvider()
         val service = PublicRestaurantDetailService(detailQuery, reports)
 
-        val result = service.get(10L)
+        val result = service.get(20L)
 
-        assertThat(detailQuery.receivedIds).containsExactly(10L)
+        assertThat(detailQuery.receivedIds).containsExactly(20L)
         assertThat(reports.brandIds).containsExactly(20L)
         assertThat(reports.locationIds).containsExactly(30L)
         assertThat(result.restaurantId).isEqualTo(20L)
@@ -80,7 +80,7 @@ class PublicRestaurantDetailServiceTest {
     ) : RestaurantDetailQuery {
         val receivedIds = mutableListOf<Long>()
 
-        override fun findCanonicalDetail(restaurantId: Long): StoredRestaurantDetail? {
+        override fun findDetail(restaurantId: Long): StoredRestaurantDetail? {
             receivedIds += restaurantId
             return result.takeIf { restaurantId == requestedId }
         }

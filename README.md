@@ -53,12 +53,12 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - Spring Security OAuth2 Client 기반 카카오 로그인과 미인증 안내
 - opaque access token, rotating refresh token과 logout
 - 픽업 장소·배달 브랜드·외부 참조를 분리한 음식점 모델
-- 카카오 장소·주소 검색, 후보 병합, 서버 재검증과 중복 방지 등록
+- 카카오 장소·주소 검색, 후보 통합, 서버 재검증과 중복 방지 등록
 - 6개 구조화 평가, 방문 연월, 최대 200자 의견
 - 리뷰 생성·수정·삭제·내 리뷰 조회, 90일 재작성 제한과 공개 이력
 - 로그인 없이 사용할 수 있는 음식점 검색·상세·리뷰 조회
 - 서로 다른 작성자 5명 기준 브랜드·픽업 장소 집계와 `NOT_OBSERVED` 처리
-- 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 병합·재연결
+- 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 이름·장소·상태 정정
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
 - OAuth callback의 `HttpOnly` refresh cookie 설정과 cookie 기반 token 회전
@@ -108,7 +108,6 @@ GET    /api/v1/admin/review-reports
 PATCH  /api/v1/admin/review-reports/{reportId}
 GET    /api/v1/admin/restaurant-reports
 PATCH  /api/v1/admin/restaurant-reports/{reportId}
-POST   /api/v1/admin/restaurants/{restaurantId}/merge
 PATCH  /api/v1/admin/restaurants/{restaurantId}/pickup-location
 ```
 

@@ -27,9 +27,9 @@ internal class PublicReviewListService(
 
     @Transactional(readOnly = true)
     override fun list(command: ListPublicRestaurantReviewsCommand): PublicReviewListResult {
-        val canonicalRestaurantId = resolveRestaurant.resolve(command.restaurantId)
+        val restaurantId = resolveRestaurant.resolve(command.restaurantId)
         val page = reviews.findActiveByRestaurantId(
-            restaurantId = canonicalRestaurantId,
+            restaurantId = restaurantId,
             cursor = command.cursor,
             limit = command.size + 1,
         )

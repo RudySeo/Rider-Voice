@@ -36,8 +36,4 @@ class RestaurantPlatform(
     )
     final var restaurant: Restaurant = restaurant
         private set
-
-    fun relinkToRestaurant(restaurant: Restaurant) {
-        this.restaurant = restaurant
-    }
 }

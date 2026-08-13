@@ -3,8 +3,6 @@ package com.ridervoice.api.restaurant.infrastructure.persistence
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.support.MySqlIntegrationTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -33,24 +31,17 @@ class RestaurantUniqueConstraintConcurrencyIntegrationTest : MySqlIntegrationTes
     private lateinit var restaurants: SpringDataRestaurantRepository
 
     @Autowired
-    private lateinit var externalReferences: SpringDataRestaurantExternalReferenceRepository
-
-    @Autowired
     private lateinit var transactionManager: PlatformTransactionManager
 
     private val pickupLocationIds = ConcurrentHashMap.newKeySet<Long>()
     private val restaurantIds = ConcurrentHashMap.newKeySet<Long>()
-    private val externalReferenceIds = ConcurrentHashMap.newKeySet<Long>()
 
     @AfterEach
     fun removeCommittedFixtures() {
-        externalReferences.deleteAllById(externalReferenceIds)
-        externalReferences.flush()
         restaurants.deleteAllById(restaurantIds)
         restaurants.flush()
         pickupLocations.deleteAllById(pickupLocationIds)
         pickupLocations.flush()
-        externalReferenceIds.clear()
         restaurantIds.clear()
         pickupLocationIds.clear()
     }
@@ -92,34 +83,21 @@ class RestaurantUniqueConstraintConcurrencyIntegrationTest : MySqlIntegrationTes
     }
 
     @Test
-    fun `concurrent external reference inserts are serialized by provider and place identity`() {
-        val location = persistLocation("서울 강남구 외부참조로 ${UUID.randomUUID()}")
-        val candidates = listOf(
-            persistRestaurant("외부 참조 첫 브랜드", location.id),
-            persistRestaurant("외부 참조 둘째 브랜드", location.id),
-        )
-        val externalPlaceId = "concurrent-place-${UUID.randomUUID()}"
+    fun `concurrent restaurant inserts are serialized by Kakao place identity`() {
+        val location = persistLocation("서울 강남구 카카오장소로 ${UUID.randomUUID()}")
+        val kakaoPlaceId = "concurrent-place-${UUID.randomUUID()}"
 
         val results = race { index ->
             inTransaction {
-                val attachedRestaurant = restaurants.findById(candidates[index].id).orElseThrow()
-                externalReferences.saveAndFlush(
-                    RestaurantExternalReference(
-                        restaurant = attachedRestaurant,
-                        provider = RestaurantExternalProvider.KAKAO,
-                        externalPlaceId = externalPlaceId,
-                    ),
-                ).also { externalReferenceIds += it.id }
+                val attachedLocation = pickupLocations.findById(location.id).orElseThrow()
+                restaurants.saveAndFlush(
+                    Restaurant("카카오 장소 브랜드 $index", attachedLocation, kakaoPlaceId),
+                ).also { restaurantIds += it.id }
             }
         }
 
         assertSingleDatabaseWinner(results)
-        assertThat(
-            externalReferences.findByProviderAndExternalPlaceId(
-                RestaurantExternalProvider.KAKAO,
-                externalPlaceId,
-            ),
-        ).isPresent
+        assertThat(restaurants.findByKakaoPlaceId(kakaoPlaceId)).isPresent
     }
 
     private fun persistLocation(standardAddress: String): PickupLocation =

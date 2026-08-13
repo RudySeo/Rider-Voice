@@ -2,7 +2,7 @@
 
 ## 1. 기준
 
-Rider Voice의 현재 JPA Entity와 MySQL 기준 11개 테이블 구조와 주요 관계를 정리합니다
+Rider Voice의 현재 JPA Entity와 MySQL 기준 10개 테이블 구조와 주요 관계를 정리합니다
 
 모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 
@@ -52,16 +52,9 @@ erDiagram
     RESTAURANTS {
         bigint id PK
         bigint pickup_location_id FK
-        bigint canonical_restaurant_id FK "nullable"
         varchar brand_name
+        varchar kakao_place_id UK "nullable"
         enum status
-    }
-
-    RESTAURANT_EXTERNAL_REFERENCES {
-        bigint id PK
-        bigint restaurant_id FK
-        enum provider
-        varchar external_place_id
     }
 
     RESTAURANT_PLATFORMS {
@@ -129,8 +122,6 @@ erDiagram
  
 
     PICKUP_LOCATIONS ||--o{ RESTAURANTS : contains
-    RESTAURANTS o|--o{ RESTAURANTS : merged_into
-    RESTAURANTS ||--o{ RESTAURANT_EXTERNAL_REFERENCES : identifies
     RESTAURANTS ||--o{ RESTAURANT_PLATFORMS : appears_on
 
     USERS ||--o{ REVIEWS : writes
@@ -156,8 +147,7 @@ erDiagram
 | 인증 | `oauth_accounts` | 외부 OAuth 계정 연결 | `(provider, provider_subject)`, `(user_id, provider)` |
 | 인증 | `user_sessions` | refresh token 만료·폐기·회전 | `(refresh_token_hash)` |
 | 음식점 | `pickup_locations` | 실제 픽업 장소 | `(location_key)` |
-| 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, brand_name)` |
-| 음식점 | `restaurant_external_references` | 외부 장소 ID 연결 | `(provider, external_place_id)` |
+| 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, brand_name)`, `(kakao_place_id)` |
 | 음식점 | `restaurant_platforms` | 배달 플랫폼 메타데이터 | - |
 | 리뷰 | `reviews` | 평가, 의견과 공개·삭제 이력 | `(author_user_id, restaurant_id, current_slot)` |
 | 운영 | `review_reports` | 리뷰 신고와 처리 결과 | `(reporter_user_id, review_id)` |
@@ -167,3 +157,5 @@ erDiagram
 `reviews.comment_moderation_status`는 의견이 없으면 `NONE`, 즉시 공개 상태면 `PUBLISHED`, 신고로 임시 숨김이면 `HIDDEN_REPORTED`, 관리자 사후 조치로 숨김이면 `REJECTED`를 사용한다. `PENDING`은 기존 데이터 호환을 위해 enum에만 남기고 새 리뷰에는 저장하지 않는다.
 
 `restaurants.brand_name`은 저장 전에 NFKC와 공백을 정리하고 MySQL `utf8mb4_0900_ai_ci` collation으로 비교한다. 따라서 같은 픽업 장소에서는 대소문자만 다른 브랜드명도 중복으로 처리하며 별도 정규화 이름 컬럼은 저장하지 않는다.
+
+`restaurants.kakao_place_id`는 카카오 검색으로 연결된 음식점에만 저장한다. nullable이므로 주소로 수동 등록한 여러 음식점은 모두 `NULL`을 사용할 수 있고, 값이 있으면 unique 제약으로 같은 카카오 장소의 중복 등록을 막는다.

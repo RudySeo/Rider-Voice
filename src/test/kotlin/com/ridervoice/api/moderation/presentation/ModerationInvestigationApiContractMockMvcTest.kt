@@ -133,12 +133,12 @@ class ModerationInvestigationApiContractMockMvcTest {
     )
 
     private fun restaurantItem() = AdminRestaurantSearchItemResult(
-        20L, "브랜드", RestaurantStatus.ACTIVE, null, 30L, "서울 강남구 1", null, NOW,
+        20L, "브랜드", RestaurantStatus.ACTIVE, 30L, "서울 강남구 1", null, NOW,
     )
 
     private fun restaurant() = AdminRestaurantDetailResult(
-        20L, "브랜드", RestaurantStatus.ACTIVE, null, 30L, "서울 강남구 1", null,
-        BigDecimal("37.5"), BigDecimal("127.0"), emptyList(), emptySet(), 1, NOW, NOW,
+        20L, "브랜드", RestaurantStatus.ACTIVE, 30L, "서울 강남구 1", null,
+        BigDecimal("37.5"), BigDecimal("127.0"), null, emptySet(), 1, NOW, NOW,
     )
 
     private fun audit() = ModerationAuditResult(

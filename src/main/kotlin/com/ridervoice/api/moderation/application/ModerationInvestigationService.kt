@@ -3,7 +3,6 @@ package com.ridervoice.api.moderation.application
 import com.ridervoice.api.common.error.ApiErrorCode
 import com.ridervoice.api.common.error.ApiException
 import com.ridervoice.api.common.error.ResourceNotFoundException
-import com.ridervoice.api.moderation.application.model.AdminExternalReferenceResult
 import com.ridervoice.api.moderation.application.model.AdminRestaurantCursor
 import com.ridervoice.api.moderation.application.model.AdminRestaurantDetailResult
 import com.ridervoice.api.moderation.application.model.AdminRestaurantSearchItemResult
@@ -132,7 +131,6 @@ internal class ModerationInvestigationService(
         restaurantId,
         name,
         status,
-        canonicalRestaurantId,
         pickupLocationId,
         standardAddress,
         detailAddress,
@@ -143,13 +141,12 @@ internal class ModerationInvestigationService(
         restaurantId,
         name,
         status,
-        canonicalRestaurantId,
         pickupLocationId,
         standardAddress,
         detailAddress,
         latitude,
         longitude,
-        externalReferences.map { AdminExternalReferenceResult(it.provider, it.externalPlaceId) },
+        kakaoPlaceId,
         platforms,
         pendingReportCount,
         createdAt,

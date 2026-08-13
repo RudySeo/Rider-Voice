@@ -19,11 +19,9 @@ import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
 import com.ridervoice.api.restaurant.application.port.out.PublicKakaoKeywordSearchPort
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import org.springframework.stereotype.Service
 
@@ -31,7 +29,6 @@ import org.springframework.stereotype.Service
 class RestaurantSearchService(
     private val restaurants: RestaurantRepository,
     private val pickupLocations: PickupLocationRepository,
-    private val externalReferences: RestaurantExternalReferenceRepository,
     private val keywordSearch: PublicKakaoKeywordSearchPort,
     private val addressSearch: KakaoAddressSearchPort,
 ) : SearchRestaurantsUseCase, SearchAddressesUseCase {
@@ -41,7 +38,7 @@ class RestaurantSearchService(
         val storedCandidates = restaurants.searchActive(query, SEARCH_LIMIT)
         val internalCandidates = storedCandidates.map(::internalCandidate).toMutableList()
         val includedRestaurantIds = storedCandidates.mapTo(linkedSetOf()) { it.restaurantId }
-        val includedExternalIds = storedCandidates.mapNotNullTo(linkedSetOf()) { it.externalPlaceId }
+        val includedKakaoPlaceIds = storedCandidates.mapNotNullTo(linkedSetOf()) { it.kakaoPlaceId }
 
         return when (val externalResult = keywordSearch.search(query, SEARCH_LIMIT)) {
             is ProviderSearchResult.Unavailable -> RestaurantSearchResult(
@@ -51,7 +48,9 @@ class RestaurantSearchService(
 
             is ProviderSearchResult.Available -> {
                 externalResult.candidates.forEach { external ->
-                    if (internalCandidates.size >= SEARCH_LIMIT || !includedExternalIds.add(external.externalPlaceId)) {
+                    if (internalCandidates.size >= SEARCH_LIMIT ||
+                        !includedKakaoPlaceIds.add(external.kakaoPlaceId)
+                    ) {
                         return@forEach
                     }
 
@@ -71,9 +70,9 @@ class RestaurantSearchService(
                             val existingIndex = internalCandidates.indexOfFirst {
                                 it.restaurantId == linkedRestaurantId
                             }
-                            if (existingIndex >= 0 && internalCandidates[existingIndex].externalPlaceId == null) {
+                            if (existingIndex >= 0 && internalCandidates[existingIndex].kakaoPlaceId == null) {
                                 internalCandidates[existingIndex] = internalCandidates[existingIndex].copy(
-                                    externalPlaceId = external.externalPlaceId,
+                                    kakaoPlaceId = external.kakaoPlaceId,
                                 )
                             }
                         }
@@ -120,16 +119,14 @@ class RestaurantSearchService(
     private fun findLinkedInternalCandidate(
         external: ExternalRestaurantCandidate,
     ): LinkedExternalCandidate {
-        val reference = externalReferences.findByProviderAndExternalPlaceId(
-            RestaurantExternalProvider.KAKAO,
-            external.externalPlaceId,
-        ) ?: return LinkedExternalCandidate.Unlinked
-        val canonical = restaurants.findCanonicalById(reference.restaurant.id)
+        val linkedRestaurant = restaurants.findByKakaoPlaceId(external.kakaoPlaceId)
+            ?: return LinkedExternalCandidate.Unlinked
+        val active = restaurants.findActiveById(linkedRestaurant.id)
             ?: return LinkedExternalCandidate.Suppressed
-        val stored = restaurants.findSearchCandidateById(canonical.id)
+        val stored = restaurants.findSearchCandidateById(active.id)
             ?: return LinkedExternalCandidate.Suppressed
         return LinkedExternalCandidate.Found(
-            internalCandidate(stored.copy(externalPlaceId = external.externalPlaceId)),
+            internalCandidate(stored.copy(kakaoPlaceId = external.kakaoPlaceId)),
         )
     }
 
@@ -139,7 +136,7 @@ class RestaurantSearchService(
     private fun internalCandidate(stored: StoredRestaurantSearchCandidate) = RestaurantSearchCandidate(
         candidateType = RestaurantCandidateType.INTERNAL,
         restaurantId = stored.restaurantId,
-        externalPlaceId = stored.externalPlaceId,
+        kakaoPlaceId = stored.kakaoPlaceId,
         name = stored.name,
         address = stored.address,
         aggregationStatus = AggregationStatus.NO_REVIEWS,
@@ -149,7 +146,7 @@ class RestaurantSearchService(
     private fun externalCandidate(external: ExternalRestaurantCandidate) = RestaurantSearchCandidate(
         candidateType = RestaurantCandidateType.KAKAO,
         restaurantId = null,
-        externalPlaceId = external.externalPlaceId,
+        kakaoPlaceId = external.kakaoPlaceId,
         name = external.name,
         address = external.standardAddress,
         aggregationStatus = AggregationStatus.NO_REVIEWS,

@@ -25,7 +25,6 @@ import com.ridervoice.api.restaurant.application.port.`in`.SearchRestaurantsUseC
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
@@ -43,7 +42,7 @@ class RestaurantApplicationContractsTest {
                 RestaurantSearchCandidate(
                     candidateType = RestaurantCandidateType.INTERNAL,
                     restaurantId = 10L,
-                    externalPlaceId = "kakao-10",
+                    kakaoPlaceId = "kakao-10",
                     name = "내부 브랜드",
                     address = "서울 강남구 테헤란로 1",
                     aggregationStatus = AggregationStatus.COLLECTING,
@@ -52,7 +51,7 @@ class RestaurantApplicationContractsTest {
                 RestaurantSearchCandidate(
                     candidateType = RestaurantCandidateType.KAKAO,
                     restaurantId = null,
-                    externalPlaceId = "kakao-20",
+                    kakaoPlaceId = "kakao-20",
                     name = "외부 후보",
                     address = "서울 강남구 역삼로 1",
                     aggregationStatus = AggregationStatus.NO_REVIEWS,
@@ -128,7 +127,7 @@ class RestaurantApplicationContractsTest {
     @Test
     fun `Kakao output ports expose application candidates and provider neutral failures`() {
         val keywordCandidate = ExternalRestaurantCandidate(
-            externalPlaceId = "kakao-10",
+            kakaoPlaceId = "kakao-10",
             name = "후보 브랜드",
             standardAddress = "서울 강남구 테헤란로 1",
             lotNumberAddress = null,
@@ -162,7 +161,6 @@ class RestaurantApplicationContractsTest {
     fun `persistence dependencies are repository output ports`() {
         assertThat(PickupLocationRepository::class.java.isInterface).isTrue()
         assertThat(RestaurantRepository::class.java.isInterface).isTrue()
-        assertThat(RestaurantExternalReferenceRepository::class.java.isInterface).isTrue()
         assertThat(RestaurantPlatformRepository::class.java.isInterface).isTrue()
     }
 }

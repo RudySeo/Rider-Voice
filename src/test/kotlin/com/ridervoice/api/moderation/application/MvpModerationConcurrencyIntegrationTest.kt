@@ -8,8 +8,6 @@ import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoR
 import com.ridervoice.api.moderation.application.port.`in`.CreateRestaurantInfoReportUseCase
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportCommand
 import com.ridervoice.api.moderation.application.port.`in`.CreateReviewReportUseCase
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.domain.RestaurantInfoReportReason
 import com.ridervoice.api.moderation.domain.ReviewReportReason
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
@@ -17,7 +15,6 @@ import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.application.port.out.ReviewRepository
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
@@ -46,13 +43,11 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
     @Autowired private lateinit var reviews: ReviewRepository
     @Autowired private lateinit var createReviewReport: CreateReviewReportUseCase
     @Autowired private lateinit var createRestaurantReport: CreateRestaurantInfoReportUseCase
-    @Autowired private lateinit var mergeRestaurant: MergeRestaurantUseCase
     @Autowired private lateinit var dataSource: DataSource
 
     private val userIds = linkedSetOf<Long>()
     private val pickupLocationIds = linkedSetOf<Long>()
     private val restaurantIds = linkedSetOf<Long>()
-    private val mergedRestaurantIds = linkedSetOf<Long>()
     private val reviewIds = linkedSetOf<Long>()
 
     @AfterEach
@@ -67,10 +62,7 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
             jdbc.update("delete from review_reports where review_id = ?", reviewId)
             jdbc.update("delete from reviews where id = ?", reviewId)
         }
-        mergedRestaurantIds.forEach { restaurantId ->
-            jdbc.update("delete from restaurants where id = ?", restaurantId)
-        }
-        restaurantIds.filterNot(mergedRestaurantIds::contains).forEach { restaurantId ->
+        restaurantIds.forEach { restaurantId ->
             jdbc.update("delete from restaurant_info_reports where restaurant_id = ?", restaurantId)
             jdbc.update("delete from restaurants where id = ?", restaurantId)
         }
@@ -122,48 +114,6 @@ class MvpModerationConcurrencyIntegrationTest : MySqlIntegrationTest() {
                 Long::class.java,
                 fixture.user.id,
                 fixture.review.restaurant.id,
-            ),
-        ).isEqualTo(1L)
-    }
-
-    @Test
-    fun `concurrent merges serialize duplicate state and only one canonical wins`() {
-        val admin = activeUser(UserRole.ADMIN)
-        val location = locationFixture("merge-race")
-        val duplicate = restaurantFixture("병합 대상", location)
-        val canonicals = listOf(
-            restaurantFixture("정식 브랜드 A", location),
-            restaurantFixture("정식 브랜드 B", location),
-        )
-        mergedRestaurantIds += duplicate.id
-
-        val results = race { index ->
-            mergeRestaurant.merge(
-                MergeRestaurantCommand(
-                    adminUserId = admin.id,
-                    duplicateRestaurantId = duplicate.id,
-                    canonicalRestaurantId = canonicals[index].id,
-                    reason = "동시 병합 검증",
-                ),
-            )
-        }
-
-        assertOneSuccessAndOneConflict(results)
-        val winner = results.single { it.isSuccess }.getOrThrow()
-        val jdbc = JdbcTemplate(dataSource)
-        val stored = jdbc.queryForMap(
-            "select status, canonical_restaurant_id from restaurants where id = ?",
-            duplicate.id,
-        )
-        assertThat(stored["status"].toString()).isEqualTo(RestaurantStatus.MERGED.name)
-        assertThat((stored["canonical_restaurant_id"] as Number).toLong())
-            .isEqualTo(winner.canonicalRestaurantId)
-        assertThat(
-            jdbc.queryForObject(
-                "select count(*) from moderation_audits where actor_user_id = ? and target_id = ?",
-                Long::class.java,
-                admin.id,
-                duplicate.id,
             ),
         ).isEqualTo(1L)
     }

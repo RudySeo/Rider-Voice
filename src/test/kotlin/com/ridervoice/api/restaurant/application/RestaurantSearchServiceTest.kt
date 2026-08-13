@@ -2,6 +2,7 @@ package com.ridervoice.api.restaurant.application
 
 import com.ridervoice.api.common.error.BadRequestException
 import com.ridervoice.api.common.error.ResourceNotFoundException
+import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.restaurant.application.model.ExternalAddressCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalRestaurantCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalSearchStatus
@@ -19,15 +20,12 @@ import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
 import com.ridervoice.api.restaurant.application.port.out.PublicKakaoKeywordSearchPort
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantNormalization
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import org.assertj.core.api.Assertions.assertThat
@@ -39,17 +37,13 @@ import java.math.BigDecimal
 class RestaurantSearchServiceTest {
 
     @Test
-    fun `search merges internal and Kakao candidates by external reference ID`() {
+    fun `search merges internal and Kakao candidates by Kakao place ID`() {
         val first = stored(1L, null, "내부 브랜드", "서울 강남구 1")
-        val firstRestaurant = restaurant(1L, "내부 브랜드", "서울 강남구 1")
-        val linkedRestaurant = restaurant(2L, "연결 브랜드", "서울 강남구 2")
+        val firstRestaurant = restaurant(1L, "내부 브랜드", "서울 강남구 1", "kakao-1")
+        val linkedRestaurant = restaurant(2L, "연결 브랜드", "서울 강남구 2", "kakao-2")
         val repositories = InMemoryRepositories(
             searchResults = listOf(first),
             restaurants = mutableListOf(firstRestaurant, linkedRestaurant),
-            references = mutableListOf(
-                reference(10L, firstRestaurant, "kakao-1"),
-                reference(20L, linkedRestaurant, "kakao-2"),
-            ),
         )
         val keywordSearch = PublicKakaoKeywordSearchPort { query, limit ->
             assertThat(query).isEqualTo("강남 분식")
@@ -65,7 +59,6 @@ class RestaurantSearchServiceTest {
         val service = RestaurantSearchService(
             repositories,
             PickupRepository(repositories),
-            repositories,
             keywordSearch,
             addressSearch(),
         )
@@ -79,7 +72,7 @@ class RestaurantSearchServiceTest {
             RestaurantCandidateType.KAKAO,
         )
         assertThat(result.candidates.map { it.restaurantId }).containsExactly(1L, 2L, null)
-        assertThat(result.candidates.map { it.externalPlaceId })
+        assertThat(result.candidates.map { it.kakaoPlaceId })
             .containsExactly("kakao-1", "kakao-2", "kakao-3")
         assertThat(result.candidates).allSatisfy { candidate ->
             assertThat(candidate.aggregationStatus.name).isEqualTo("NO_REVIEWS")
@@ -93,7 +86,6 @@ class RestaurantSearchServiceTest {
         val service = RestaurantSearchService(
             repositories,
             PickupRepository(repositories),
-            repositories,
             PublicKakaoKeywordSearchPort { _, _ ->
                 ProviderSearchResult.Unavailable(ProviderFailureReason.TIMEOUT)
             },
@@ -110,15 +102,14 @@ class RestaurantSearchServiceTest {
 
     @Test
     fun `search suppresses a Kakao candidate already linked to a closed restaurant`() {
-        val closed = restaurant(2L, "폐업 브랜드", "서울 강남구 2").also { it.close() }
+        val closed = restaurant(2L, "폐업 브랜드", "서울 강남구 2", "closed-place")
+            .also { it.close() }
         val repositories = InMemoryRepositories(
             restaurants = mutableListOf(closed),
-            references = mutableListOf(reference(20L, closed, "closed-place")),
         )
         val service = RestaurantSearchService(
             repositories,
             PickupRepository(repositories),
-            repositories,
             PublicKakaoKeywordSearchPort { _, _ ->
                 ProviderSearchResult.Available(
                     listOf(externalRestaurant("closed-place", "폐업 브랜드", "서울 강남구 2")),
@@ -137,7 +128,6 @@ class RestaurantSearchServiceTest {
         val service = RestaurantSearchService(
             repositories,
             PickupRepository(repositories),
-            repositories,
             publicKeywordSearch(),
             addressSearch(
                 ProviderSearchResult.Available(
@@ -155,13 +145,12 @@ class RestaurantSearchServiceTest {
     }
 
     @Test
-    fun `existing target resolves a MERGED restaurant to its canonical ID`() {
-        val canonical = restaurant(2L, "대표 브랜드", "서울 2")
-        val duplicate = restaurant(1L, "중복 브랜드", "서울 1").also { it.mergeInto(canonical) }
-        val repositories = InMemoryRepositories(restaurants = mutableListOf(duplicate, canonical))
+    fun `existing target resolves an active restaurant by its own ID`() {
+        val restaurant = restaurant(1L, "브랜드", "서울 1")
+        val repositories = InMemoryRepositories(restaurants = mutableListOf(restaurant))
         val service = targetService(repositories)
 
-        assertThat(service.resolve(ExistingRestaurantTargetCommand(1L)).restaurantId).isEqualTo(2L)
+        assertThat(service.resolve(ExistingRestaurantTargetCommand(1L)).restaurantId).isEqualTo(1L)
         assertThatThrownBy { service.resolve(ExistingRestaurantTargetCommand(99L)) }
             .isInstanceOf(ResourceNotFoundException::class.java)
     }
@@ -195,7 +184,7 @@ class RestaurantSearchServiceTest {
         assertThat(result.restaurantId).isPositive()
         assertThat(repositories.pickupLocations.single().standardAddress).isEqualTo("검증 주소")
         assertThat(repositories.restaurants.single().brandName).isEqualTo("검증 브랜드")
-        assertThat(repositories.references.single().externalPlaceId).isEqualTo("selected")
+        assertThat(repositories.restaurants.single().kakaoPlaceId).isEqualTo("selected")
     }
 
     @Test
@@ -207,6 +196,29 @@ class RestaurantSearchServiceTest {
             service.resolve(KakaoRestaurantTargetCommand("검색어", "tampered"))
         }.isInstanceOf(BadRequestException::class.java)
         assertThat(repositories.restaurants).isEmpty()
+    }
+
+    @Test
+    fun `Kakao target rejects overwriting a different place ID on the same restaurant`() {
+        val location = pickup(10L, "검증 주소", null)
+        val existing = restaurant(20L, "검증 브랜드", location, "existing-place")
+        val repositories = InMemoryRepositories(
+            pickupLocations = mutableListOf(location),
+            restaurants = mutableListOf(existing),
+        )
+        val service = targetService(
+            repositories,
+            keywordSearch = keywordSearch(
+                ProviderSearchResult.Available(
+                    listOf(externalRestaurant("different-place", "검증 브랜드", "검증 주소")),
+                ),
+            ),
+        )
+
+        assertThatThrownBy {
+            service.resolve(KakaoRestaurantTargetCommand("검증 브랜드", "different-place"))
+        }.isInstanceOf(StateConflictException::class.java)
+        assertThat(existing.kakaoPlaceId).isEqualTo("existing-place")
     }
 
     @Test
@@ -293,7 +305,6 @@ class RestaurantSearchServiceTest {
         targetWriter = TransactionalRestaurantTargetWriter(
             pickupLocations = PickupRepository(repositories),
             restaurants = repositories,
-            externalReferences = repositories,
             platforms = repositories,
         ),
     )
@@ -311,7 +322,7 @@ class RestaurantSearchServiceTest {
     ) = KakaoAddressSearchPort { _, _ -> result }
 
     private fun externalRestaurant(id: String, name: String, address: String) = ExternalRestaurantCandidate(
-        externalPlaceId = id,
+        kakaoPlaceId = id,
         name = name,
         standardAddress = address,
         lotNumberAddress = null,
@@ -334,27 +345,25 @@ class RestaurantSearchServiceTest {
         source = PickupLocationSource.MANUAL_ADDRESS,
     ).also { it.id = id }
 
-    private fun restaurant(id: Long, name: String, address: String) =
-        restaurant(id, name, pickup(id * 10, address, null))
+    private fun restaurant(id: Long, name: String, address: String, kakaoPlaceId: String? = null) =
+        restaurant(id, name, pickup(id * 10, address, null), kakaoPlaceId)
 
-    private fun restaurant(id: Long, name: String, location: PickupLocation) =
-        Restaurant(name, location).also { it.id = id }
+    private fun restaurant(
+        id: Long,
+        name: String,
+        location: PickupLocation,
+        kakaoPlaceId: String? = null,
+    ) = Restaurant(name, location, kakaoPlaceId).also { it.id = id }
 
-    private fun reference(id: Long, restaurant: Restaurant, externalPlaceId: String) =
-        RestaurantExternalReference(restaurant, RestaurantExternalProvider.KAKAO, externalPlaceId)
-            .also { it.id = id }
-
-    private fun stored(id: Long, externalPlaceId: String?, name: String, address: String) =
-        StoredRestaurantSearchCandidate(id, externalPlaceId, name, address)
+    private fun stored(id: Long, kakaoPlaceId: String?, name: String, address: String) =
+        StoredRestaurantSearchCandidate(id, kakaoPlaceId, name, address)
 
     private class InMemoryRepositories(
         private val searchResults: List<StoredRestaurantSearchCandidate> = emptyList(),
         val pickupLocations: MutableList<PickupLocation> = mutableListOf(),
         val restaurants: MutableList<Restaurant> = mutableListOf(),
-        val references: MutableList<RestaurantExternalReference> = mutableListOf(),
         val platforms: MutableList<RestaurantPlatform> = mutableListOf(),
     ) : RestaurantRepository,
-        RestaurantExternalReferenceRepository,
         RestaurantPlatformRepository {
 
         var restaurantSaveAttempts: Int = 0
@@ -377,25 +386,23 @@ class RestaurantSearchServiceTest {
 
         override fun findById(restaurantId: Long): Restaurant? = restaurants.find { it.id == restaurantId }
 
-        override fun findCanonicalById(restaurantId: Long): Restaurant? {
-            var current = findById(restaurantId) ?: return null
-            val visited = mutableSetOf<Long>()
-            while (visited.add(current.id)) {
-                current = current.canonicalRestaurant
-                    ?: return current.takeIf { it.status == com.ridervoice.api.restaurant.domain.RestaurantStatus.ACTIVE }
+        override fun findActiveById(restaurantId: Long): Restaurant? =
+            findById(restaurantId)?.takeIf {
+                it.status == com.ridervoice.api.restaurant.domain.RestaurantStatus.ACTIVE
             }
-            return null
-        }
 
         override fun findSearchCandidateById(restaurantId: Long): StoredRestaurantSearchCandidate? =
-            findCanonicalById(restaurantId)?.let { restaurant ->
+            findActiveById(restaurantId)?.let { restaurant ->
                 StoredRestaurantSearchCandidate(
                     restaurant.id,
-                    null,
+                    restaurant.kakaoPlaceId,
                     restaurant.brandName,
                     restaurant.pickupLocation.standardAddress,
                 )
             }
+
+        override fun findByKakaoPlaceId(kakaoPlaceId: String): Restaurant? =
+            restaurants.find { it.kakaoPlaceId == kakaoPlaceId }
 
         override fun findByPickupLocationIdAndBrandName(
             pickupLocationId: Long,
@@ -413,20 +420,8 @@ class RestaurantSearchServiceTest {
                 throw it()
             }
             if (restaurant.id == 0L) restaurant.id = nextId++
-            restaurants += restaurant
+            if (restaurants.none { it.id == restaurant.id }) restaurants += restaurant
             return restaurant
-        }
-
-        override fun findByProviderAndExternalPlaceId(
-            provider: RestaurantExternalProvider,
-            externalPlaceId: String,
-        ): RestaurantExternalReference? = references.find {
-            it.provider == provider && it.externalPlaceId == externalPlaceId
-        }
-
-        override fun save(reference: RestaurantExternalReference): RestaurantExternalReference = reference.also {
-            if (it.id == 0L) it.id = nextId++
-            references += it
         }
 
         override fun findPlatforms(restaurantId: Long): Set<DeliveryPlatform> = platforms

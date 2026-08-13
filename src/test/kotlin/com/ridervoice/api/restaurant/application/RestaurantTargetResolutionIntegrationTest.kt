@@ -7,11 +7,9 @@ import com.ridervoice.api.restaurant.application.port.`in`.KakaoRestaurantTarget
 import com.ridervoice.api.restaurant.application.port.`in`.ManualAddressRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.out.KakaoAddressSearchPort
 import com.ridervoice.api.restaurant.application.port.out.KakaoKeywordSearchPort
-import com.ridervoice.api.restaurant.application.port.out.RestaurantExternalReferenceRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.support.MySqlIntegrationTest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -28,9 +26,6 @@ class RestaurantTargetResolutionIntegrationTest : MySqlIntegrationTest() {
 
     @Autowired
     private lateinit var restaurants: RestaurantRepository
-
-    @Autowired
-    private lateinit var externalReferences: RestaurantExternalReferenceRepository
 
     @Autowired
     private lateinit var targetWriter: RestaurantTargetWriter
@@ -61,10 +56,10 @@ class RestaurantTargetResolutionIntegrationTest : MySqlIntegrationTest() {
     }
 
     @Test
-    fun `Kakao resolution attaches its reference to a matching manually registered brand`() {
+    fun `Kakao resolution attaches its place ID to a matching manually registered brand`() {
         val selectedAddress = address("서울 강남구 연결로 303", "37.50300000", "127.00300000")
         val place = ExternalRestaurantCandidate(
-            externalPlaceId = "integration-kakao-place-303",
+            kakaoPlaceId = "integration-kakao-place-303",
             name = "수동 연결 브랜드",
             standardAddress = selectedAddress.standardAddress,
             lotNumberAddress = selectedAddress.lotNumberAddress,
@@ -77,16 +72,12 @@ class RestaurantTargetResolutionIntegrationTest : MySqlIntegrationTest() {
         )
 
         val manual = resolver.resolve(manualCommand("수동 주소", selectedAddress, place.name))
-        val kakao = resolver.resolve(KakaoRestaurantTargetCommand("카카오 브랜드", place.externalPlaceId))
+        val kakao = resolver.resolve(KakaoRestaurantTargetCommand("카카오 브랜드", place.kakaoPlaceId))
 
-        val linkedReference = externalReferences.findByProviderAndExternalPlaceId(
-            RestaurantExternalProvider.KAKAO,
-            place.externalPlaceId,
-        )
         val restaurant = restaurants.findById(manual.restaurantId)!!
 
         assertThat(kakao.restaurantId).isEqualTo(manual.restaurantId)
-        assertThat(linkedReference?.restaurant?.id).isEqualTo(manual.restaurantId)
+        assertThat(restaurant.kakaoPlaceId).isEqualTo(place.kakaoPlaceId)
         assertThat(restaurant.pickupLocation.source).isEqualTo(PickupLocationSource.MANUAL_ADDRESS)
     }
 

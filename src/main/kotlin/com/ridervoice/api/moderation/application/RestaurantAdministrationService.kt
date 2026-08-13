@@ -4,26 +4,21 @@ import com.ridervoice.api.common.error.ApiErrorCode
 import com.ridervoice.api.common.error.ApiException
 import com.ridervoice.api.common.error.ResourceNotFoundException
 import com.ridervoice.api.common.error.StateConflictException
-import com.ridervoice.api.moderation.application.model.RestaurantMergeResult
 import com.ridervoice.api.moderation.application.model.RestaurantPickupRelinkResult
 import com.ridervoice.api.moderation.application.model.RestaurantRenameResult
 import com.ridervoice.api.moderation.application.model.RestaurantStatusChangeResult
 import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusCommand
 import com.ridervoice.api.moderation.application.port.`in`.ChangeRestaurantStatusUseCase
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCommand
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCommand
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationCommand
 import com.ridervoice.api.moderation.application.port.`in`.RelinkValidatedRestaurantPickupLocationUseCase
-import com.ridervoice.api.moderation.application.port.out.AdminRestaurantReview
 import com.ridervoice.api.moderation.application.port.out.ModerationAdminRepository
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.ModerationAuditRepository
 import com.ridervoice.api.moderation.application.port.out.RestaurantAdministrationRepository
-import com.ridervoice.api.moderation.application.port.out.RestaurantMergePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantPickupRelinkPersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantRenamePersistenceCommand
 import com.ridervoice.api.moderation.application.port.out.RestaurantStatusPersistenceCommand
@@ -45,52 +40,8 @@ internal class RestaurantAdministrationService(
     private val restaurants: RestaurantAdministrationRepository,
     private val audits: ModerationAuditRepository,
     private val clock: Clock,
-) : MergeRestaurantUseCase, RelinkRestaurantPickupLocationUseCase, RenameRestaurantUseCase,
+) : RelinkRestaurantPickupLocationUseCase, RenameRestaurantUseCase,
     ChangeRestaurantStatusUseCase, RelinkValidatedRestaurantPickupLocationUseCase {
-
-    @Transactional
-    override fun merge(command: MergeRestaurantCommand): RestaurantMergeResult {
-        requireActiveAdmin(command.adminUserId)
-        val restaurantIds = setOf(command.duplicateRestaurantId, command.canonicalRestaurantId)
-        val locked = restaurants.findRestaurantsForUpdate(restaurantIds).associateBy { it.restaurantId }
-        val duplicate = locked[command.duplicateRestaurantId]
-            ?: throw ResourceNotFoundException("Duplicate restaurant was not found")
-        val canonical = locked[command.canonicalRestaurantId]
-            ?: throw ResourceNotFoundException("Canonical restaurant was not found")
-        requireActive(duplicate, "Duplicate restaurant")
-        requireActive(canonical, "Canonical restaurant")
-
-        val activeReviewIds = selectActiveReviews(restaurants.findReviewsForUpdate(restaurantIds))
-        val completedAt = clock.instant()
-        val saved = restaurants.merge(
-            RestaurantMergePersistenceCommand(
-                duplicateRestaurantId = duplicate.restaurantId,
-                canonicalRestaurantId = canonical.restaurantId,
-                activeReviewIds = activeReviewIds,
-            ),
-        )
-        audits.append(
-            ModerationAuditPersistenceCommand(
-                actorUserId = command.adminUserId,
-                action = ModerationAuditPolicy.actionFor(RestaurantAdminAction.MERGE_DUPLICATE),
-                targetType = ModerationTargetType.RESTAURANT,
-                targetId = duplicate.restaurantId,
-                reason = command.reason,
-                beforeState = "duplicate={${restaurantState(duplicate)}}," +
-                    "canonical={${restaurantState(canonical)}}",
-                afterState = "duplicate={${restaurantState(saved)}}," +
-                    "activeReviewIds=${activeReviewIds.sorted()}," +
-                    "reviewsTransferred=true,externalReferencesTransferred=true,platformsTransferred=true",
-                occurredAt = completedAt,
-            ),
-        )
-        return RestaurantMergeResult(
-            restaurantId = saved.restaurantId,
-            status = saved.status,
-            canonicalRestaurantId = requireNotNull(saved.canonicalRestaurantId),
-            completedAt = completedAt,
-        )
-    }
 
     @Transactional
     override fun relinkPickupLocation(
@@ -275,17 +226,6 @@ internal class RestaurantAdministrationService(
         )
     }
 
-    private fun selectActiveReviews(reviews: List<AdminRestaurantReview>): Set<Long> = reviews
-        .filter(AdminRestaurantReview::active)
-        .groupBy(AdminRestaurantReview::authorUserId)
-        .values
-        .mapTo(linkedSetOf()) { authorReviews ->
-            authorReviews.maxWith(
-                compareBy<AdminRestaurantReview>(AdminRestaurantReview::submittedAt)
-                    .thenBy(AdminRestaurantReview::reviewId),
-            ).reviewId
-        }
-
     private fun requireActive(restaurant: StoredAdminRestaurant, label: String) {
         if (restaurant.status != RestaurantStatus.ACTIVE) {
             throw StateConflictException("$label is not active")
@@ -300,7 +240,6 @@ internal class RestaurantAdministrationService(
 
     private fun restaurantState(restaurant: StoredAdminRestaurant): String =
         "restaurantId=${restaurant.restaurantId},name=${restaurant.brandName},status=${restaurant.status}," +
-            "pickupLocationId=${restaurant.pickupLocationId}," +
-            "canonicalRestaurantId=${restaurant.canonicalRestaurantId}"
+            "pickupLocationId=${restaurant.pickupLocationId}"
 
 }

@@ -12,8 +12,6 @@ import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.Review
@@ -57,10 +55,8 @@ class ModerationInvestigationPersistenceIntegrationTest : MySqlIntegrationTest()
             longitude = BigDecimal("127.00000000"),
             source = PickupLocationSource.MANUAL_ADDRESS,
         ).also(entityManager::persist)
-        val restaurant = Restaurant("조사 브랜드 $suffix", location).also(entityManager::persist)
-        entityManager.persist(
-            RestaurantExternalReference(restaurant, RestaurantExternalProvider.KAKAO, "place-$suffix"),
-        )
+        val restaurant = Restaurant("조사 브랜드 $suffix", location, "place-$suffix")
+            .also(entityManager::persist)
         entityManager.persist(RestaurantPlatform(restaurant, DeliveryPlatform.BAEMIN))
         val review = Review(
             author = user,
@@ -95,7 +91,7 @@ class ModerationInvestigationPersistenceIntegrationTest : MySqlIntegrationTest()
         assertThat(search.map { it.restaurantId }).contains(restaurant.id)
 
         val storedRestaurant = investigation.findRestaurant(restaurant.id)
-        assertThat(storedRestaurant?.externalReferences?.single()?.externalPlaceId).isEqualTo("place-$suffix")
+        assertThat(storedRestaurant?.kakaoPlaceId).isEqualTo("place-$suffix")
         assertThat(storedRestaurant?.platforms).containsExactly(DeliveryPlatform.BAEMIN)
         assertThat(storedRestaurant?.pendingReportCount).isEqualTo(1L)
 

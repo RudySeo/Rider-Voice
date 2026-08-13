@@ -39,7 +39,6 @@ internal sealed interface PreparedRestaurantCorrection {
     data class Rename(val name: String) : PreparedRestaurantCorrection
     data class ExistingPickup(val pickupLocationId: Long) : PreparedRestaurantCorrection
     data class VerifiedAddress(val selection: ValidatedAddressSelection) : PreparedRestaurantCorrection
-    data class Merge(val canonicalRestaurantId: Long) : PreparedRestaurantCorrection
     data object Close : PreparedRestaurantCorrection
 }
 
@@ -49,7 +48,6 @@ internal class DefaultRestaurantInfoCorrectionExecutor(
     private val rename: RenameRestaurantUseCase,
     private val relink: RelinkRestaurantPickupLocationUseCase,
     private val relinkValidated: RelinkValidatedRestaurantPickupLocationUseCase,
-    private val merge: MergeRestaurantUseCase,
     private val status: ChangeRestaurantStatusUseCase,
 ) : RestaurantInfoCorrectionExecutor {
     override fun prepare(correction: RestaurantInfoCorrectionCommand): PreparedRestaurantCorrection = when (correction) {
@@ -64,7 +62,6 @@ internal class DefaultRestaurantInfoCorrectionExecutor(
                 ),
             ),
         )
-        is MergeRestaurantCorrection -> PreparedRestaurantCorrection.Merge(correction.canonicalRestaurantId)
         CloseRestaurantCorrection -> PreparedRestaurantCorrection.Close
     }
 
@@ -93,8 +90,6 @@ internal class DefaultRestaurantInfoCorrectionExecutor(
                     )
                 },
             )
-            is PreparedRestaurantCorrection.Merge ->
-                merge.merge(MergeRestaurantCommand(adminUserId, restaurantId, correction.canonicalRestaurantId, reason))
             PreparedRestaurantCorrection.Close ->
                 status.changeStatus(ChangeRestaurantStatusCommand.close(adminUserId, restaurantId, reason))
         }

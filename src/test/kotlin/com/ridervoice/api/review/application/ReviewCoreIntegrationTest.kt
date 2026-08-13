@@ -83,7 +83,6 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
             authorIds.forEach { authorId -> jdbcTemplate.update("delete from reviews where author_user_id = ?", authorId) }
             restaurantIds.forEach { restaurantId ->
                 jdbcTemplate.update("delete from restaurant_platforms where restaurant_id = ?", restaurantId)
-                jdbcTemplate.update("delete from restaurant_external_references where restaurant_id = ?", restaurantId)
                 jdbcTemplate.update("delete from restaurants where id = ?", restaurantId)
             }
             pickupLocationIds.forEach { pickupLocationId ->
@@ -101,7 +100,7 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
         val fixture = restaurantFixture("target")
         val author = userFixture()
         val kakaoCandidate = ExternalRestaurantCandidate(
-            externalPlaceId = "review-kakao-${UUID.randomUUID()}",
+            kakaoPlaceId = "review-kakao-${UUID.randomUUID()}",
             name = "카카오 회귀 브랜드",
             standardAddress = uniqueAddress("kakao"),
             lotNumberAddress = null,
@@ -120,7 +119,7 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
         )
         val targets = listOf(
             ExistingRestaurantTargetCommand(fixture.restaurant.id),
-            KakaoRestaurantTargetCommand("카카오 검색", kakaoCandidate.externalPlaceId),
+            KakaoRestaurantTargetCommand("카카오 검색", kakaoCandidate.kakaoPlaceId),
             ManualExistingLocationRestaurantTargetCommand(
                 fixture.location.id,
                 "기존 장소 새 브랜드",

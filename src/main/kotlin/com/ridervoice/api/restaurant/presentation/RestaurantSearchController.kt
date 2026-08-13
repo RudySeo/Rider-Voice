@@ -31,7 +31,7 @@ class RestaurantSearchController(
 ) {
     @Operation(
         summary = "음식점 검색",
-        description = "내부 배달 브랜드와 카카오 장소 후보를 최대 20개까지 병합해 반환합니다.",
+        description = "내부 배달 브랜드와 카카오 장소 후보를 통합해 최대 20개까지 반환합니다.",
     )
     @ApiResponse(
         responseCode = "200",

@@ -23,7 +23,6 @@ import com.ridervoice.api.moderation.application.port.`in`.DecideReviewReportUse
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingRestaurantInfoReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewReportsUseCase
 import com.ridervoice.api.moderation.application.port.`in`.ListModerationAuditsUseCase
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantPickupLocationUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RelinkRestaurantVerifiedAddressUseCase
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantUseCase
@@ -158,7 +157,6 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var decideReviewReport: DecideReviewReportUseCase
     @MockitoBean private lateinit var listRestaurantReports: ListPendingRestaurantInfoReportsUseCase
     @MockitoBean private lateinit var decideRestaurantReport: DecideRestaurantInfoReportUseCase
-    @MockitoBean private lateinit var mergeRestaurant: MergeRestaurantUseCase
     @MockitoBean private lateinit var relinkRestaurant: RelinkRestaurantPickupLocationUseCase
     @MockitoBean private lateinit var renameRestaurant: RenameRestaurantUseCase
     @MockitoBean private lateinit var changeRestaurantStatus: ChangeRestaurantStatusUseCase
@@ -199,6 +197,10 @@ class ApiContractRegressionMockMvcTest {
 
         assertThat(schemas.propertyNames().asSequence().toSet()).containsAll(EXPECTED_SCHEMA_NAMES)
         assertThat(schemas.required("AdminRestaurantDetailResponse").required("properties").has("normalizedName"))
+            .isFalse()
+        assertThat(schemas.required("AdminRestaurantDetailResponse").required("properties").has("kakaoPlaceId"))
+            .isTrue()
+        assertThat(schemas.required("AdminRestaurantDetailResponse").required("properties").has("externalReferences"))
             .isFalse()
         REQUEST_REFS.forEach { (operation, schemaName) ->
             val (path, method) = operation
@@ -259,7 +261,7 @@ class ApiContractRegressionMockMvcTest {
             .contains("pickupLocationId", "name", "platforms")
         val correction = schemas.required("RestaurantInfoCorrectionRequest")
         assertThat(correction.at("/discriminator/propertyName").stringValue()).isEqualTo("type")
-        assertThat(correction.required("oneOf").size()).isEqualTo(5)
+        assertThat(correction.required("oneOf").size()).isEqualTo(4)
         assertThat(
             correction.at("/discriminator/mapping").properties().asSequence()
                 .associate { it.key to it.value.stringValue() },
@@ -270,8 +272,9 @@ class ApiContractRegressionMockMvcTest {
             .contains("pickupLocationId")
         assertThat(requiredProperties(schemas.required("RelinkVerifiedAddressCorrectionRequest")))
             .contains("addressQuery", "selectedStandardAddress")
-        assertThat(requiredProperties(schemas.required("MergeRestaurantCorrectionRequest")))
-            .contains("canonicalRestaurantId")
+        assertThat(schemas.has("MergeRestaurantCorrectionRequest")).isFalse()
+        assertThat(schemas.has("MergeRestaurantRequest")).isFalse()
+        assertThat(schemas.has("RestaurantMergeResponse")).isFalse()
         assertThat(propertySchema(schemas, "CreateReviewRequest", "comment").required("maxLength").intValue())
             .isEqualTo(200)
 
@@ -469,7 +472,6 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/admin/review-reports/{reportId}",
             "/api/v1/admin/restaurant-reports",
             "/api/v1/admin/restaurant-reports/{reportId}",
-            "/api/v1/admin/restaurants/{restaurantId}/merge",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address",
             "/api/v1/admin/restaurants/{restaurantId}/name",
@@ -506,7 +508,6 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/admin/review-reports/{reportId}" to "patch",
             "/api/v1/admin/restaurant-reports" to "get",
             "/api/v1/admin/restaurant-reports/{reportId}" to "patch",
-            "/api/v1/admin/restaurants/{restaurantId}/merge" to "post",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch",
             "/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch",
             "/api/v1/admin/restaurants/{restaurantId}/name" to "patch",
@@ -524,7 +525,6 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/restaurants/{restaurantId}/reports" to "post") to "CreateRestaurantInfoReportRequest",
             ("/api/v1/admin/review-reports/{reportId}" to "patch") to "ReviewReportDecisionRequest",
             ("/api/v1/admin/restaurant-reports/{reportId}" to "patch") to "RestaurantInfoReportDecisionRequest",
-            ("/api/v1/admin/restaurants/{restaurantId}/merge" to "post") to "MergeRestaurantRequest",
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch") to
                 "RelinkRestaurantPickupLocationRequest",
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch") to
@@ -550,7 +550,6 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/admin/review-reports/{reportId}" to "patch") to ("200" to "ReviewReportResponse"),
             ("/api/v1/admin/restaurant-reports" to "get") to ("200" to "PendingRestaurantInfoReportPageResponse"),
             ("/api/v1/admin/restaurant-reports/{reportId}" to "patch") to ("200" to "RestaurantInfoReportResponse"),
-            ("/api/v1/admin/restaurants/{restaurantId}/merge" to "post") to ("200" to "RestaurantMergeResponse"),
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location" to "patch") to
                 ("200" to "RestaurantPickupRelinkResponse"),
             ("/api/v1/admin/restaurants/{restaurantId}/pickup-location/verified-address" to "patch") to
@@ -583,16 +582,16 @@ class ApiContractRegressionMockMvcTest {
             "ReviewReportDecisionRequest", "RestaurantInfoReportDecisionRequest",
             "RestaurantInfoCorrectionRequest", "RenameRestaurantCorrectionRequest",
             "RelinkExistingPickupCorrectionRequest", "RelinkVerifiedAddressCorrectionRequest",
-            "MergeRestaurantCorrectionRequest", "CloseRestaurantCorrectionRequest",
-            "MergeRestaurantRequest", "RelinkRestaurantPickupLocationRequest", "ReviewReportResponse",
+            "CloseRestaurantCorrectionRequest",
+            "RelinkRestaurantPickupLocationRequest", "ReviewReportResponse",
             "RenameRestaurantRequest", "ChangeRestaurantStatusRequest", "RelinkRestaurantVerifiedAddressRequest",
             "RestaurantInfoReportResponse", "PendingReviewReportResponse", "PendingReviewReportPageResponse",
             "PendingRestaurantInfoReportResponse", "PendingRestaurantInfoReportPageResponse",
-            "RestaurantMergeResponse", "RestaurantPickupRelinkResponse", "RestaurantRenameResponse",
+            "RestaurantPickupRelinkResponse", "RestaurantRenameResponse",
             "RestaurantStatusChangeResponse", "AdminReviewDetailResponse", "AdminReviewAuthorResponse",
             "AdminReviewRestaurantResponse", "AdminReviewRatingsResponse", "AdminRestaurantSearchPageResponse",
             "AdminRestaurantSearchItemResponse", "AdminRestaurantDetailResponse", "AdminPickupLocationResponse",
-            "AdminExternalReferenceResponse", "ModerationAuditPageResponse", "ModerationAuditResponse",
+            "ModerationAuditPageResponse", "ModerationAuditResponse",
         )
 
         val ENUM_PROPERTIES = mapOf(
@@ -623,7 +622,7 @@ class ApiContractRegressionMockMvcTest {
             ("ReviewReportDecisionRequest" to "decision") to setOf("DISMISS", "HIDE_COMMENT", "EXCLUDE_REVIEW"),
             ("RestaurantInfoReportDecisionRequest" to "decision") to setOf("DISMISS", "RESOLVE"),
             ("RestaurantInfoCorrectionRequest" to "type") to setOf(
-                "RENAME", "RELINK_EXISTING_PICKUP", "RELINK_VERIFIED_ADDRESS", "MERGE", "CLOSE",
+                "RENAME", "RELINK_EXISTING_PICKUP", "RELINK_VERIFIED_ADDRESS", "CLOSE",
             ),
             ("ChangeRestaurantStatusRequest" to "action") to setOf("CLOSE", "REOPEN"),
             ("ReviewReportResponse" to "reason") to setOf(
@@ -640,11 +639,10 @@ class ApiContractRegressionMockMvcTest {
             ),
             ("PendingRestaurantInfoReportResponse" to "reason") to
                 setOf("INCORRECT_NAME", "INCORRECT_PICKUP_LOCATION", "DUPLICATE", "CLOSED", "OTHER"),
-            ("RestaurantMergeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
-            ("RestaurantStatusChangeResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
-            ("RestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
-            ("AdminRestaurantSearchItemResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
-            ("AdminRestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED", "MERGED"),
+            ("RestaurantStatusChangeResponse" to "status") to setOf("ACTIVE", "CLOSED"),
+            ("RestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED"),
+            ("AdminRestaurantSearchItemResponse" to "status") to setOf("ACTIVE", "CLOSED"),
+            ("AdminRestaurantDetailResponse" to "status") to setOf("ACTIVE", "CLOSED"),
         )
 
         val NULLABLE_PROPERTIES = setOf(
@@ -660,7 +658,7 @@ class ApiContractRegressionMockMvcTest {
             "ReviewReportDecisionRequest" to "reason", "RestaurantInfoReportDecisionRequest" to "reason",
             "RestaurantInfoReportDecisionRequest" to "correction",
             "RelinkVerifiedAddressCorrectionRequest" to "detailAddress",
-            "MergeRestaurantRequest" to "reason", "RelinkRestaurantPickupLocationRequest" to "reason",
+            "RelinkRestaurantPickupLocationRequest" to "reason",
             "RenameRestaurantRequest" to "reason", "ChangeRestaurantStatusRequest" to "reason",
             "RelinkRestaurantVerifiedAddressRequest" to "detailAddress",
             "RelinkRestaurantVerifiedAddressRequest" to "reason",
@@ -670,10 +668,9 @@ class ApiContractRegressionMockMvcTest {
             "PendingReviewReportPageResponse" to "nextCursor", "PendingRestaurantInfoReportResponse" to "details",
             "PendingRestaurantInfoReportPageResponse" to "nextCursor",
             "AdminRestaurantSearchPageResponse" to "nextCursor",
-            "AdminRestaurantSearchItemResponse" to "canonicalRestaurantId",
             "AdminRestaurantSearchItemResponse" to "detailAddress",
-            "AdminRestaurantDetailResponse" to "canonicalRestaurantId",
             "AdminPickupLocationResponse" to "detailAddress",
+            "AdminRestaurantDetailResponse" to "kakaoPlaceId",
             "ModerationAuditPageResponse" to "nextCursor", "ModerationAuditResponse" to "reason",
         )
 
@@ -694,7 +691,6 @@ class ApiContractRegressionMockMvcTest {
             "CreateReviewReportRequest" to "reason", "CreateRestaurantInfoReportRequest" to "reason",
             "ReviewReportDecisionRequest" to "decision",
             "RestaurantInfoReportDecisionRequest" to "decision",
-            "MergeRestaurantRequest" to "canonicalRestaurantId",
             "RelinkRestaurantPickupLocationRequest" to "pickupLocationId",
             "RenameRestaurantRequest" to "name", "ChangeRestaurantStatusRequest" to "action",
             "RelinkRestaurantVerifiedAddressRequest" to "addressQuery",
@@ -718,7 +714,6 @@ class ApiContractRegressionMockMvcTest {
             "RENAME" to "#/components/schemas/RenameRestaurantCorrectionRequest",
             "RELINK_EXISTING_PICKUP" to "#/components/schemas/RelinkExistingPickupCorrectionRequest",
             "RELINK_VERIFIED_ADDRESS" to "#/components/schemas/RelinkVerifiedAddressCorrectionRequest",
-            "MERGE" to "#/components/schemas/MergeRestaurantCorrectionRequest",
             "CLOSE" to "#/components/schemas/CloseRestaurantCorrectionRequest",
         )
 

@@ -138,7 +138,7 @@ private data class KakaoKeywordDocument(
     val y: String,
 ) {
     fun toCandidate() = ExternalRestaurantCandidate(
-        externalPlaceId = id.requiredValue(),
+        kakaoPlaceId = id.requiredValue(),
         name = place_name.requiredValue(),
         standardAddress = road_address_name.optionalValue() ?: address_name.requiredValue(),
         lotNumberAddress = address_name.optionalValue(),

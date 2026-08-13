@@ -27,7 +27,7 @@ data class RestaurantSearchResult(
 data class RestaurantSearchCandidate(
     val candidateType: RestaurantCandidateType,
     val restaurantId: Long?,
-    val externalPlaceId: String?,
+    val kakaoPlaceId: String?,
     val name: String,
     val address: String,
     val aggregationStatus: AggregationStatus,
@@ -49,7 +49,7 @@ data class AddressSearchCandidate(
 
 data class StoredRestaurantSearchCandidate(
     val restaurantId: Long,
-    val externalPlaceId: String?,
+    val kakaoPlaceId: String?,
     val name: String,
     val address: String,
 )
@@ -115,7 +115,7 @@ data class PublicRestaurantDetailResult(
 )
 
 data class ExternalRestaurantCandidate(
-    val externalPlaceId: String,
+    val kakaoPlaceId: String,
     val name: String,
     val standardAddress: String,
     val lotNumberAddress: String?,

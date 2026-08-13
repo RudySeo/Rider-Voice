@@ -4,8 +4,6 @@ import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import org.springframework.data.domain.Pageable
@@ -24,15 +22,12 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
         """
         select new com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate(
             restaurant.id,
-            externalReference.externalPlaceId,
+            restaurant.kakaoPlaceId,
             restaurant.brandName,
             pickupLocation.standardAddress
         )
         from Restaurant restaurant
         join restaurant.pickupLocation pickupLocation
-        left join RestaurantExternalReference externalReference
-            on externalReference.restaurant = restaurant
-            and externalReference.provider = :externalProvider
         where restaurant.status = :status
           and (
               restaurant.brandName like concat('%', :normalizedQuery, '%')
@@ -44,7 +39,6 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
     fun searchActive(
         @Param("normalizedQuery") normalizedQuery: String,
         @Param("status") status: RestaurantStatus,
-        @Param("externalProvider") externalProvider: RestaurantExternalProvider,
         pageable: Pageable,
     ): List<StoredRestaurantSearchCandidate>
 
@@ -52,7 +46,7 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
         """
         select new com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate(
             restaurant.id,
-            null,
+            restaurant.kakaoPlaceId,
             restaurant.brandName,
             pickupLocation.standardAddress
         )
@@ -90,51 +84,14 @@ internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Lo
         @Param("readableStatuses") readableStatuses: Set<RestaurantStatus>,
     ): Optional<StoredRestaurantDetail>
 
-    @Query(
-        """
-        select case
-            when restaurant.status = :mergedStatus then canonicalRestaurant.id
-            else restaurant.id
-        end
-        from Restaurant restaurant
-        left join restaurant.canonicalRestaurant canonicalRestaurant
-        where restaurant.id = :restaurantId
-        """,
-    )
-    fun findReadableCanonicalTargetIdById(
-        @Param("restaurantId") restaurantId: Long,
-        @Param("mergedStatus") mergedStatus: RestaurantStatus,
-    ): Optional<Long>
+    fun findByIdAndStatus(restaurantId: Long, status: RestaurantStatus): Optional<Restaurant>
 
-    @Query(
-        """
-        select case
-            when restaurant.status = :activeStatus then restaurant.id
-            else canonicalRestaurant.id
-        end
-        from Restaurant restaurant
-        left join restaurant.canonicalRestaurant canonicalRestaurant
-        where restaurant.id = :restaurantId
-        """,
-    )
-    fun findCanonicalTargetIdById(
-        @Param("restaurantId") restaurantId: Long,
-        @Param("activeStatus") activeStatus: RestaurantStatus,
-    ): Optional<Long>
+    fun findByKakaoPlaceId(kakaoPlaceId: String): Optional<Restaurant>
 
     fun findByPickupLocationIdAndBrandName(
         pickupLocationId: Long,
         brandName: String,
     ): Optional<Restaurant>
-}
-
-internal interface SpringDataRestaurantExternalReferenceRepository :
-    JpaRepository<RestaurantExternalReference, Long> {
-
-    fun findByProviderAndExternalPlaceId(
-        provider: RestaurantExternalProvider,
-        externalPlaceId: String,
-    ): Optional<RestaurantExternalReference>
 }
 
 internal interface SpringDataRestaurantPlatformRepository : JpaRepository<RestaurantPlatform, Long> {

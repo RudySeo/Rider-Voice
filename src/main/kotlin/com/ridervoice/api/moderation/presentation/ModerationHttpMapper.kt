@@ -14,7 +14,6 @@ import com.ridervoice.api.moderation.application.port.`in`.ListPendingReviewRepo
 import com.ridervoice.api.moderation.application.port.`in`.RenameRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.RelinkExistingPickupCorrection
 import com.ridervoice.api.moderation.application.port.`in`.RelinkVerifiedAddressCorrection
-import com.ridervoice.api.moderation.application.port.`in`.MergeRestaurantCorrection
 import com.ridervoice.api.moderation.application.port.`in`.CloseRestaurantCorrection
 import com.ridervoice.api.moderation.presentation.dto.CreateRestaurantInfoReportRequest
 import com.ridervoice.api.moderation.presentation.dto.CreateReviewReportRequest
@@ -91,7 +90,6 @@ class ModerationHttpMapper {
                     it.selectedStandardAddress,
                     it.detailAddress,
                 )
-                is MergeRestaurantCorrectionRequest -> MergeRestaurantCorrection(it.canonicalRestaurantId)
                 is CloseRestaurantCorrectionRequest -> CloseRestaurantCorrection
             }
         },

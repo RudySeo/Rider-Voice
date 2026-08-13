@@ -85,23 +85,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/restaurants/{restaurantId}/merge": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 중복 음식점을 canonical 음식점으로 병합 */
-        post: operations["merge"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/reviews/{reviewId}": {
         parameters: {
             query?: never;
@@ -265,7 +248,7 @@ export type paths = {
         };
         /**
          * 음식점 상세 조회
-         * @description canonical 배달 브랜드, 픽업 장소, 브랜드·장소 리포트와 미인증 안내를 반환합니다.
+         * @description 배달 브랜드, 픽업 장소, 브랜드·장소 리포트와 미인증 안내를 반환합니다.
          */
         get: operations["get"];
         put?: never;
@@ -305,7 +288,7 @@ export type paths = {
         };
         /**
          * 음식점 검색
-         * @description 내부 배달 브랜드와 카카오 장소 후보를 최대 20개까지 병합해 반환합니다.
+         * @description 내부 배달 브랜드와 카카오 장소 후보를 통합해 최대 20개까지 반환합니다.
          */
         get: operations["search"];
         put?: never;
@@ -717,22 +700,6 @@ export type components = {
             /** @enum {string} */
             role?: "USER" | "ADMIN";
         };
-        MergeRestaurantRequest: {
-            /** Format: int64 */
-            canonicalRestaurantId: number;
-            /** @description 관리자 병합 사유 */
-            reason?: string | null;
-        };
-        RestaurantMergeResponse: {
-            /** Format: int64 */
-            restaurantId?: number;
-            /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
-            /** Format: int64 */
-            canonicalRestaurantId?: number;
-            /** Format: date-time */
-            completedAt?: string;
-        };
         UpdateReviewRequest: {
             /** @enum {string} */
             pickupSpaceCleanliness: "VERY_GOOD" | "GOOD" | "NEEDS_IMPROVEMENT" | "MAJOR_IMPROVEMENT" | "NOT_OBSERVED";
@@ -763,7 +730,7 @@ export type components = {
             /** Format: int64 */
             restaurantId?: number;
             /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
+            status?: "ACTIVE" | "CLOSED";
             /** Format: date-time */
             completedAt?: string;
         };
@@ -810,22 +777,6 @@ export type components = {
              * @enum {string}
              */
             type: "CLOSE";
-        };
-        MergeRestaurantCorrectionRequest: Omit<WithRequired<components["schemas"]["RestaurantInfoCorrectionRequest"], "type">, "type"> & {
-            /** Format: int64 */
-            canonicalRestaurantId: number;
-        } & {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "MERGE";
-        } & {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "MERGE";
         };
         RelinkExistingPickupCorrectionRequest: Omit<WithRequired<components["schemas"]["RestaurantInfoCorrectionRequest"], "type">, "type"> & {
             /** Format: int64 */
@@ -877,8 +828,8 @@ export type components = {
         };
         RestaurantInfoCorrectionRequest: {
             /** @enum {string} */
-            type: "RENAME" | "RELINK_EXISTING_PICKUP" | "RELINK_VERIFIED_ADDRESS" | "MERGE" | "CLOSE";
-        } & (components["schemas"]["RenameRestaurantCorrectionRequest"] | components["schemas"]["RelinkExistingPickupCorrectionRequest"] | components["schemas"]["RelinkVerifiedAddressCorrectionRequest"] | components["schemas"]["MergeRestaurantCorrectionRequest"] | components["schemas"]["CloseRestaurantCorrectionRequest"]);
+            type: "RENAME" | "RELINK_EXISTING_PICKUP" | "RELINK_VERIFIED_ADDRESS" | "CLOSE";
+        } & (components["schemas"]["RenameRestaurantCorrectionRequest"] | components["schemas"]["RelinkExistingPickupCorrectionRequest"] | components["schemas"]["RelinkVerifiedAddressCorrectionRequest"] | components["schemas"]["CloseRestaurantCorrectionRequest"]);
         RestaurantInfoReportDecisionRequest: {
             /** @enum {string} */
             decision: "DISMISS" | "RESOLVE";
@@ -917,7 +868,7 @@ export type components = {
             restaurantId?: number;
             name?: string;
             /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
+            status?: "ACTIVE" | "CLOSED";
             pickupLocation?: components["schemas"]["RestaurantPickupLocationResponse"];
             brandReport?: components["schemas"]["RestaurantBrandReportResponse"];
             pickupLocationReport?: components["schemas"]["RestaurantPickupLocationReportResponse"];
@@ -1040,7 +991,7 @@ export type components = {
             restaurantId?: number;
             name?: string;
             /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
+            status?: "ACTIVE" | "CLOSED";
             /** Format: int64 */
             pickupLocationId?: number;
             pickupAddress?: string;
@@ -1063,11 +1014,6 @@ export type components = {
             /** Format: date-time */
             createdAt?: string;
         };
-        AdminExternalReferenceResponse: {
-            /** @enum {string} */
-            provider?: "KAKAO";
-            externalPlaceId?: string;
-        };
         AdminPickupLocationResponse: {
             /** Format: int64 */
             pickupLocationId?: number;
@@ -1081,11 +1027,9 @@ export type components = {
             restaurantId?: number;
             name?: string;
             /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
-            /** Format: int64 */
-            canonicalRestaurantId?: number | null;
+            status?: "ACTIVE" | "CLOSED";
             pickupLocation?: components["schemas"]["AdminPickupLocationResponse"];
-            externalReferences?: components["schemas"]["AdminExternalReferenceResponse"][];
+            kakaoPlaceId?: string | null;
             platforms?: ("BAEMIN" | "COUPANG_EATS" | "YOGIYO" | "OTHER")[];
             /** Format: int64 */
             pendingReportCount?: number;
@@ -1099,9 +1043,7 @@ export type components = {
             restaurantId?: number;
             name?: string;
             /** @enum {string} */
-            status?: "ACTIVE" | "CLOSED" | "MERGED";
-            /** Format: int64 */
-            canonicalRestaurantId?: number | null;
+            status?: "ACTIVE" | "CLOSED";
             /** Format: int64 */
             pickupLocationId?: number;
             standardAddress?: string;
@@ -1141,7 +1083,7 @@ export type components = {
             /** Format: int64 */
             actorUserId?: number;
             /** @enum {string} */
-            action?: "COMMENT_APPROVED" | "COMMENT_REJECTED" | "REVIEW_REPORT_DISMISSED" | "REVIEW_COMMENT_HIDDEN" | "REVIEW_EXCLUDED" | "RESTAURANT_REPORT_DISMISSED" | "RESTAURANT_INFO_CORRECTED" | "DUPLICATE_RESTAURANT_MERGED" | "RESTAURANT_PICKUP_RELINKED" | "RESTAURANT_RENAMED" | "RESTAURANT_CLOSED" | "RESTAURANT_REOPENED";
+            action?: "COMMENT_APPROVED" | "COMMENT_REJECTED" | "REVIEW_REPORT_DISMISSED" | "REVIEW_COMMENT_HIDDEN" | "REVIEW_EXCLUDED" | "RESTAURANT_REPORT_DISMISSED" | "RESTAURANT_INFO_CORRECTED" | "RESTAURANT_PICKUP_RELINKED" | "RESTAURANT_RENAMED" | "RESTAURANT_CLOSED" | "RESTAURANT_REOPENED";
             /** @enum {string} */
             targetType?: "REVIEW" | "REVIEW_REPORT" | "RESTAURANT" | "RESTAURANT_INFO_REPORT";
             /** Format: int64 */
@@ -1398,77 +1340,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    merge: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                restaurantId: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MergeRestaurantRequest"];
-            };
-        };
-        responses: {
-            /** @description 음식점 병합 완료 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RestaurantMergeResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
             };
         };
     };
@@ -2199,7 +2070,7 @@ export interface operations {
         parameters: {
             query: {
                 query: string;
-                status?: "ACTIVE" | "CLOSED" | "MERGED";
+                status?: "ACTIVE" | "CLOSED";
                 cursor?: string | null;
                 size?: number;
             };
@@ -2295,7 +2166,7 @@ export interface operations {
                 targetType?: "REVIEW" | "REVIEW_REPORT" | "RESTAURANT" | "RESTAURANT_INFO_REPORT";
                 targetId?: number;
                 actorUserId?: number;
-                action?: "COMMENT_APPROVED" | "COMMENT_REJECTED" | "REVIEW_REPORT_DISMISSED" | "REVIEW_COMMENT_HIDDEN" | "REVIEW_EXCLUDED" | "RESTAURANT_REPORT_DISMISSED" | "RESTAURANT_INFO_CORRECTED" | "DUPLICATE_RESTAURANT_MERGED" | "RESTAURANT_PICKUP_RELINKED" | "RESTAURANT_RENAMED" | "RESTAURANT_CLOSED" | "RESTAURANT_REOPENED";
+                action?: "COMMENT_APPROVED" | "COMMENT_REJECTED" | "REVIEW_REPORT_DISMISSED" | "REVIEW_COMMENT_HIDDEN" | "REVIEW_EXCLUDED" | "RESTAURANT_REPORT_DISMISSED" | "RESTAURANT_INFO_CORRECTED" | "RESTAURANT_PICKUP_RELINKED" | "RESTAURANT_RENAMED" | "RESTAURANT_CLOSED" | "RESTAURANT_REOPENED";
                 cursor?: string | null;
                 size?: number;
             };

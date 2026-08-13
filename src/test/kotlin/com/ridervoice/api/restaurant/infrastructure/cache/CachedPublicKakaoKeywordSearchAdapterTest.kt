@@ -68,7 +68,7 @@ class CachedPublicKakaoKeywordSearchAdapterTest {
     }
 
     private fun candidate(id: String) = ExternalRestaurantCandidate(
-        externalPlaceId = id,
+        kakaoPlaceId = id,
         name = "후보",
         standardAddress = "서울 강남구 1",
         lotNumberAddress = null,

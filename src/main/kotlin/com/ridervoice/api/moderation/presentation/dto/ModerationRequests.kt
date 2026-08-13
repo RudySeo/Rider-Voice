@@ -67,7 +67,6 @@ enum class RestaurantInfoCorrectionType {
     RENAME,
     RELINK_EXISTING_PICKUP,
     RELINK_VERIFIED_ADDRESS,
-    MERGE,
     CLOSE,
 }
 
@@ -76,7 +75,6 @@ enum class RestaurantInfoCorrectionType {
     JsonSubTypes.Type(value = RenameRestaurantCorrectionRequest::class, name = "RENAME"),
     JsonSubTypes.Type(value = RelinkExistingPickupCorrectionRequest::class, name = "RELINK_EXISTING_PICKUP"),
     JsonSubTypes.Type(value = RelinkVerifiedAddressCorrectionRequest::class, name = "RELINK_VERIFIED_ADDRESS"),
-    JsonSubTypes.Type(value = MergeRestaurantCorrectionRequest::class, name = "MERGE"),
     JsonSubTypes.Type(value = CloseRestaurantCorrectionRequest::class, name = "CLOSE"),
 )
 @Schema(
@@ -85,14 +83,12 @@ enum class RestaurantInfoCorrectionType {
         RenameRestaurantCorrectionRequest::class,
         RelinkExistingPickupCorrectionRequest::class,
         RelinkVerifiedAddressCorrectionRequest::class,
-        MergeRestaurantCorrectionRequest::class,
         CloseRestaurantCorrectionRequest::class,
     ],
     discriminatorMapping = [
         DiscriminatorMapping(value = "RENAME", schema = RenameRestaurantCorrectionRequest::class),
         DiscriminatorMapping(value = "RELINK_EXISTING_PICKUP", schema = RelinkExistingPickupCorrectionRequest::class),
         DiscriminatorMapping(value = "RELINK_VERIFIED_ADDRESS", schema = RelinkVerifiedAddressCorrectionRequest::class),
-        DiscriminatorMapping(value = "MERGE", schema = MergeRestaurantCorrectionRequest::class),
         DiscriminatorMapping(value = "CLOSE", schema = CloseRestaurantCorrectionRequest::class),
     ],
 )
@@ -129,13 +125,6 @@ data class RelinkVerifiedAddressCorrectionRequest(
     @field:Size(max = 255) @field:Schema(nullable = true) val detailAddress: String? = null,
 ) : RestaurantInfoCorrectionRequest
 
-data class MergeRestaurantCorrectionRequest(
-    override val type: RestaurantInfoCorrectionType,
-    @field:Positive
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-    val canonicalRestaurantId: Long,
-) : RestaurantInfoCorrectionRequest
-
 data class CloseRestaurantCorrectionRequest(
     override val type: RestaurantInfoCorrectionType,
 ) : RestaurantInfoCorrectionRequest
@@ -147,16 +136,6 @@ data class ModerationPageRequest(
     @field:Max(50)
     @field:Schema(defaultValue = "20", minimum = "1", maximum = "50")
     val size: Int = 20,
-)
-
-data class MergeRestaurantRequest(
-    @field:NotNull
-    @field:Positive
-    @field:Schema(format = "int64", nullable = false)
-    val canonicalRestaurantId: Long?,
-    @field:Schema(nullable = true, description = "관리자 병합 사유")
-    @field:Size(max = 500)
-    val reason: String? = null,
 )
 
 data class RelinkRestaurantPickupLocationRequest(

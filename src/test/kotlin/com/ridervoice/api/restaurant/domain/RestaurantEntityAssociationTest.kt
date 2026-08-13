@@ -15,7 +15,6 @@ class RestaurantEntityAssociationTest {
             listOf(
                 PickupLocation::class.java,
                 Restaurant::class.java,
-                RestaurantExternalReference::class.java,
                 RestaurantPlatform::class.java,
             ),
         ).allMatch { it.superclass == BaseEntity::class.java }
@@ -24,9 +23,8 @@ class RestaurantEntityAssociationTest {
     @Test
     fun `child to parent associations are unidirectional lazy and do not cascade removal`() {
         assertLazyManyToOne(Restaurant::class.java, "pickupLocation", "pickup_location_id", optional = false)
-        assertLazyManyToOne(Restaurant::class.java, "canonicalRestaurant", "canonical_restaurant_id", optional = true)
-        assertLazyManyToOne(RestaurantExternalReference::class.java, "restaurant", "restaurant_id", optional = false)
         assertLazyManyToOne(RestaurantPlatform::class.java, "restaurant", "restaurant_id", optional = false)
+        assertThat(Restaurant::class.java.declaredFields.map { it.name }).doesNotContain("canonicalRestaurant")
 
         assertThat(PickupLocation::class.java.declaredFields.map { it.type })
             .noneMatch { Collection::class.java.isAssignableFrom(it) }

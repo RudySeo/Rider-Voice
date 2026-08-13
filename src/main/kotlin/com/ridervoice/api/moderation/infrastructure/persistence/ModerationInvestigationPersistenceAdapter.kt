@@ -3,7 +3,6 @@ package com.ridervoice.api.moderation.infrastructure.persistence
 import com.ridervoice.api.moderation.application.model.AdminRestaurantCursor
 import com.ridervoice.api.moderation.application.model.ModerationAuditCursor
 import com.ridervoice.api.moderation.application.port.out.ModerationInvestigationQuery
-import com.ridervoice.api.moderation.application.port.out.StoredAdminExternalReference
 import com.ridervoice.api.moderation.application.port.out.StoredAdminRestaurantDetail
 import com.ridervoice.api.moderation.application.port.out.StoredAdminReviewDetail
 import com.ridervoice.api.moderation.application.port.out.StoredModerationAudit
@@ -13,7 +12,6 @@ import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.moderation.domain.ReportStatus
 import com.ridervoice.api.moderation.domain.RestaurantInfoReport
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.Review
@@ -86,8 +84,7 @@ internal class ModerationInvestigationPersistenceAdapter(
     ): List<StoredAdminRestaurantDetail> {
         val jpql = buildString {
             append(
-                "select restaurant from Restaurant restaurant join fetch restaurant.pickupLocation pickupLocation " +
-                    "left join fetch restaurant.canonicalRestaurant where " +
+                "select restaurant from Restaurant restaurant join fetch restaurant.pickupLocation pickupLocation where " +
                     "(restaurant.brandName like :query or pickupLocation.normalizedAddress like :query)",
             )
             if (status != null) append(" and restaurant.status = :status")
@@ -114,7 +111,6 @@ internal class ModerationInvestigationPersistenceAdapter(
             select restaurant
             from Restaurant restaurant
             join fetch restaurant.pickupLocation
-            left join fetch restaurant.canonicalRestaurant
             where restaurant.id = :restaurantId
             """.trimIndent(),
             Restaurant::class.java,
@@ -168,12 +164,6 @@ internal class ModerationInvestigationPersistenceAdapter(
     }
 
     private fun restaurantSnapshot(restaurant: Restaurant): StoredAdminRestaurantDetail {
-        val references = entityManager.createQuery(
-            "select reference from RestaurantExternalReference reference where reference.restaurant.id = :restaurantId",
-            RestaurantExternalReference::class.java,
-        ).setParameter("restaurantId", restaurant.id).resultList.map {
-            StoredAdminExternalReference(it.provider, it.externalPlaceId)
-        }
         val platforms = entityManager.createQuery(
             "select platform from RestaurantPlatform platform where platform.restaurant.id = :restaurantId",
             RestaurantPlatform::class.java,
@@ -190,13 +180,12 @@ internal class ModerationInvestigationPersistenceAdapter(
             restaurantId = restaurant.id,
             name = restaurant.brandName,
             status = restaurant.status,
-            canonicalRestaurantId = restaurant.canonicalRestaurant?.id,
             pickupLocationId = restaurant.pickupLocation.id,
             standardAddress = restaurant.pickupLocation.standardAddress,
             detailAddress = restaurant.pickupLocation.detailAddress,
             latitude = restaurant.pickupLocation.latitude,
             longitude = restaurant.pickupLocation.longitude,
-            externalReferences = references,
+            kakaoPlaceId = restaurant.kakaoPlaceId,
             platforms = platforms,
             pendingReportCount = pendingReportCount,
             createdAt = restaurant.createdAt,

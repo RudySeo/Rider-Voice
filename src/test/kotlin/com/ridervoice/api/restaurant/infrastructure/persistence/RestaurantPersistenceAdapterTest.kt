@@ -6,8 +6,6 @@ import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import org.assertj.core.api.Assertions.assertThat
@@ -45,12 +43,12 @@ class RestaurantPersistenceAdapterTest {
     }
 
     @Test
-    fun `restaurant operations normalize search and follow the canonical chain`() {
+    fun `restaurant operations normalize search and use direct restaurant IDs`() {
         val location = pickupLocation().also { it.id = 20L }
         val restaurant = Restaurant("대표 브랜드", location).also { it.id = 3L }
         val candidate = StoredRestaurantSearchCandidate(
             restaurantId = restaurant.id,
-            externalPlaceId = "kakao-3",
+            kakaoPlaceId = "kakao-3",
             name = restaurant.brandName,
             address = location.standardAddress,
         )
@@ -70,32 +68,20 @@ class RestaurantPersistenceAdapterTest {
                 "searchActive" -> {
                     assertThat(arguments[0]).isEqualTo("good food")
                     assertThat(arguments[1]).isEqualTo(RestaurantStatus.ACTIVE)
-                    assertThat(arguments[2]).isEqualTo(RestaurantExternalProvider.KAKAO)
-                    assertThat(arguments[3]).isInstanceOf(Pageable::class.java)
-                    assertThat((arguments[3] as Pageable).pageSize).isEqualTo(7)
+                    assertThat(arguments[2]).isInstanceOf(Pageable::class.java)
+                    assertThat((arguments[2] as Pageable).pageSize).isEqualTo(7)
                     listOf(candidate)
                 }
-                "findCanonicalTargetIdById" -> {
+                "findByIdAndStatus" -> {
+                    assertThat(arguments[0]).isEqualTo(restaurant.id)
                     assertThat(arguments[1]).isEqualTo(RestaurantStatus.ACTIVE)
-                    Optional.of(
-                        when (arguments[0]) {
-                            1L -> 2L
-                            2L -> 3L
-                            else -> 3L
-                        },
-                    )
-                }
-                "findReadableCanonicalTargetIdById" -> {
-                    assertThat(arguments[1]).isEqualTo(RestaurantStatus.MERGED)
-                    Optional.of(
-                        when (arguments[0]) {
-                            1L -> 2L
-                            2L -> 3L
-                            else -> 3L
-                        },
-                    )
+                    Optional.of(restaurant)
                 }
                 "findById" -> Optional.of(restaurant)
+                "findByKakaoPlaceId" -> {
+                    assertThat(arguments.single()).isEqualTo("kakao-3")
+                    Optional.of(restaurant)
+                }
                 "findDetailById" -> {
                     assertThat(arguments[0]).isEqualTo(restaurant.id)
                     assertThat(arguments[1]).isEqualTo(setOf(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED))
@@ -109,8 +95,9 @@ class RestaurantPersistenceAdapterTest {
         val adapter = RestaurantPersistenceAdapter(restaurants)
 
         assertThat(adapter.searchActive("  ＧＯＯＤ　Food  ", 7)).containsExactly(candidate)
-        assertThat(adapter.findCanonicalById(1L)).isSameAs(restaurant)
-        assertThat(adapter.findCanonicalDetail(1L)).isEqualTo(detail)
+        assertThat(adapter.findActiveById(restaurant.id)).isSameAs(restaurant)
+        assertThat(adapter.findByKakaoPlaceId(" kakao-3 ")).isSameAs(restaurant)
+        assertThat(adapter.findDetail(restaurant.id)).isEqualTo(detail)
         assertThat(adapter.findById(restaurant.id)).isSameAs(restaurant)
         assertThat(
             adapter.findByPickupLocationIdAndBrandName(location.id, restaurant.brandName),
@@ -118,13 +105,8 @@ class RestaurantPersistenceAdapterTest {
         assertThat(adapter.save(restaurant)).isSameAs(restaurant)
         assertThat(calls).containsExactly(
             "searchActive",
-            "findCanonicalTargetIdById",
-            "findCanonicalTargetIdById",
-            "findCanonicalTargetIdById",
-            "findById",
-            "findReadableCanonicalTargetIdById",
-            "findReadableCanonicalTargetIdById",
-            "findReadableCanonicalTargetIdById",
+            "findByIdAndStatus",
+            "findByKakaoPlaceId",
             "findDetailById",
             "findById",
             "findByPickupLocationIdAndBrandName",
@@ -133,44 +115,9 @@ class RestaurantPersistenceAdapterTest {
     }
 
     @Test
-    fun `missing or cyclic canonical chains do not return a restaurant`() {
-        val missing = fakeRepository(SpringDataRestaurantRepository::class.java) { method, _ ->
-            when (method.name) {
-                "findCanonicalTargetIdById" -> Optional.empty<Long>()
-                else -> unexpected(method)
-            }
-        }
-        val cyclic = fakeRepository(SpringDataRestaurantRepository::class.java) { method, arguments ->
-            when (method.name) {
-                "findCanonicalTargetIdById" -> Optional.of(if (arguments[0] == 1L) 2L else 1L)
-                else -> unexpected(method)
-            }
-        }
-
-        assertThat(RestaurantPersistenceAdapter(missing).findCanonicalById(99L)).isNull()
-        assertThat(RestaurantPersistenceAdapter(cyclic).findCanonicalById(1L)).isNull()
-    }
-
-    @Test
-    fun `external reference and platform operations preserve exact repository contracts`() {
+    fun `platform operations preserve exact repository contracts`() {
         val restaurant = Restaurant("브랜드", pickupLocation()).also { it.id = 30L }
-        val reference = RestaurantExternalReference(
-            restaurant,
-            RestaurantExternalProvider.KAKAO,
-            "place-30",
-        )
         val platform = RestaurantPlatform(restaurant, DeliveryPlatform.BAEMIN)
-        val references = fakeRepository(SpringDataRestaurantExternalReferenceRepository::class.java) {
-                method, arguments ->
-            when (method.name) {
-                "findByProviderAndExternalPlaceId" -> {
-                    assertThat(arguments).containsExactly(RestaurantExternalProvider.KAKAO, "place-30")
-                    Optional.of(reference)
-                }
-                "saveAndFlush" -> reference
-                else -> unexpected(method)
-            }
-        }
         val platforms = fakeRepository(SpringDataRestaurantPlatformRepository::class.java) { method, arguments ->
             when (method.name) {
                 "findAllByRestaurantId" -> {
@@ -181,13 +128,8 @@ class RestaurantPersistenceAdapterTest {
                 else -> unexpected(method)
             }
         }
-        val referenceAdapter = RestaurantExternalReferencePersistenceAdapter(references)
         val platformAdapter = RestaurantPlatformPersistenceAdapter(platforms)
 
-        assertThat(
-            referenceAdapter.findByProviderAndExternalPlaceId(RestaurantExternalProvider.KAKAO, "place-30"),
-        ).isSameAs(reference)
-        assertThat(referenceAdapter.save(reference)).isSameAs(reference)
         assertThat(platformAdapter.findPlatforms(restaurant.id)).containsExactly(DeliveryPlatform.BAEMIN)
         assertThat(platformAdapter.saveAll(listOf(platform))).containsExactly(platform)
     }

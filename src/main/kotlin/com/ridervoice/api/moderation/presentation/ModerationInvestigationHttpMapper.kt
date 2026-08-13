@@ -50,7 +50,7 @@ class ModerationInvestigationHttpMapper {
     )
 
     fun toResponse(result: AdminRestaurantSearchPageResult) = AdminRestaurantSearchPageResponse(
-        result.items.map { AdminRestaurantSearchItemResponse(it.restaurantId, it.name, it.status, it.canonicalRestaurantId, it.pickupLocationId, it.standardAddress, it.detailAddress, it.createdAt) },
+        result.items.map { AdminRestaurantSearchItemResponse(it.restaurantId, it.name, it.status, it.pickupLocationId, it.standardAddress, it.detailAddress, it.createdAt) },
         result.nextCursor?.let { encodeCursor(it.createdAt, it.restaurantId) },
     )
 
@@ -58,9 +58,8 @@ class ModerationInvestigationHttpMapper {
         result.restaurantId,
         result.name,
         result.status,
-        result.canonicalRestaurantId,
         AdminPickupLocationResponse(result.pickupLocationId, result.standardAddress, result.detailAddress, result.latitude, result.longitude),
-        result.externalReferences.map { AdminExternalReferenceResponse(it.provider, it.externalPlaceId) },
+        result.kakaoPlaceId,
         result.platforms,
         result.pendingReportCount,
         result.createdAt,

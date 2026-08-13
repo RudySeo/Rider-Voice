@@ -22,45 +22,19 @@ class RestaurantDomainTest {
     }
 
     @Test
-    fun `restaurant starts active and can merge only into a different active restaurant`() {
-        val location = pickupLocation()
-        val duplicate = Restaurant("중복 브랜드", location)
-        val canonical = Restaurant("대표 브랜드", location)
-
-        assertThat(duplicate.status).isEqualTo(RestaurantStatus.ACTIVE)
-        assertThat(duplicate.canonicalRestaurant).isNull()
-
-        duplicate.mergeInto(canonical)
-
-        assertThat(duplicate.status).isEqualTo(RestaurantStatus.MERGED)
-        assertThat(duplicate.canonicalRestaurant).isSameAs(canonical)
-        assertThatIllegalStateException().isThrownBy { duplicate.mergeInto(canonical) }
-        assertThatIllegalArgumentException().isThrownBy { canonical.mergeInto(canonical) }
-    }
-
-    @Test
-    fun `restaurant cannot merge into an already merged restaurant`() {
-        val location = pickupLocation()
-        val first = Restaurant("첫 번째", location)
-        val second = Restaurant("두 번째", location)
-        val canonical = Restaurant("대표", location)
-        second.mergeInto(canonical)
-
-        assertThatIllegalArgumentException().isThrownBy { first.mergeInto(second) }
-    }
-
-    @Test
-    fun `external reference and platform require valid fixed values`() {
+    fun `restaurant starts active and supports only active and closed states`() {
         val restaurant = Restaurant("브랜드", pickupLocation())
 
-        val reference = RestaurantExternalReference(
-            restaurant = restaurant,
-            provider = RestaurantExternalProvider.KAKAO,
-            externalPlaceId = " 1234567890 ",
-        )
+        assertThat(restaurant.status).isEqualTo(RestaurantStatus.ACTIVE)
+        assertThat(RestaurantStatus.entries).containsExactly(RestaurantStatus.ACTIVE, RestaurantStatus.CLOSED)
+    }
+
+    @Test
+    fun `restaurant stores one normalized Kakao place ID and platform requires a fixed value`() {
+        val restaurant = Restaurant("브랜드", pickupLocation(), " 1234567890 ")
         val platform = RestaurantPlatform(restaurant, DeliveryPlatform.BAEMIN)
 
-        assertThat(reference.externalPlaceId).isEqualTo("1234567890")
+        assertThat(restaurant.kakaoPlaceId).isEqualTo("1234567890")
         assertThat(platform.platform).isEqualTo(DeliveryPlatform.BAEMIN)
         assertThat(DeliveryPlatform.entries).containsExactly(
             DeliveryPlatform.BAEMIN,
@@ -69,7 +43,23 @@ class RestaurantDomainTest {
             DeliveryPlatform.OTHER,
         )
         assertThatIllegalArgumentException().isThrownBy {
-            RestaurantExternalReference(restaurant, RestaurantExternalProvider.KAKAO, "  ")
+            Restaurant("브랜드", pickupLocation(), "  ")
+        }
+    }
+
+    @Test
+    fun `manual restaurant can link the same Kakao place once but cannot overwrite it`() {
+        val restaurant = Restaurant("브랜드", pickupLocation())
+
+        restaurant.linkKakaoPlaceId(" place-1 ")
+        restaurant.linkKakaoPlaceId("place-1")
+
+        assertThat(restaurant.kakaoPlaceId).isEqualTo("place-1")
+        assertThatIllegalStateException().isThrownBy {
+            restaurant.linkKakaoPlaceId("place-2")
+        }
+        assertThatIllegalArgumentException().isThrownBy {
+            Restaurant("다른 브랜드", pickupLocation(), "  ")
         }
     }
 
@@ -103,8 +93,6 @@ class RestaurantDomainTest {
         assertThatIllegalStateException().isThrownBy { restaurant.close() }
         assertThatIllegalStateException().isThrownBy { restaurant.rename("변경") }
         assertThatIllegalStateException().isThrownBy { restaurant.relinkPickupLocation(pickupLocation("서울 강남구 역삼로 2")) }
-        assertThatIllegalStateException().isThrownBy { restaurant.mergeInto(Restaurant("대표", pickupLocation())) }
-
         restaurant.reopen()
         assertThatIllegalStateException().isThrownBy { restaurant.reopen() }
     }

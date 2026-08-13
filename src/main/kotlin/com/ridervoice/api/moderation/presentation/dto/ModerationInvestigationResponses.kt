@@ -4,7 +4,6 @@ import com.ridervoice.api.auth.domain.UserStatus
 import com.ridervoice.api.moderation.domain.ModerationAuditAction
 import com.ridervoice.api.moderation.domain.ModerationTargetType
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
-import com.ridervoice.api.restaurant.domain.RestaurantExternalProvider
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
 import com.ridervoice.api.review.domain.ReviewCommentStatus
 import com.ridervoice.api.review.domain.ReviewRating
@@ -61,7 +60,6 @@ data class AdminRestaurantSearchItemResponse(
     @field:Schema(format = "int64") val restaurantId: Long,
     val name: String,
     val status: RestaurantStatus,
-    @field:Schema(format = "int64", nullable = true) val canonicalRestaurantId: Long?,
     @field:Schema(format = "int64") val pickupLocationId: Long,
     val standardAddress: String,
     @field:Schema(nullable = true) val detailAddress: String?,
@@ -72,9 +70,8 @@ data class AdminRestaurantDetailResponse(
     @field:Schema(format = "int64") val restaurantId: Long,
     val name: String,
     val status: RestaurantStatus,
-    @field:Schema(format = "int64", nullable = true) val canonicalRestaurantId: Long?,
     val pickupLocation: AdminPickupLocationResponse,
-    val externalReferences: List<AdminExternalReferenceResponse>,
+    @field:Schema(nullable = true) val kakaoPlaceId: String?,
     val platforms: Set<DeliveryPlatform>,
     val pendingReportCount: Long,
     val createdAt: Instant,
@@ -87,11 +84,6 @@ data class AdminPickupLocationResponse(
     @field:Schema(nullable = true) val detailAddress: String?,
     val latitude: BigDecimal,
     val longitude: BigDecimal,
-)
-
-data class AdminExternalReferenceResponse(
-    val provider: RestaurantExternalProvider,
-    val externalPlaceId: String,
 )
 
 data class ModerationAuditPageResponse(

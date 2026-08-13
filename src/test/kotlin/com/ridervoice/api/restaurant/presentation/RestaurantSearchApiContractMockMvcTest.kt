@@ -85,7 +85,7 @@ class RestaurantSearchApiContractMockMvcTest {
                     RestaurantSearchCandidate(
                         candidateType = RestaurantCandidateType.INTERNAL,
                         restaurantId = 10L,
-                        externalPlaceId = "kakao-10",
+                        kakaoPlaceId = "kakao-10",
                         name = "내부 브랜드",
                         address = "서울 강남구 테헤란로 1",
                         aggregationStatus = AggregationStatus.COLLECTING,
@@ -94,7 +94,7 @@ class RestaurantSearchApiContractMockMvcTest {
                     RestaurantSearchCandidate(
                         candidateType = RestaurantCandidateType.KAKAO,
                         restaurantId = null,
-                        externalPlaceId = "kakao-20",
+                        kakaoPlaceId = "kakao-20",
                         name = "외부 후보",
                         address = "서울 강남구 역삼로 1",
                         aggregationStatus = AggregationStatus.NO_REVIEWS,

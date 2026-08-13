@@ -610,7 +610,7 @@ export function RestaurantDetailPage({
               ? '폐업'
               : restaurant.status === 'ACTIVE'
                 ? '영업 중'
-                : '병합됨'}
+                : '상태 미확인'}
           </span>
         </div>
         <section aria-labelledby="pickup-location-title">

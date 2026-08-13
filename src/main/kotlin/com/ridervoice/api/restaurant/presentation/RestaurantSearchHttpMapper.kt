@@ -24,7 +24,7 @@ class RestaurantSearchHttpMapper {
             RestaurantSearchCandidateResponse(
                 candidateType = candidate.candidateType,
                 restaurantId = candidate.restaurantId,
-                kakaoPlaceId = candidate.externalPlaceId,
+                kakaoPlaceId = candidate.kakaoPlaceId,
                 name = candidate.name,
                 address = candidate.address,
                 aggregationStatus = candidate.aggregationStatus,

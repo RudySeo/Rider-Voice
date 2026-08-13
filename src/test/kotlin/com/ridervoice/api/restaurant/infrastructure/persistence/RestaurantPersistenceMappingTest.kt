@@ -2,7 +2,6 @@ package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
-import com.ridervoice.api.restaurant.domain.RestaurantExternalReference
 import com.ridervoice.api.restaurant.domain.RestaurantPlatform
 import jakarta.persistence.Table
 import org.assertj.core.api.Assertions.assertThat
@@ -11,7 +10,7 @@ import org.junit.jupiter.api.Test
 class RestaurantPersistenceMappingTest {
 
     @Test
-    fun `database mappings declare the three identity unique constraints`() {
+    fun `database mappings declare location brand and Kakao place unique constraints`() {
         assertUniqueConstraint(
             PickupLocation::class.java,
             "uk_pickup_locations_location_key",
@@ -24,15 +23,14 @@ class RestaurantPersistenceMappingTest {
             "brand_name",
         )
         assertUniqueConstraint(
-            RestaurantExternalReference::class.java,
-            "uk_restaurant_external_references_provider_place",
-            "provider",
-            "external_place_id",
+            Restaurant::class.java,
+            "uk_restaurants_kakao_place_id",
+            "kakao_place_id",
         )
     }
 
     @Test
-    fun `database mappings retain search status canonical and foreign key indexes`() {
+    fun `database mappings retain search status and foreign key indexes`() {
         assertIndexes(
             PickupLocation::class.java,
             "idx_pickup_locations_normalized_address" to "normalized_address",
@@ -40,11 +38,6 @@ class RestaurantPersistenceMappingTest {
         assertIndexes(
             Restaurant::class.java,
             "idx_restaurants_status_brand_name" to "status, brand_name",
-            "idx_restaurants_canonical" to "canonical_restaurant_id",
-        )
-        assertIndexes(
-            RestaurantExternalReference::class.java,
-            "idx_restaurant_external_references_restaurant" to "restaurant_id",
         )
         assertIndexes(
             RestaurantPlatform::class.java,

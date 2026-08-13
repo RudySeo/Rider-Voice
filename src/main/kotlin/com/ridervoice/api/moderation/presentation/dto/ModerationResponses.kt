@@ -75,15 +75,6 @@ data class PendingRestaurantInfoReportPageResponse(
     val nextCursor: String?,
 )
 
-data class RestaurantMergeResponse(
-    @field:Schema(format = "int64")
-    val restaurantId: Long,
-    val status: RestaurantStatus,
-    @field:Schema(format = "int64")
-    val canonicalRestaurantId: Long,
-    val completedAt: Instant,
-)
-
 data class RestaurantPickupRelinkResponse(
     @field:Schema(format = "int64")
     val restaurantId: Long,

@@ -67,7 +67,7 @@ class KakaoLocalAdapterTest {
             ProviderSearchResult.Available(
                 listOf(
                     ExternalRestaurantCandidate(
-                        externalPlaceId = "1234567890",
+                        kakaoPlaceId = "1234567890",
                         name = "라이더보이스 강남점",
                         standardAddress = "서울 강남구 테헤란로 1",
                         lotNumberAddress = "서울 강남구 역삼동 1-1",
