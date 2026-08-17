@@ -11,6 +11,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+  flyway:
+    enabled: false
 
 ridervoice:
   auth:

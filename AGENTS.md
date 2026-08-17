@@ -25,7 +25,7 @@
 
 - Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
-- Bean Validation, Spring Data JPA, Hibernate, MySQL 8.4.10
+- Bean Validation, Spring Data JPA, Hibernate, Flyway, MySQL 8.4.10
 - Spring `RestClient`, Spring Cache, Caffeine
 - springdoc-openapi, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc와 HTTP stub server
@@ -56,8 +56,10 @@
 - CRITICAL: 외부 API는 infrastructure adapter에서만 호출한다.
 - CRITICAL: 클라이언트가 DB나 카카오 API를 직접 호출하게 하지 않는다.
 - CRITICAL: 모든 Entity 기본 키는 `BaseEntity`의 `Long IDENTITY` 전략을 사용한다.
-- CRITICAL: 로컬과 통합 테스트에서는 Hibernate `ddl-auto=update`로 Entity mapping을 schema에 반영한다.
+- CRITICAL: 로컬과 일반 통합 테스트에서는 Hibernate `ddl-auto=update`로 Entity mapping을 schema에 반영한다.
+- CRITICAL: 운영과 migration 전용 검증에서는 Flyway로 schema를 반영하고 Hibernate `ddl-auto=validate`로 Entity mapping 일치를 확인한다.
 - CRITICAL: 운영 환경에서 Hibernate schema auto-generation을 활성화하지 않는다.
+- CRITICAL: 운영에 적용된 Flyway migration은 수정·삭제하지 않고 후속 versioned migration으로 변경한다.
 - CRITICAL: 외부 provider 오류, token, secret과 stack trace를 클라이언트에 노출하지 않는다.
 - request/response DTO는 Controller 파일과 분리해 기능별 `presentation/dto`에 둔다.
 - request DTO는 application command로, application result는 response DTO로 명시적으로 변환한다.
@@ -164,6 +166,7 @@ com.ridervoice.api
 - CRITICAL: 새 기능은 실패하는 테스트를 먼저 작성하고 테스트가 통과하는 최소 구현을 작성한다.
 - domain 정책은 단위 테스트로 검증한다.
 - JPA schema, 연관관계, transaction과 unique 제약은 실행 중인 로컬 MySQL을 기준으로 검증한다.
+- Flyway migration은 전용 빈 MySQL schema에서 적용, 재실행, Hibernate validation과 주요 제약을 검증한다.
 - Docker/Testcontainers 기반 통합 테스트를 기본 검증 절차에 포함하지 않는다.
 - 카카오 adapter는 stub server로 성공, timeout, rate limit과 잘못된 응답을 검증한다.
 - 장소·브랜드·리뷰 상태의 unique 제약은 동시 요청을 포함해 검증한다.
@@ -194,6 +197,7 @@ com.ridervoice.api
 ./gradlew check
 ./gradlew build
 ./gradlew integrationTest  # 실행 중인 로컬 MySQL 필요
+./gradlew migrationTest    # 전용 빈 로컬 MySQL schema 필요
 ```
 
 ## 현재 구현 순서

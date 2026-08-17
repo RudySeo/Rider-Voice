@@ -20,7 +20,7 @@
 
 - Kotlin, JDK 25와 Gradle Kotlin DSL
 - Spring Boot, Spring MVC와 Spring Security OAuth2 Client
-- Spring Data JPA, Hibernate와 MySQL 8.4.10
+- Spring Data JPA, Hibernate, Flyway와 MySQL 8.4.10
 - Spring `RestClient`, Spring Cache와 Caffeine
 - springdoc-openapi와 RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc와 HTTP stub server
@@ -35,7 +35,9 @@ API 서버, frontend와 `rider` MySQL 데이터베이스는 로컬 개발에서 
 
 로컬 비밀값은 Git에서 제외한 프로젝트 루트 `.env`로 관리한다. `local` profile만 이 파일을 선택적으로 읽고 OS·IDE 환경 변수가 있으면 그 값을 우선한다.
 
-로컬과 통합 테스트에서는 Hibernate `ddl-auto=update`로 현재 Entity를 DB에 반영한다. 운영 profile은 `ddl-auto=none`을 사용하며 자동으로 테이블을 만들거나 변경하지 않는다.
+로컬과 일반 통합 테스트에서는 Hibernate `ddl-auto=update`로 현재 Entity를 DB에 반영한다. 운영 profile은 Flyway가 versioned migration을 먼저 적용하고 Hibernate `ddl-auto=validate`가 Entity mapping과 schema 일치를 확인한다. 운영 애플리케이션의 Hibernate schema auto-generation은 활성화하지 않는다. migration 전용 profile은 빈 MySQL에 운영 migration을 적용하고 같은 validation을 수행한다.
+
+운영 Flyway 연결은 `DB_MIGRATION_USERNAME`과 `DB_MIGRATION_PASSWORD`, 애플리케이션 DataSource는 `DB_USERNAME`과 `DB_PASSWORD`를 사용한다. migration 계정은 schema 변경과 필요한 데이터 보정 권한을 갖고 runtime 계정은 API에 필요한 DML 권한만 갖는다. `baseline-on-migrate`와 out-of-order 적용은 허용하지 않으며 운영에 적용된 migration 파일은 수정·삭제하지 않는다.
 
 ## 3. 전체 구조
 
@@ -217,8 +219,9 @@ JPA schema, FK, index와 unique 제약은 실행 중인 로컬 MySQL로 확인�
 GitHub Actions에서는 frontend를 제외하고 다음 순서로 백엔드 전달 가능성을 검증한다.
 
 - JDK 25와 Gradle Wrapper로 단위·계약 테스트와 backend build를 수행한다.
-- 격리된 MySQL 8.4.10 service container에서 schema·unique·동시성 통합 테스트를 수행한다.
-- 같은 MySQL schema와 CI 전용 dummy provider 설정으로 만들어진 Docker 이미지를 실행하고 `/actuator/health`를 확인한다.
+- 격리된 빈 MySQL 8.4.10 service container에 Flyway migration을 적용하고 Hibernate validation, 재실행 안전성과 schema 주요 제약을 확인한다.
+- migration이 적용된 같은 MySQL에서 schema·unique·동시성 통합 테스트를 수행한다.
+- 같은 MySQL schema와 CI 전용 dummy provider 설정으로 만들어진 Docker 이미지를 운영 profile로 실행하고 `/actuator/health`를 확인한다.
 - master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 Docker Hub에 게시한다.
 
 실제 DB·카카오 secret은 Docker build와 이미지에 포함하지 않는다. CI는 일회용 DB 값과 dummy provider 값을 사용하고, Docker Hub PAT만 GitHub Environment secret으로 전달한다. 실행 서버와 운영 secret store는 이번 범위에 포함하지 않는다.

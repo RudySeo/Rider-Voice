@@ -35,7 +35,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 - Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
-- Spring Data JPA, Hibernate, MySQL 8.4.10
+- Spring Data JPA, Hibernate, Flyway, MySQL 8.4.10
 - Spring `RestClient`, Spring Cache, Caffeine
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc, 로컬 MySQL 통합 테스트
@@ -135,6 +135,8 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 
 Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 데이터베이스를 자동으로 삭제하거나 초기화하지 않으므로, 기존 데이터가 필요한 환경에서는 DROP/truncate를 실행하지 않습니다.
 
+운영 profile은 별도 migration 계정으로 Flyway versioned migration을 적용하고 runtime 계정으로 Hibernate `ddl-auto=validate`를 수행합니다. 운영에 적용된 migration 파일은 수정하지 않고 다음 version migration을 추가합니다.
+
 자유 의견 즉시 공개 정책 적용 전에 기존 `PENDING` 의견을 한 번 전환합니다. 아래 migration은 의견이 있으면 `PUBLISHED`, 없으면 `NONE`으로 바꾸며 다른 의견·리뷰 상태는 변경하지 않습니다.
 
 ```bash
@@ -208,6 +210,17 @@ npm run api:generate
 ./gradlew integrationTest
 ```
 
+운영 migration은 기존 로컬 `rider` DB와 분리한 빈 MySQL schema에서 검증합니다. `migrationTest`는 Flyway 최초 적용, 재실행과 Hibernate validation을 확인하며 대상 schema를 자동 삭제하지 않습니다.
+
+```bash
+DB_URL='jdbc:mysql://localhost:3306/rider_migration_test?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true' \
+DB_USERNAME=<runtime-user> \
+DB_PASSWORD=<runtime-password> \
+DB_MIGRATION_USERNAME=<migration-user> \
+DB_MIGRATION_PASSWORD=<migration-password> \
+./gradlew migrationTest
+```
+
 frontend 회귀 검증은 Node 24에서 실행합니다.
 
 ```bash
@@ -219,7 +232,7 @@ npm run build
 
 ## 백엔드 Docker CI/CD
 
-master 대상 PR과 master push는 GitHub Actions에서 backend build, 운영 RDS 목표와 같은 MySQL 8.4.10 통합 테스트와 실제 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
+master 대상 PR과 master push는 GitHub Actions에서 backend build, 빈 MySQL 8.4.10 Flyway migration, 기존 통합 테스트와 실제 운영 profile 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
 
 GitHub `docker-hub` Environment에는 다음 값만 등록한다.
 

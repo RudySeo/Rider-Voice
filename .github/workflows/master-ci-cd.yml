@@ -36,7 +36,7 @@ jobs:
           cache-provider: basic
 
       - name: Validate workflow contracts
-        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py
+        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py
 
       - name: Build backend
         run: ./gradlew build --no-daemon
@@ -47,8 +47,10 @@ jobs:
     timeout-minutes: 35
     env:
       DB_URL: jdbc:mysql://127.0.0.1:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
-      DB_USERNAME: root
-      DB_PASSWORD: ci-root-password
+      DB_USERNAME: ci_app
+      DB_PASSWORD: ci-app-password
+      DB_MIGRATION_USERNAME: ci_migration
+      DB_MIGRATION_PASSWORD: ci-migration-password
       KAKAO_CLIENT_ID: ci-test-client
       KAKAO_LOCAL_REST_API_KEY: ci-test-key
     services:
@@ -80,8 +82,37 @@ jobs:
         with:
           cache-provider: basic
 
+      - name: Create migration and runtime database users
+        run: |
+          docker exec "${{ job.services.mysql.id }}" mysql --user=root --password=ci-root-password --execute="
+            CREATE USER 'ci_migration'@'%' IDENTIFIED BY 'ci-migration-password';
+            CREATE USER 'ci_app'@'%' IDENTIFIED BY 'ci-app-password';
+            GRANT CREATE, ALTER, DROP, INDEX, REFERENCES, SELECT, INSERT, UPDATE, DELETE ON rider.* TO 'ci_migration'@'%';
+            GRANT SELECT, INSERT, UPDATE, DELETE ON rider.* TO 'ci_app'@'%';
+          "
+
+      - name: Run Flyway migration tests
+        run: ./gradlew migrationTest --no-daemon
+        env:
+          DB_USERNAME: ci_app
+          DB_PASSWORD: ci-app-password
+
+      - name: Verify runtime user cannot change the schema
+        run: |
+          if docker exec "${{ job.services.mysql.id }}" mysql \
+            --host=127.0.0.1 \
+            --user=ci_app \
+            --password=ci-app-password \
+            --execute="CREATE TABLE rider.runtime_ddl_probe (id BIGINT PRIMARY KEY)"; then
+            echo "Runtime database user unexpectedly has DDL permission"
+            exit 1
+          fi
+
       - name: Run MySQL integration tests
         run: ./gradlew integrationTest --no-daemon
+        env:
+          DB_USERNAME: root
+          DB_PASSWORD: ci-root-password
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
@@ -108,6 +139,8 @@ jobs:
             --env DB_URL \
             --env DB_USERNAME \
             --env DB_PASSWORD \
+            --env DB_MIGRATION_USERNAME \
+            --env DB_MIGRATION_PASSWORD \
             --env KAKAO_CLIENT_ID \
             --env KAKAO_LOCAL_REST_API_KEY \
             --env KAKAO_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/oauth2/callback/kakao \

@@ -105,6 +105,7 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - 자유 의견 신고와 사후 조치, 음식점 이름·픽업 장소·폐업 정보 정정
 - 백엔드 Docker 이미지와 master 검증 성공 후 Docker Hub 게시 자동화
 - 운영 DB 목표인 RDS MySQL 8.4.10과 동일한 버전의 CI 통합 검증
+- Flyway versioned migration과 Hibernate schema validation을 이용한 운영 DB 변경 검증
 
 ### 이번에 포함하지 않는 것
 
@@ -125,3 +126,4 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - 모든 공개 리뷰와 평가 결과에서 미인증 정보라는 사실을 확인할 수 있어야 합니다.
 - master 반영 전 백엔드·MySQL 통합 테스트와 컨테이너 기동 검증이 성공해야 하며, 성공한 백엔드 이미지만 Docker Hub에 게시되어야 합니다.
 - MySQL 통합 검증은 운영 RDS 목표 버전인 MySQL 8.4.10을 사용해야 합니다.
+- 완전히 빈 MySQL에 Flyway migration을 적용한 뒤 Entity, FK, unique와 index가 일치해야 합니다.
