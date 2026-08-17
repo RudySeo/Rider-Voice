@@ -1,4 +1,4 @@
-name: Feature branch Draft PR and CI
+name: Feature branch Draft PR
 
 on:
   push:
@@ -21,17 +21,18 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Create develop Draft PR once
+      - name: Create master Draft PR once
         uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
         env:
           HEAD_BRANCH: ${{ github.ref_name }}
           HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         with:
+          github-token: ${{ secrets.PR_AUTOMATION_TOKEN || github.token }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const headBranch = process.env.HEAD_BRANCH;
-            const baseBranch = 'develop';
+            const baseBranch = 'master';
             const head = `${owner}:${headBranch}`;
             const body = [
               '## 변경 요약',
@@ -40,7 +41,7 @@ jobs:
               '',
               '## 확인 사항',
               '',
-              '- [ ] Backend CI가 통과했습니다.',
+              '- [ ] PR 전체 CI가 통과했습니다.',
               '- [ ] 관련 문서와 OpenAPI 계약을 반영했습니다.',
               '- [ ] secret, token 또는 개인정보를 포함하지 않았습니다.',
               '- [ ] 기존 테스트를 삭제하거나 약화하지 않았습니다.',
@@ -103,27 +104,3 @@ jobs:
             });
 
             core.notice(`Created Draft PR #${created.data.number}`);
-
-  backend:
-    name: Backend build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@4733eaac7c1b0da527e4206b7671e0061de1ce37 # v6
-        with:
-          cache-provider: basic
-
-      - name: Validate workflow contract
-        run: python3 scripts/test_feature_pr_workflow.py
-
-      - name: Build backend
-        run: ./gradlew build

@@ -1,10 +1,7 @@
-name: Backend master CI/CD
+name: Backend PR CI
 
 on:
   pull_request:
-    branches:
-      - master
-  push:
     branches:
       - master
 
@@ -12,8 +9,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: backend-master-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: backend-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   backend-test:
@@ -168,72 +165,3 @@ jobs:
         run: |
           docker logs rider-voice-smoke || true
           docker rm --force rider-voice-smoke || true
-
-  publish-image:
-    name: Publish Docker image
-    needs: [backend-test, integration-and-container-smoke]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    environment: docker-hub
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    env:
-      IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/rider-voice-api
-      DOCKER_METADATA_SHORT_SHA_LENGTH: '12'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=sha-,format=short
-
-      - name: Build and push backend image
-        id: push
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=rider-voice-backend
-          cache-to: type=gha,mode=max,scope=rider-voice-backend
-          provenance: mode=max
-          sbom: true
-
-      - name: Attest published image
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
-        with:
-          subject-name: index.docker.io/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
-
-      - name: Summarize published image
-        run: |
-          {
-            echo "## Published backend image"
-            echo
-            echo "- Image: \`${IMAGE_NAME}\`"
-            echo "- Digest: \`${{ steps.push.outputs.digest }}\`"
-            echo "- Tags:"
-            echo '${{ steps.meta.outputs.tags }}' | sed 's/^/  - `/' | sed 's/$/`/'
-          } >> "$GITHUB_STEP_SUMMARY"

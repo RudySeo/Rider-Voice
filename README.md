@@ -44,7 +44,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - TanStack Query, React Router, React Hook Form, Zod
 - Vitest, Testing Library와 CSS Modules
 
-초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 GitHub Actions에서 검증한 뒤 Docker Hub에 게시합니다. Redis, Kafka, Elasticsearch, Docker Compose, Testcontainers와 AWS는 현재 범위가 아닙니다.
+초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시합니다. Redis, Kafka, Elasticsearch, Docker Compose, Testcontainers와 AWS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
@@ -64,7 +64,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - OAuth callback의 `HttpOnly` refresh cookie 설정과 cookie 기반 token 회전
 - 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
-- JDK 25 백엔드 Docker 이미지와 master 검증 성공 후 Docker Hub 게시 자동화
+- JDK 25 백엔드 Docker 이미지와 master 대상 PR 검증 성공 후 Docker Hub 게시 자동화
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
@@ -232,12 +232,14 @@ npm run build
 
 ## 백엔드 Docker CI/CD
 
-master 대상 PR과 master push는 GitHub Actions에서 backend build, 빈 MySQL 8.4.10 Flyway migration, 기존 통합 테스트와 실제 운영 profile 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
+`feat/**`와 `feature/**` 브랜치를 push하면 master 대상 Draft PR만 자동 생성한다. Draft PR을 포함한 master 대상 PR에서는 backend build, 빈 MySQL 8.4.10 Flyway migration, 기존 통합 테스트와 실제 운영 profile 컨테이너 health check를 수행한다. 필수 검증이 성공하고 최신 master 기준으로 확인된 PR만 병합할 수 있으며, master push에서는 전체 검증을 반복하지 않고 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다. frontend는 이 workflow와 Docker 이미지에서 제외된다.
 
 GitHub `docker-hub` Environment에는 다음 값만 등록한다.
 
 - variable `DOCKERHUB_USERNAME`: 이미지가 게시될 Docker Hub ID
 - secret `DOCKERHUB_TOKEN`: Read/Write 권한 Docker Hub PAT
+
+Repository secret `PR_AUTOMATION_TOKEN`에는 이 저장소의 Contents Read와 Pull requests Read/Write 권한만 가진 fine-grained GitHub PAT를 등록한다. 이 token으로 Draft PR을 생성해야 PR 전체 CI가 별도 승인 없이 바로 시작된다. 값이 없으면 기본 `GITHUB_TOKEN`으로 PR을 생성하지만 최초 CI 실행은 GitHub 화면에서 승인이 필요할 수 있다.
 
 실제 DB·카카오 값은 GitHub Actions와 Docker Hub에 저장하지 않는다. CI는 일회용 MySQL 값과 dummy provider 값을 사용하며, 실행 서버와 운영 secret store는 별도 배포 단계에서 결정한다.
 
