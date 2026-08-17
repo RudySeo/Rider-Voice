@@ -27,6 +27,8 @@ AWS Console에서 `Billing and Cost Management` → `Budgets` → `Create budget
 2. Elastic IP가 `203.0.113.10`이라면 임시 도메인은 `203-0-113-10.sslip.io`다.
 3. EC2 security group inbound를 다음으로 제한한다.
 
+Elastic IP를 포함한 public IPv4 주소는 EC2에 연결되어 있거나 EC2가 중지되어 있어도 시간당 비용이 발생한다. 운영을 끝내면 연결만 해제하지 말고 더 이상 사용하지 않는 주소를 release한다.
+
 | 포트 | 소스 | 용도 |
 | --- | --- | --- |
 | 80/TCP | `0.0.0.0/0` | Let's Encrypt HTTP-01 및 HTTPS 이동 |
