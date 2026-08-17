@@ -2,7 +2,7 @@
 
 ## 1. 기준
 
-Rider Voice의 현재 JPA Entity와 MySQL 기준 10개 테이블 구조와 주요 관계를 정리합니다
+Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 10개 테이블 구조와 주요 관계를 정리합니다
 
 모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 

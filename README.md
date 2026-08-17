@@ -35,7 +35,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 - Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
-- Spring Data JPA, Hibernate, MySQL 9.3
+- Spring Data JPA, Hibernate, MySQL 8.4.10
 - Spring `RestClient`, Spring Cache, Caffeine
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc, 로컬 MySQL 통합 테스트
@@ -127,7 +127,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 요구사항:
 
 - JDK 25
-- MySQL 9.3
+- MySQL 8.4.10
 - Gradle Wrapper
 - Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)
 
@@ -219,7 +219,7 @@ npm run build
 
 ## 백엔드 Docker CI/CD
 
-master 대상 PR과 master push는 GitHub Actions에서 backend build, MySQL 9.3 통합 테스트와 실제 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
+master 대상 PR과 master push는 GitHub Actions에서 backend build, 운영 RDS 목표와 같은 MySQL 8.4.10 통합 테스트와 실제 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
 
 GitHub `docker-hub` Environment에는 다음 값만 등록한다.
 

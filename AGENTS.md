@@ -25,7 +25,7 @@
 
 - Kotlin, JDK 25, Gradle Kotlin DSL
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
-- Bean Validation, Spring Data JPA, Hibernate, MySQL 9.3
+- Bean Validation, Spring Data JPA, Hibernate, MySQL 8.4.10
 - Spring `RestClient`, Spring Cache, Caffeine
 - springdoc-openapi, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc와 HTTP stub server
