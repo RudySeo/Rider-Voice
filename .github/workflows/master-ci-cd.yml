@@ -1,0 +1,206 @@
+name: Backend master CI/CD
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-master-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend-test:
+    name: Backend test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@4733eaac7c1b0da527e4206b7671e0061de1ce37 # v6
+        with:
+          cache-provider: basic
+
+      - name: Validate workflow contracts
+        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py
+
+      - name: Build backend
+        run: ./gradlew build --no-daemon
+
+  integration-and-container-smoke:
+    name: MySQL integration and container smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      DB_USERNAME: root
+      DB_PASSWORD: ci-root-password
+      KAKAO_CLIENT_ID: ci-test-client
+      KAKAO_LOCAL_REST_API_KEY: ci-test-key
+    services:
+      mysql:
+        image: mysql:9.3@sha256:b9d8b7ec6e6aced08b1cfe50776f8e323c0a625adf4e10e69f90fc686ea10807
+        env:
+          MYSQL_DATABASE: rider
+          MYSQL_ROOT_PASSWORD: ci-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=root --password=ci-root-password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@4733eaac7c1b0da527e4206b7671e0061de1ce37 # v6
+        with:
+          cache-provider: basic
+
+      - name: Run MySQL integration tests
+        run: ./gradlew integrationTest --no-daemon
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build backend image for smoke test
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: rider-voice-api:ci
+          cache-from: type=gha,scope=rider-voice-backend
+          cache-to: type=gha,mode=max,scope=rider-voice-backend
+          provenance: false
+
+      - name: Start backend container
+        run: |
+          docker run --detach \
+            --name rider-voice-smoke \
+            --network host \
+            --env SPRING_PROFILES_ACTIVE=prod \
+            --env DB_URL \
+            --env DB_USERNAME \
+            --env DB_PASSWORD \
+            --env KAKAO_CLIENT_ID \
+            --env KAKAO_LOCAL_REST_API_KEY \
+            --env KAKAO_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/oauth2/callback/kakao \
+            --env FRONTEND_BASE_URL=http://127.0.0.1:5173 \
+            --env AUTH_COOKIE_SECURE=false \
+            rider-voice-api:ci
+
+      - name: Verify backend health
+        run: |
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:8080/actuator/health | grep --quiet '"status":"UP"'; then
+              exit 0
+            fi
+            if [ "$(docker inspect --format='{{.State.Running}}' rider-voice-smoke 2>/dev/null || true)" != "true" ]; then
+              docker logs rider-voice-smoke || true
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs rider-voice-smoke || true
+          exit 1
+
+      - name: Collect container logs and clean up
+        if: always()
+        run: |
+          docker logs rider-voice-smoke || true
+          docker rm --force rider-voice-smoke || true
+
+  publish-image:
+    name: Publish Docker image
+    needs: [backend-test, integration-and-container-smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: docker-hub
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/rider-voice-api
+      DOCKER_METADATA_SHORT_SHA_LENGTH: '12'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push backend image
+        id: push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=rider-voice-backend
+          cache-to: type=gha,mode=max,scope=rider-voice-backend
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest published image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: index.docker.io/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summarize published image
+        run: |
+          {
+            echo "## Published backend image"
+            echo
+            echo "- Image: \`${IMAGE_NAME}\`"
+            echo "- Digest: \`${{ steps.push.outputs.digest }}\`"
+            echo "- Tags:"
+            echo '${{ steps.meta.outputs.tags }}' | sed 's/^/  - `/' | sed 's/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"

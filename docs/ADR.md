@@ -149,3 +149,13 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 **선택한 이유**: 서버 계약을 유지하면서 공개 조회, 로그인 고지, 음식점 등록과 리뷰 관리 흐름을 실제 브라우저에서 확인하기 위해서다.
 
 **감수할 점**: 앱을 열 때마다 refresh API로 로그인 상태를 복구해야 하고 frontend와 backend를 함께 실행해야 한다. `HttpOnly` cookie는 JavaScript token 탈취 위험을 줄이지만 cookie 설정과 만료를 backend가 책임져야 한다. 이 화면은 로컬 prototype이며 운영 배포, 관리자 UI와 실제 카카오 브라우저 E2E는 다루지 않는다.
+
+## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
+
+**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. master 대상 PR과 master push에서 backend build, MySQL 9.3 통합 테스트와 컨테이너 health check를 수행하고, master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
+
+Docker Hub PAT만 GitHub Environment secret으로 관리한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
+
+**선택한 이유**: 테스트하지 않은 이미지가 registry에 게시되는 것을 막고, commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물을 분리하기 위해서다.
+
+**감수할 점**: GitHub Actions와 Docker Hub 계정 설정이 추가되고 master 검증 시간이 늘어난다. 현재 고정한 MySQL 9.3 이미지는 유지 종료 상태이므로 지원 버전 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.

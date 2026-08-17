@@ -44,7 +44,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - TanStack Query, React Router, React Hook Form, Zod
 - Vitest, Testing Library와 CSS Modules
 
-초기에는 단일 API 서버와 MySQL을 사용합니다. Redis, Kafka, Elasticsearch, Docker, Testcontainers와 AWS는 현재 범위가 아닙니다.
+초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 GitHub Actions에서 검증한 뒤 Docker Hub에 게시합니다. Redis, Kafka, Elasticsearch, Docker Compose, Testcontainers와 AWS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
@@ -64,10 +64,11 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - OAuth callback의 `HttpOnly` refresh cookie 설정과 cookie 기반 token 회전
 - 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
+- JDK 25 백엔드 Docker 이미지와 master 검증 성공 후 Docker Hub 게시 자동화
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E, Docker·AWS·production 배포는 구현 범위에 포함하지 않습니다.
+관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E, AWS·production 서버 배포는 구현 범위에 포함하지 않습니다.
 
 ## frontend prototype
 
@@ -130,7 +131,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 - Gradle Wrapper
 - Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)
 
-API 서버와 MySQL은 로컬 프로세스로 실행합니다. Docker와 Testcontainers는 사용하지 않습니다.
+기본 로컬 개발에서는 API 서버와 MySQL을 로컬 프로세스로 실행합니다. Docker Compose와 Testcontainers는 사용하지 않습니다.
 
 Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 데이터베이스를 자동으로 삭제하거나 초기화하지 않으므로, 기존 데이터가 필요한 환경에서는 DROP/truncate를 실행하지 않습니다.
 
@@ -165,6 +166,16 @@ http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 ./gradlew bootRun
 ```
 
+백엔드 Docker 이미지는 frontend를 포함하지 않는다. 로컬 컨테이너 실행이 필요하면 예제 파일을 복사한 뒤 실제 로컬 값으로 채운다. `.env.docker.local`은 Git에서 제외된다.
+
+```bash
+cp .env.docker.example .env.docker.local
+docker build --platform linux/amd64 -t rider-voice-api:local .
+docker run --rm --env-file .env.docker.local -p 8080:8080 rider-voice-api:local
+```
+
+Mac이나 Windows에서 호스트 MySQL에 연결할 때는 `DB_URL`의 host로 `host.docker.internal`을 사용한다. Linux에서는 실행 환경에 맞는 host 또는 Docker network 주소를 사용한다. 실제 DB·카카오 secret은 Dockerfile, build argument와 이미지에 넣지 않는다.
+
 frontend를 실행하기 전에 로컬 MySQL과 backend가 실행 중이어야 합니다. Vite 개발 서버는 브라우저의 `/api` 요청을 `http://localhost:8080`으로 proxy하므로 별도 frontend API URL 설정은 필요하지 않습니다. 다른 frontend origin을 사용할 때는 backend의 `FRONTEND_BASE_URL`도 같은 origin으로 설정하고 카카오 Redirect URI는 위 backend callback URI를 그대로 유지합니다.
 
 ```bash
@@ -191,7 +202,7 @@ npm run api:generate
 ./gradlew build
 ```
 
-실행 중인 로컬 MySQL을 사용하는 schema·연관관계·unique·동시성 검증입니다. Docker, Testcontainers를 시작하지 않고 로컬 MySQL이 실행 중인 경우에만 수행합니다.
+실행 중인 로컬 MySQL을 사용하는 schema·연관관계·unique·동시성 검증입니다. 로컬에서는 Docker와 Testcontainers를 시작하지 않고 로컬 MySQL이 실행 중인 경우에만 수행합니다.
 
 ```bash
 ./gradlew integrationTest
@@ -205,6 +216,17 @@ npm run lint
 npm test
 npm run build
 ```
+
+## 백엔드 Docker CI/CD
+
+master 대상 PR과 master push는 GitHub Actions에서 backend build, MySQL 9.3 통합 테스트와 실제 컨테이너 health check를 수행한다. frontend는 이 workflow와 Docker 이미지에서 제외된다. master push의 모든 검증이 성공하면 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다.
+
+GitHub `docker-hub` Environment에는 다음 값만 등록한다.
+
+- variable `DOCKERHUB_USERNAME`: 이미지가 게시될 Docker Hub ID
+- secret `DOCKERHUB_TOKEN`: Read/Write 권한 Docker Hub PAT
+
+실제 DB·카카오 값은 GitHub Actions와 Docker Hub에 저장하지 않는다. CI는 일회용 MySQL 값과 dummy provider 값을 사용하며, 실행 서버와 운영 secret store는 별도 배포 단계에서 결정한다.
 
 ## 개발 원칙
 
