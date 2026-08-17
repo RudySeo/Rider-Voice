@@ -18,7 +18,7 @@
 
 ## ADR-002: MySQL과 JPA를 사용한다
 
-**선택**: MySQL 9.3, Spring Data JPA와 Hibernate를 사용한다. 모든 테이블의 기본 키는 `BaseEntity`의 `Long IDENTITY` 방식을 따른다. 로컬과 통합 테스트에서는 `ddl-auto=update`, 운영 환경에서는 `ddl-auto=none`을 사용한다.
+**선택**: MySQL 8.4.10, Spring Data JPA와 Hibernate를 사용한다. 모든 테이블의 기본 키는 `BaseEntity`의 `Long IDENTITY` 방식을 따른다. 로컬과 통합 테스트에서는 `ddl-auto=update`, 운영 환경에서는 `ddl-auto=none`을 사용한다.
 
 **선택한 이유**: 음식점 관계, 리뷰 이력과 중복 작성 방지 규칙을 애플리케이션뿐 아니라 데이터베이스에서도 지켜야 하기 때문이다.
 
@@ -152,10 +152,18 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 
 ## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
 
-**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. master 대상 PR과 master push에서 backend build, MySQL 9.3 통합 테스트와 컨테이너 health check를 수행하고, master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
+**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. master 대상 PR과 master push에서 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를 수행하고, master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
 
 Docker Hub PAT만 GitHub Environment secret으로 관리한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
 
 **선택한 이유**: 테스트하지 않은 이미지가 registry에 게시되는 것을 막고, commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물을 분리하기 위해서다.
 
-**감수할 점**: GitHub Actions와 Docker Hub 계정 설정이 추가되고 master 검증 시간이 늘어난다. 현재 고정한 MySQL 9.3 이미지는 유지 종료 상태이므로 지원 버전 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.
+**감수할 점**: GitHub Actions와 Docker Hub 계정 설정이 추가되고 master 검증 시간이 늘어난다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.
+
+## ADR-018: 운영 DB 기준을 RDS MySQL 8.4 LTS로 맞춘다
+
+**선택**: 운영 데이터베이스 목표를 RDS MySQL 8.4.10으로 정하고 로컬 개발 기준과 CI 통합 테스트도 같은 버전을 사용한다. 이번 결정은 버전 호환성 기준만 정하며 RDS 리소스 생성, 네트워크와 배포 구성은 별도 작업으로 남긴다.
+
+**선택한 이유**: RDS에서 정식 지원되는 LTS 버전으로 schema, collation, unique 제약과 트랜잭션 동작을 미리 검증하고, RDS Preview에서 유지되지 않는 MySQL 9.3과 운영 환경의 차이를 제거하기 위해서다.
+
+**감수할 점**: 기존 MySQL 9.3 데이터 디렉터리를 8.4로 직접 낮출 수 없으므로 로컬 데이터 이전이 필요하면 논리 dump와 import를 별도로 수행해야 한다. RDS의 TLS, parameter group, 보안 그룹과 실제 네트워크 동작은 비운영 RDS 환경에서 추가로 검증해야 한다.

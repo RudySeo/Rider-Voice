@@ -44,7 +44,7 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
     def test_integration_job_uses_pinned_mysql_and_smoke_tests_the_image(self) -> None:
         self.assertRegex(
             self.content,
-            r"image:\s*mysql:9\.3@sha256:[0-9a-f]{64}",
+            r"image:\s*mysql:8\.4\.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6",
         )
         self.assertIn("mysqladmin ping", self.content)
         self.assertIn("MYSQL_DATABASE", self.content)
