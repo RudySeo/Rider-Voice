@@ -31,7 +31,7 @@
 - TanStack Query, React Router, React Hook Form과 Zod
 - CSS Modules, Vitest와 Testing Library
 
-API 서버, frontend와 `rider` MySQL 데이터베이스는 로컬 개발에서 각각 로컬 프로세스로 실행한다. 운영 데이터베이스 목표는 RDS MySQL 8.4.10이며 CI도 같은 버전으로 검증한다. 백엔드 API는 별도의 Docker 이미지로 패키징할 수 있으며, GitHub Actions가 master 변경을 검증한 뒤 공개 Docker Hub 저장소에 게시한다. 초기 MVP는 API 서버 한 대를 기준으로 하며 Docker Compose, Testcontainers, Redis, Kafka, Elasticsearch와 AWS 리소스 생성·배포는 이번 범위에 포함하지 않는다.
+API 서버, frontend와 `rider` MySQL 데이터베이스는 로컬 개발에서 각각 로컬 프로세스로 실행한다. 운영 데이터베이스 목표는 RDS MySQL 8.4.10이며 CI도 같은 버전으로 검증한다. 백엔드 API는 별도의 Docker 이미지로 패키징할 수 있으며, GitHub Actions가 master 대상 PR을 검증하고 병합된 commit을 공개 Docker Hub 저장소에 게시한다. 초기 MVP는 API 서버 한 대를 기준으로 하며 Docker Compose, Testcontainers, Redis, Kafka, Elasticsearch와 AWS 리소스 생성·배포는 이번 범위에 포함하지 않는다.
 
 로컬 비밀값은 Git에서 제외한 프로젝트 루트 `.env`로 관리한다. `local` profile만 이 파일을 선택적으로 읽고 OS·IDE 환경 변수가 있으면 그 값을 우선한다.
 
@@ -216,12 +216,12 @@ PickupLocation 1
 
 JPA schema, FK, index와 unique 제약은 실행 중인 로컬 MySQL로 확인한다. 카카오 API는 실제 호출 대신 stub server로 성공, timeout, 호출 제한과 잘못된 응답을 검증한다.
 
-GitHub Actions에서는 frontend를 제외하고 다음 순서로 백엔드 전달 가능성을 검증한다.
+GitHub Actions에서는 frontend를 제외하고 master 대상 PR에서 다음 순서로 백엔드 전달 가능성을 검증한다.
 
 - JDK 25와 Gradle Wrapper로 단위·계약 테스트와 backend build를 수행한다.
 - 격리된 빈 MySQL 8.4.10 service container에 Flyway migration을 적용하고 Hibernate validation, 재실행 안전성과 schema 주요 제약을 확인한다.
 - migration이 적용된 같은 MySQL에서 schema·unique·동시성 통합 테스트를 수행한다.
 - 같은 MySQL schema와 CI 전용 dummy provider 설정으로 만들어진 Docker 이미지를 운영 profile로 실행하고 `/actuator/health`를 확인한다.
-- master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 Docker Hub에 게시한다.
+- 필수 검증이 성공한 PR만 master에 병합할 수 있게 보호하고, master push에서는 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 Docker Hub에 게시한다.
 
-실제 DB·카카오 secret은 Docker build와 이미지에 포함하지 않는다. CI는 일회용 DB 값과 dummy provider 값을 사용하고, Docker Hub PAT만 GitHub Environment secret으로 전달한다. 실행 서버와 운영 secret store는 이번 범위에 포함하지 않는다.
+실제 DB·카카오 secret은 Docker build와 이미지에 포함하지 않는다. CI는 일회용 DB 값과 dummy provider 값을 사용한다. Docker Hub PAT는 GitHub Environment secret으로, 자동 Draft PR용 fine-grained GitHub PAT는 최소 저장소 권한의 Repository secret으로 전달한다. 실행 서버와 운영 secret store는 이번 범위에 포함하지 않는다.

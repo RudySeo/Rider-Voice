@@ -152,13 +152,13 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 
 ## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
 
-**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. master 대상 PR과 master push에서 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를 수행하고, master push의 모든 검증이 성공한 경우에만 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
+**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR에서 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를 수행하고, 필수 검증을 통과한 PR만 master에 병합할 수 있게 보호한다. master push에서는 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
 
-Docker Hub PAT만 GitHub Environment secret으로 관리한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
+Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된 PR의 CI를 별도 승인 없이 시작하기 위한 fine-grained GitHub PAT는 Contents Read와 Pull requests Read/Write만 허용한 Repository secret으로 관리하고, 값이 없으면 기본 `GITHUB_TOKEN`을 사용한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
 
-**선택한 이유**: 테스트하지 않은 이미지가 registry에 게시되는 것을 막고, commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물을 분리하기 위해서다.
+**선택한 이유**: PR의 merge ref로 master와 결합된 결과를 한 번 검증해 테스트하지 않은 이미지가 registry에 게시되는 것을 막고, feature push와 master push의 중복 검증 시간을 줄이며, commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물을 분리하기 위해서다.
 
-**감수할 점**: GitHub Actions와 Docker Hub 계정 설정이 추가되고 master 검증 시간이 늘어난다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.
+**감수할 점**: master 직접 push를 차단하고 `Backend test`, `MySQL integration and container smoke` 상태 검사를 필수화해야 이 정책이 안전하다. PR은 최신 master 기준 검증을 통과해야 하며, 보호 규칙 우회가 발생하면 게시 전에 전체 검증을 반복하지 않는 위험이 생긴다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.
 
 ## ADR-018: 운영 DB 기준을 RDS MySQL 8.4 LTS로 맞춘다
 
