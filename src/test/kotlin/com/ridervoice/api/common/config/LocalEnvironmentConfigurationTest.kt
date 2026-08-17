@@ -12,10 +12,12 @@ class LocalEnvironmentConfigurationTest {
         val local = resourceText("application-local.yml")
         val test = resourceText("application-test.yml")
         val prod = resourceText("application-prod.yml")
+        val migrationTest = resourceText("application-migration-test.yml")
 
         assertThat(local).contains("optional:file:./.env[.properties]")
         assertThat(test).doesNotContain(".env")
         assertThat(prod).doesNotContain(".env")
+        assertThat(migrationTest).doesNotContain(".env")
     }
 
     @Test

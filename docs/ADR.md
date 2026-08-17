@@ -18,11 +18,11 @@
 
 ## ADR-002: MySQL과 JPA를 사용한다
 
-**선택**: MySQL 8.4.10, Spring Data JPA와 Hibernate를 사용한다. 모든 테이블의 기본 키는 `BaseEntity`의 `Long IDENTITY` 방식을 따른다. 로컬과 통합 테스트에서는 `ddl-auto=update`, 운영 환경에서는 `ddl-auto=none`을 사용한다.
+**선택**: MySQL 8.4.10, Spring Data JPA와 Hibernate를 사용한다. 모든 테이블의 기본 키는 `BaseEntity`의 `Long IDENTITY` 방식을 따른다. 로컬과 일반 통합 테스트에서는 `ddl-auto=update`를 사용한다. 운영과 migration 전용 검증에서는 Flyway가 schema를 반영하고 Hibernate `ddl-auto=validate`가 Entity mapping과 일치하는지 확인한다.
 
 **선택한 이유**: 음식점 관계, 리뷰 이력과 중복 작성 방지 규칙을 애플리케이션뿐 아니라 데이터베이스에서도 지켜야 하기 때문이다.
 
-**감수할 점**: 현재 로컬 단계에는 데이터베이스 변경 이력과 되돌리기 기능이 없다. 실제 배포 전에는 migration 도구를 따로 결정해야 한다.
+**감수할 점**: 로컬 `ddl-auto=update` schema와 versioned migration 사이의 불일치를 별도 migration 검증으로 막아야 한다. 운영 schema 변경은 Entity 수정만으로 끝나지 않고 Flyway migration을 함께 작성해야 한다.
 
 ## ADR-003: 기능별로 책임을 나눈다
 
@@ -167,3 +167,11 @@ Docker Hub PAT만 GitHub Environment secret으로 관리한다. 실제 DB·카�
 **선택한 이유**: RDS에서 정식 지원되는 LTS 버전으로 schema, collation, unique 제약과 트랜잭션 동작을 미리 검증하고, RDS Preview에서 유지되지 않는 MySQL 9.3과 운영 환경의 차이를 제거하기 위해서다.
 
 **감수할 점**: 기존 MySQL 9.3 데이터 디렉터리를 8.4로 직접 낮출 수 없으므로 로컬 데이터 이전이 필요하면 논리 dump와 import를 별도로 수행해야 한다. RDS의 TLS, parameter group, 보안 그룹과 실제 네트워크 동작은 비운영 RDS 환경에서 추가로 검증해야 한다.
+
+## ADR-019: Flyway로 운영 schema 변경 이력을 관리한다
+
+**선택**: 운영 DB schema는 `V1__...sql`부터 시작하는 Flyway versioned migration으로 변경한다. 애플리케이션 시작 시 별도 migration 계정으로 아직 적용되지 않은 migration을 실행하고, 완료 후 runtime 계정으로 Hibernate `ddl-auto=validate`를 수행한다. migration 전용 CI 검증은 빈 MySQL 8.4.10에서 최초 적용과 재실행을 확인한다. `clean`, 자동 baseline과 out-of-order 적용은 허용하지 않으며 적용된 migration은 수정·삭제하지 않는다.
+
+**선택한 이유**: 빈 RDS를 재현 가능하게 초기화하고 코드와 운영 schema의 불일치를 배포 전에 발견하며, API runtime 계정이 DDL 권한을 계속 갖지 않게 하기 위해서다.
+
+**감수할 점**: Entity 또는 제약 변경마다 SQL migration을 함께 작성해야 한다. 애플리케이션 시작 프로세스가 migration 자격 증명도 받으므로 완전한 자격 증명 격리가 필요해지면 별도 일회성 migration 실행기로 분리해야 한다. 적용된 DDL을 자동 rollback하지 않으며 후속 호환 migration 또는 RDS 복구 절차를 사용한다.

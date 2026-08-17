@@ -2,7 +2,9 @@
 
 ## 1. 기준
 
-Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 10개 테이블 구조와 주요 관계를 정리합니다
+Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 10개 도메인 테이블 구조와 주요 관계를 정리합니다. 운영 schema의 최초 기준은 Flyway `V1__create_initial_schema.sql`이며 이후 변경은 새 versioned migration으로 반영합니다.
+
+Flyway가 생성하는 `flyway_schema_history`는 migration 적용 이력용 관리 테이블이므로 아래 10개 도메인 테이블 수와 관계도에는 포함하지 않습니다.
 
 모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 
@@ -68,7 +70,7 @@ erDiagram
         bigint author_user_id FK
         bigint restaurant_id FK
         varchar visit_month
-        tinyint current_slot "nullable"
+        int current_slot "nullable"
         datetime deleted_at "nullable"
         enum pickup_space_cleanliness
         enum packaging_stability
@@ -87,7 +89,7 @@ erDiagram
         bigint review_id FK
         bigint decided_by_user_id FK "nullable"
         enum reason
-        text details "nullable"
+        tinytext details "nullable"
         enum status
         enum decision "nullable"
         datetime decided_at "nullable"
@@ -99,7 +101,7 @@ erDiagram
         bigint restaurant_id FK
         bigint decided_by_user_id FK "nullable"
         enum reason
-        text details "nullable"
+        tinytext details "nullable"
         enum status
         enum decision "nullable"
         datetime decided_at "nullable"

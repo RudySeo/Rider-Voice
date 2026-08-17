@@ -36,10 +36,24 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertIn("integration-and-container-smoke:", self.content)
         self.assertIn("publish-image:", self.content)
         self.assertIn("./gradlew build", self.content)
+        self.assertIn("./gradlew migrationTest", self.content)
         self.assertIn("./gradlew integrationTest", self.content)
         self.assertNotIn("setup-node", self.content)
         self.assertNotIn("npm ", self.content)
         self.assertNotRegex(self.content, r"(?m)^\s{2}frontend:")
+
+    def test_schema_migration_runs_before_integration_and_uses_separate_credentials(self) -> None:
+        migration_position = self.content.index("./gradlew migrationTest")
+        integration_position = self.content.index("./gradlew integrationTest")
+
+        self.assertLess(migration_position, integration_position)
+        self.assertIn("DB_MIGRATION_USERNAME", self.content)
+        self.assertIn("DB_MIGRATION_PASSWORD", self.content)
+        self.assertRegex(self.content, r"GRANT\s+SELECT,\s*INSERT,\s*UPDATE,\s*DELETE")
+        self.assertIn("Verify runtime user cannot change the schema", self.content)
+        self.assertIn("Runtime database user unexpectedly has DDL permission", self.content)
+        self.assertIn("--env DB_MIGRATION_USERNAME", self.content)
+        self.assertIn("--env DB_MIGRATION_PASSWORD", self.content)
 
     def test_integration_job_uses_pinned_mysql_and_smoke_tests_the_image(self) -> None:
         self.assertRegex(
