@@ -37,6 +37,7 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertIn("integration-and-container-smoke:", self.pr_content)
         self.assertNotIn("publish-image:", self.pr_content)
         self.assertIn("./gradlew build", self.pr_content)
+        self.assertIn("scripts/test_aws_deployment_contract.py", self.pr_content)
         self.assertIn("./gradlew migrationTest", self.pr_content)
         self.assertIn("./gradlew integrationTest", self.pr_content)
         self.assertNotIn("DOCKERHUB_TOKEN", self.pr_content)

@@ -18,6 +18,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: docker-hub
+    outputs:
+      image_name: ${{ steps.release.outputs.image_name }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      image_digest: ${{ steps.push.outputs.digest }}
     permissions:
       contents: read
       id-token: write
@@ -69,6 +73,12 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      - name: Export immutable release
+        id: release
+        run: |
+          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
       - name: Summarize published image
         run: |
           {
@@ -78,4 +88,47 @@ jobs:
             echo "- Digest: \`${{ steps.push.outputs.digest }}\`"
             echo "- Tags:"
             echo '${{ steps.meta.outputs.tags }}' | sed 's/^/  - `/' | sed 's/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    name: Deploy backend to production EC2
+    needs: publish-image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: rider-voice-production-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      IMAGE_NAME: ${{ needs.publish-image.outputs.image_name }}
+      IMAGE_TAG: ${{ needs.publish-image.outputs.image_tag }}
+    steps:
+      - name: Checkout deployment client
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: rider-voice-${{ github.run_id }}
+
+      - name: Deploy immutable image through SSM
+        run: deploy/github/send-ssm-deploy.sh "$EC2_INSTANCE_ID" "$IMAGE_NAME" "$IMAGE_TAG"
+
+      - name: Summarize production deployment
+        if: success()
+        run: |
+          {
+            echo "## Production deployment"
+            echo
+            echo "- Instance: \`${EC2_INSTANCE_ID}\`"
+            echo "- Image: \`${IMAGE_NAME}:${IMAGE_TAG}\`"
+            echo "- Digest: \`${{ needs.publish-image.outputs.image_digest }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

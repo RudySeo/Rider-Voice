@@ -106,13 +106,16 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - master 대상 PR의 백엔드 전체 검증과 병합 후 Docker Hub 게시 자동화
 - 운영 DB 목표인 RDS MySQL 8.4.10과 동일한 버전의 CI 통합 검증
 - Flyway versioned migration과 Hibernate schema validation을 이용한 운영 DB 변경 검증
+- 기존 Ubuntu EC2 한 대와 비공개 RDS MySQL을 사용하는 백엔드 운영 배포
+- GitHub OIDC와 SSM Run Command를 이용한 master 이미지 자동 배포 및 컨테이너 rollback
+- Elastic IP 기반 `sslip.io` 임시 주소, Nginx와 Let's Encrypt를 이용한 HTTPS
 
 ### 이번에 포함하지 않는 것
 
 - 라이더 신분이나 실제 방문 인증
-- 실제 운영용 앱, 관리자 화면과 실행 서버 배포 작업
+- 실제 운영용 frontend 앱과 관리자 화면 배포
 - Redis, Kafka, Elasticsearch 같은 추가 인프라
-- Docker Compose, AWS 리소스 생성과 운영 환경 배포
+- Docker Compose, ALB, ECS, Route 53, NAT Gateway와 다중 API 인스턴스
 
 ## 8. 완료 기준
 
@@ -127,3 +130,6 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - master 대상 PR에서 백엔드·MySQL 통합 테스트와 컨테이너 기동 검증이 성공해야 병합할 수 있으며, 병합된 백엔드 이미지만 Docker Hub에 게시되어야 합니다.
 - MySQL 통합 검증은 운영 RDS 목표 버전인 MySQL 8.4.10을 사용해야 합니다.
 - 완전히 빈 MySQL에 Flyway migration을 적용한 뒤 Entity, FK, unique와 index가 일치해야 합니다.
+- master 이미지가 Docker Hub에 게시되면 GitHub가 장기 AWS access key 없이 OIDC로 배포 권한을 얻어 지정 EC2에 자동 배포해야 합니다.
+- 운영 API는 Nginx 뒤의 localhost Docker container로만 실행되고 HTTPS health check를 통과해야 하며, 새 container가 정상화되지 않으면 이전 이미지로 복구해야 합니다.
+- RDS는 외부에 공개하지 않고 EC2에서 TLS host 검증을 거쳐 runtime·migration 분리 계정으로 연결해야 합니다.
