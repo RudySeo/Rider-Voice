@@ -12,10 +12,11 @@ import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
+import org.slf4j.LoggerFactory
 import java.math.BigDecimal
+import java.net.SocketTimeoutException
 import java.net.http.HttpClient
 import java.net.http.HttpTimeoutException
-import java.net.SocketTimeoutException
 
 class KakaoKeywordSearchAdapter(
     private val client: KakaoLocalClient,
@@ -56,6 +57,7 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
         query: String,
         limit: Int,
     ): ProviderSearchResult<ExternalRestaurantCandidate> = execute(
+        operation = KakaoLocalOperation.KEYWORD_SEARCH,
         path = KEYWORD_SEARCH_PATH,
         query = query,
         limit = limit.coerceAtMost(KEYWORD_SEARCH_MAX_SIZE),
@@ -66,6 +68,7 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
         query: String,
         limit: Int,
     ): ProviderSearchResult<ExternalAddressCandidate> = execute(
+        operation = KakaoLocalOperation.ADDRESS_SEARCH,
         path = ADDRESS_SEARCH_PATH,
         query = query,
         limit = limit,
@@ -73,37 +76,90 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
     ) { response -> response.documents.map(KakaoAddressDocument::toCandidate) }
 
     private fun <R : Any, T> execute(
+        operation: KakaoLocalOperation,
         path: String,
         query: String,
         limit: Int,
         responseType: Class<R>,
         map: (R) -> List<T>,
-    ): ProviderSearchResult<T> = try {
-        val response = restClient.get()
-            .uri { builder ->
-                builder.path(path)
-                    .queryParam("query", query)
-                    .queryParam("size", limit)
-                    .build()
-            }
-            .retrieve()
-            .body(responseType)
-            ?: return ProviderSearchResult.Unavailable(ProviderFailureReason.INVALID_RESPONSE)
+    ): ProviderSearchResult<T> {
+        val startedAtNanos = System.nanoTime()
+        return try {
+            val response = restClient.get()
+                .uri { builder ->
+                    builder.path(path)
+                        .queryParam("query", query)
+                        .queryParam("size", limit)
+                        .build()
+                }
+                .retrieve()
+                .body(responseType)
+                ?: return unavailable(
+                    operation = operation,
+                    reason = ProviderFailureReason.INVALID_RESPONSE,
+                    statusCode = null,
+                    exceptionType = "EmptyResponse",
+                    startedAtNanos = startedAtNanos,
+                )
 
-        ProviderSearchResult.Available(map(response))
-    } catch (exception: RestClientResponseException) {
-        ProviderSearchResult.Unavailable(exception.toFailureReason())
-    } catch (exception: ResourceAccessException) {
-        val reason = if (exception.hasTimeoutCause()) {
-            ProviderFailureReason.TIMEOUT
-        } else {
-            ProviderFailureReason.CONNECTION_FAILED
+            ProviderSearchResult.Available(map(response))
+        } catch (exception: RestClientResponseException) {
+            unavailable(
+                operation = operation,
+                reason = exception.toFailureReason(),
+                statusCode = exception.statusCode.value(),
+                exceptionType = exception.safeTypeName(),
+                startedAtNanos = startedAtNanos,
+            )
+        } catch (exception: ResourceAccessException) {
+            val reason = if (exception.hasTimeoutCause()) {
+                ProviderFailureReason.TIMEOUT
+            } else {
+                ProviderFailureReason.CONNECTION_FAILED
+            }
+            unavailable(
+                operation = operation,
+                reason = reason,
+                statusCode = null,
+                exceptionType = exception.safeTypeName(),
+                startedAtNanos = startedAtNanos,
+            )
+        } catch (exception: InvalidKakaoResponseException) {
+            unavailable(
+                operation = operation,
+                reason = ProviderFailureReason.INVALID_RESPONSE,
+                statusCode = null,
+                exceptionType = exception.safeTypeName(),
+                startedAtNanos = startedAtNanos,
+            )
+        } catch (exception: RestClientException) {
+            unavailable(
+                operation = operation,
+                reason = ProviderFailureReason.INVALID_RESPONSE,
+                statusCode = null,
+                exceptionType = exception.safeTypeName(),
+                startedAtNanos = startedAtNanos,
+            )
         }
-        ProviderSearchResult.Unavailable(reason)
-    } catch (_: InvalidKakaoResponseException) {
-        ProviderSearchResult.Unavailable(ProviderFailureReason.INVALID_RESPONSE)
-    } catch (_: RestClientException) {
-        ProviderSearchResult.Unavailable(ProviderFailureReason.INVALID_RESPONSE)
+    }
+
+    private fun <T> unavailable(
+        operation: KakaoLocalOperation,
+        reason: ProviderFailureReason,
+        statusCode: Int?,
+        exceptionType: String,
+        startedAtNanos: Long,
+    ): ProviderSearchResult<T> {
+        val elapsedMs = (System.nanoTime() - startedAtNanos).coerceAtLeast(0L) / NANOS_PER_MILLISECOND
+        logger.warn(
+            "Kakao Local request failed operation={} reason={} status={} exceptionType={} elapsedMs={}",
+            operation,
+            reason,
+            statusCode ?: "none",
+            exceptionType,
+            elapsedMs,
+        )
+        return ProviderSearchResult.Unavailable(reason)
     }
 
     private fun RestClientResponseException.toFailureReason(): ProviderFailureReason = when {
@@ -118,11 +174,21 @@ class KakaoLocalClient(properties: KakaoLocalProperties) {
             cause is HttpTimeoutException || cause is SocketTimeoutException
         }
 
+    private fun Throwable.safeTypeName(): String =
+        javaClass.simpleName.takeIf(String::isNotBlank) ?: javaClass.name
+
     private companion object {
+        val logger = LoggerFactory.getLogger(KakaoLocalClient::class.java)
+        const val NANOS_PER_MILLISECOND = 1_000_000L
         const val KEYWORD_SEARCH_MAX_SIZE = 15
         const val KEYWORD_SEARCH_PATH = "/v2/local/search/keyword.json"
         const val ADDRESS_SEARCH_PATH = "/v2/local/search/address.json"
     }
+}
+
+private enum class KakaoLocalOperation {
+    KEYWORD_SEARCH,
+    ADDRESS_SEARCH,
 }
 
 private data class KakaoKeywordSearchResponse(

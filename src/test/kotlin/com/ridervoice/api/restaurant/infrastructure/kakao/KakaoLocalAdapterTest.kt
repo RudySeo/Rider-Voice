@@ -1,5 +1,9 @@
 package com.ridervoice.api.restaurant.infrastructure.kakao
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.ridervoice.api.restaurant.application.model.ExternalAddressCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalRestaurantCandidate
 import com.ridervoice.api.restaurant.application.model.ProviderFailureReason
@@ -10,6 +14,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.net.InetSocketAddress
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -20,17 +25,23 @@ class KakaoLocalAdapterTest {
 
     private lateinit var server: HttpServer
     private lateinit var baseUrl: URI
+    private lateinit var logAppender: ListAppender<ILoggingEvent>
+    private val kakaoLogger = LoggerFactory.getLogger(KakaoLocalClient::class.java) as Logger
 
     @BeforeEach
     fun startServer() {
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.start()
         baseUrl = URI.create("http://127.0.0.1:${server.address.port}")
+        logAppender = ListAppender<ILoggingEvent>().apply { start() }
+        kakaoLogger.addAppender(logAppender)
     }
 
     @AfterEach
     fun stopServer() {
         server.stop(0)
+        kakaoLogger.detachAppender(logAppender)
+        logAppender.stop()
     }
 
     @Test
@@ -178,6 +189,44 @@ class KakaoLocalAdapterTest {
             assertThat(adapter.search("강남 분식", 20))
                 .isEqualTo(ProviderSearchResult.Unavailable(expectedReason))
         }
+
+        assertThat(logMessages())
+            .anyMatch { it.contains("reason=RATE_LIMITED") && it.contains("status=429") }
+            .anyMatch { it.contains("reason=CLIENT_ERROR") && it.contains("status=400") }
+            .anyMatch { it.contains("reason=SERVER_ERROR") && it.contains("status=503") }
+    }
+
+    @Test
+    fun `logs provider neutral failure diagnostics without secrets request data or provider bodies`() {
+        stubJson(
+            "/v2/local/search/keyword.json",
+            401,
+            """{"message":"provider-secret-detail"}""",
+        )
+
+        val result = keywordAdapter().search("sensitive-search-query", 20)
+
+        assertThat(result)
+            .isEqualTo(ProviderSearchResult.Unavailable(ProviderFailureReason.CLIENT_ERROR))
+        assertThat(logAppender.list).hasSize(1)
+        val event = logAppender.list.single()
+        assertThat(event.level).isEqualTo(Level.WARN)
+        assertThat(event.formattedMessage)
+            .contains(
+                "operation=KEYWORD_SEARCH",
+                "reason=CLIENT_ERROR",
+                "status=401",
+                "exceptionType=",
+                "elapsedMs=",
+            )
+            .doesNotContain(
+                "local-rest-key",
+                "sensitive-search-query",
+                "provider-secret-detail",
+                "Authorization",
+                "KakaoAK",
+            )
+        assertThat(event.throwableProxy).isNull()
     }
 
     @Test
@@ -194,6 +243,11 @@ class KakaoLocalAdapterTest {
             assertThat(keywordAdapter(baseUrl.resolve("/invalid-$index/")).search("강남 분식", 20))
                 .isEqualTo(ProviderSearchResult.Unavailable(ProviderFailureReason.INVALID_RESPONSE))
         }
+
+        assertThat(logMessages())
+            .hasSize(2)
+            .allMatch { it.contains("reason=INVALID_RESPONSE") && it.contains("status=none") }
+            .noneMatch { it.contains("not-json") || it.contains("\"x\":\"invalid\"") }
     }
 
     @Test
@@ -206,6 +260,9 @@ class KakaoLocalAdapterTest {
 
         assertThat(adapter.search("강남 분식", 20))
             .isEqualTo(ProviderSearchResult.Unavailable(ProviderFailureReason.TIMEOUT))
+        assertThat(logMessages()).hasSize(1)
+        assertThat(logMessages().single())
+            .contains("operation=KEYWORD_SEARCH", "reason=TIMEOUT", "status=none")
     }
 
     @Test
@@ -215,6 +272,20 @@ class KakaoLocalAdapterTest {
 
         assertThat(keywordAdapter(unavailableBaseUrl).search("강남 분식", 20))
             .isEqualTo(ProviderSearchResult.Unavailable(ProviderFailureReason.CONNECTION_FAILED))
+        assertThat(logMessages()).hasSize(1)
+        assertThat(logMessages().single())
+            .contains("operation=KEYWORD_SEARCH", "reason=CONNECTION_FAILED", "status=none")
+    }
+
+    @Test
+    fun `logs address search operation separately`() {
+        stubJson("/v2/local/search/address.json", 503, """{"message":"unavailable"}""")
+
+        assertThat(addressAdapter().search("서울 강남구 테헤란로", 20))
+            .isEqualTo(ProviderSearchResult.Unavailable(ProviderFailureReason.SERVER_ERROR))
+        assertThat(logMessages()).hasSize(1)
+        assertThat(logMessages().single())
+            .contains("operation=ADDRESS_SEARCH", "reason=SERVER_ERROR", "status=503")
     }
 
     private fun keywordAdapter(
@@ -247,4 +318,6 @@ class KakaoLocalAdapterTest {
         exchange.sendResponseHeaders(status, bytes.size.toLong())
         exchange.responseBody.use { it.write(bytes) }
     }
+
+    private fun logMessages(): List<String> = logAppender.list.map(ILoggingEvent::getFormattedMessage)
 }
