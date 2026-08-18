@@ -178,7 +178,7 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-020: 기존 EC2 한 대에 OIDC와 SSM으로 백엔드를 자동 배포한다
 
-**선택**: Docker Hub에 commit SHA 이미지가 게시되면 GitHub Actions가 `production` environment로 제한된 AWS OIDC role을 얻고 SSM Run Command로 기존 Ubuntu EC2의 배포 script를 실행한다. EC2에는 Nginx와 Docker를 두고 API container는 `127.0.0.1:8080`에만 노출한다. Elastic IP를 포함한 `sslip.io` 임시 주소와 Let's Encrypt 인증서를 사용한다. 운영 DB는 같은 VPC의 private Single-AZ RDS MySQL 8.4.10을 사용하며 runtime과 Flyway 계정을 분리하고 TLS host 검증을 강제한다. 운영 secret은 SSM Parameter Store Standard SecureString으로 관리한다.
+**선택**: Docker Hub에 commit SHA 이미지가 게시되면 GitHub Actions가 `production` environment로 제한된 AWS OIDC role을 얻고 SSM Run Command로 기존 Ubuntu EC2의 배포 script를 실행한다. EC2에는 Nginx와 Docker를 두고 API container는 `127.0.0.1:8080`에만 노출한다. Elastic IP를 포함한 `sslip.io` 임시 주소와 Let's Encrypt 인증서를 사용한다. 운영 DB는 같은 VPC의 private Single-AZ RDS MySQL 8.4.10을 사용하며 runtime과 Flyway 계정을 분리하고 TLS host 검증을 강제한다. RDS CA truststore는 JDBC URL 속성으로 MySQL Connector/J에만 적용하고 JVM 기본 공개 CA truststore는 외부 HTTPS provider 연결에 유지한다. 운영 secret은 SSM Parameter Store Standard SecureString으로 관리한다.
 
 새 image는 `sha-<12자리>` 불변 태그로 교체하고 health check에 실패하면 직전 image를 다시 실행한다. 운영 migration은 자동 rollback하지 않으며 이전 application과 호환되는 추가형 변경을 기본으로 한다. 초기에는 frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ를 사용하지 않는다.
 

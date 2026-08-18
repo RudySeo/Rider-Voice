@@ -92,10 +92,15 @@ read_parameter() {
 }
 
 : > "${ENV_FILE}"
+db_url=""
 for parameter_name in "${REQUIRED_PARAMETERS[@]}"; do
     if ! parameter_value="$(read_parameter "${parameter_name}")"; then
         echo "Missing required SSM parameter: ${PARAMETER_PATH}/${parameter_name}" >&2
         exit 1
+    fi
+    if [[ "${parameter_name}" == "DB_URL" ]]; then
+        db_url="${parameter_value}"
+        continue
     fi
     printf '%s=%s\n' "${parameter_name}" "${parameter_value}" >> "${ENV_FILE}"
 done
@@ -104,17 +109,23 @@ for parameter_name in "${OPTIONAL_PARAMETERS[@]}"; do
         printf '%s=%s\n' "${parameter_name}" "${parameter_value}" >> "${ENV_FILE}"
     fi
 done
-chmod 600 "${ENV_FILE}"
 
-readonly DB_URL="$(read_parameter DB_URL)"
+readonly DB_URL="${db_url}"
 if ! grep -Eiq '(^|[?&])sslMode=VERIFY_IDENTITY(&|$)' <<< "${DB_URL}"; then
     echo "DB_URL must contain sslMode=VERIFY_IDENTITY." >&2
+    exit 1
+fi
+if grep -Eiq '(^|[?&])trustCertificateKeyStore(Url|Password|Type)=' <<< "${DB_URL}"; then
+    echo "DB_URL must not contain trustCertificateKeyStore properties." >&2
     exit 1
 fi
 if [[ "$(read_parameter AUTH_COOKIE_SECURE)" != "true" ]]; then
     echo "AUTH_COOKIE_SECURE must be true in production." >&2
     exit 1
 fi
+readonly DB_URL_WITH_TRUSTSTORE="${DB_URL}&trustCertificateKeyStoreUrl=file:${TRUSTSTORE_CONTAINER_PATH}&trustCertificateKeyStorePassword=${TRUSTSTORE_PASSWORD}&trustCertificateKeyStoreType=PKCS12"
+printf 'DB_URL=%s\n' "${DB_URL_WITH_TRUSTSTORE}" >> "${ENV_FILE}"
+chmod 600 "${ENV_FILE}"
 
 start_container() {
     local image_ref="$1"
@@ -125,7 +136,6 @@ start_container() {
         --publish 127.0.0.1:8080:8080 \
         --env-file "${ENV_FILE}" \
         --env SPRING_PROFILES_ACTIVE=prod \
-        --env "JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=${TRUSTSTORE_CONTAINER_PATH} -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD} -Djavax.net.ssl.trustStoreType=PKCS12" \
         --volume "${TRUSTSTORE_HOST_DIR}:/app/certs:ro" \
         --log-driver json-file \
         --log-opt max-size=10m \
