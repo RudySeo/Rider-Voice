@@ -124,6 +124,8 @@ RDS master 계정은 애플리케이션과 SSM `/rider-voice/prod/` 경로에 �
 jdbc:mysql://<RDS_ENDPOINT>:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&sslMode=VERIFY_IDENTITY
 ```
 
+SSM에는 위 기본 URL만 저장한다. EC2 배포 script가 container에 mount한 RDS CA truststore의 Connector/J 속성을 runtime과 Flyway가 함께 사용하는 `DB_URL`에 추가한다. `trustCertificateKeyStore*` 속성을 SSM 값에 직접 중복해서 넣지 않는다. JVM 기본 truststore는 Kakao 같은 공개 HTTPS provider 인증에 사용하고 RDS 전용 truststore로 교체하지 않는다.
+
 frontend가 아직 배포되지 않았으므로 OAuth callback 후 이동하는 frontend 화면은 동작하지 않는다. Kakao developer console의 redirect URI에는 backend callback URL을 정확히 등록하되, 현재 운영 확인은 공개 API, OpenAPI와 health endpoint까지만 수행한다.
 
 ## 6. EC2 bootstrap과 최초 배포
@@ -136,7 +138,7 @@ ssh ubuntu@<ELASTIC_IP>
 sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_EMAIL>
 ```
 
-bootstrap은 Docker, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 RDS CA truststore를 만든다. 완료 후 현재 검증된 최초 이미지를 배포한다.
+bootstrap은 Docker, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore를 만든다. 완료 후 현재 검증된 최초 이미지를 배포한다.
 
 ```bash
 sudo /opt/rider-voice/deploy.sh <DOCKERHUB_USERNAME>/rider-voice-api sha-81eb17b7a492
