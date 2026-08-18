@@ -150,8 +150,10 @@ Docker의 8080 binding이 `127.0.0.1`인지 확인하고 외부에서 `http://<D
 
 1. `IAM` → `Identity providers`에서 provider URL `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`인 OIDC provider를 만든다.
 2. GitHub deploy role을 만든다.
-3. [github-oidc-trust-policy.json](github-oidc-trust-policy.json)의 계정 ID를 바꿔 trust policy로 사용한다. `sub`는 `repo:RudySeo/Rider-Voice:environment:production` 그대로 제한한다.
+3. [github-oidc-trust-policy.json](github-oidc-trust-policy.json)의 계정 ID를 바꿔 trust policy로 사용한다. `sub`는 `repo:RudySeo@78248966/Rider-Voice@1308728176:environment:production` 그대로 제한한다.
 4. [github-ssm-deploy-policy.json](github-ssm-deploy-policy.json)의 계정 ID와 EC2 instance ID를 바꿔 inline policy로 연결한다.
+
+이 저장소는 2026년 7월 15일 이후 생성되어 GitHub의 immutable OIDC subject claim을 사용한다. `78248966`은 GitHub owner ID, `1308728176`은 repository ID이며 secret이 아니다. 이름만 포함한 구형 `repo:RudySeo/Rider-Voice:environment:production` subject는 실제 token과 일치하지 않아 `sts:AssumeRoleWithWebIdentity`가 거부된다. 영구 ID를 제거하거나 wildcard로 바꾸지 않는다.
 
 이 role에는 Parameter Store 읽기, EC2 변경, RDS 변경과 IAM 변경 권한을 주지 않는다. 지정 EC2에서 `AWS-RunShellScript`를 실행하고 결과를 읽는 권한만 가진다.
 

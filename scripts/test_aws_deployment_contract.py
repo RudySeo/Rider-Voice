@@ -1,8 +1,9 @@
 """Contracts for the single-EC2 AWS production deployment."""
 
-from pathlib import Path
+import json
 import re
 import unittest
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +15,7 @@ DEPLOY = ROOT / "deploy" / "ec2" / "deploy.sh"
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
 SSM_DEPLOY = ROOT / "deploy" / "github" / "send-ssm-deploy.sh"
 AWS_GUIDE = ROOT / "deploy" / "aws" / "README.md"
+OIDC_TRUST_POLICY = ROOT / "deploy" / "aws" / "github-oidc-trust-policy.json"
 
 
 class AwsDeploymentContractTest(unittest.TestCase):
@@ -68,6 +70,21 @@ class AwsDeploymentContractTest(unittest.TestCase):
             with self.subTest(action=action_reference):
                 self.assertRegex(action_reference, r"^[^@]+@[0-9a-f]{40}$")
 
+    def test_github_oidc_trust_uses_the_immutable_repository_subject(self) -> None:
+        policy = json.loads(OIDC_TRUST_POLICY.read_text(encoding="utf-8"))
+        condition = policy["Statement"][0]["Condition"]["StringEquals"]
+
+        self.assertEqual(
+            condition["token.actions.githubusercontent.com:aud"],
+            "sts.amazonaws.com",
+        )
+        subject = condition["token.actions.githubusercontent.com:sub"]
+        self.assertEqual(
+            subject,
+            "repo:RudySeo@78248966/Rider-Voice@1308728176:environment:production",
+        )
+        self.assertNotIn("*", subject)
+
     def test_manual_rollback_reuses_the_production_oidc_path(self) -> None:
         rollback = ROLLBACK_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", rollback)
@@ -97,6 +114,7 @@ class AwsDeploymentContractTest(unittest.TestCase):
             "3306",
             "production",
             "OIDC",
+            "repo:RudySeo@78248966/Rider-Voice@1308728176:environment:production",
             "80%",
             "100%",
         ):
