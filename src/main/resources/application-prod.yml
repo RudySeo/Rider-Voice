@@ -1,3 +1,7 @@
+server:
+  # Production traffic reaches the API only through the localhost Nginx proxy.
+  forward-headers-strategy: framework
+
 spring:
   config:
     activate:

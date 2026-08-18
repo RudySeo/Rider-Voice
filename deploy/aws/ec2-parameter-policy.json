@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadOnlyRiderVoiceProductionParameters",
+      "Effect": "Allow",
+      "Action": "ssm:GetParametersByPath",
+      "Resource": [
+        "arn:aws:ssm:ap-northeast-2:__AWS_ACCOUNT_ID__:parameter/rider-voice/prod",
+        "arn:aws:ssm:ap-northeast-2:__AWS_ACCOUNT_ID__:parameter/rider-voice/prod/*"
+      ]
+    }
+  ]
+}

@@ -175,3 +175,13 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 빈 RDS를 재현 가능하게 초기화하고 코드와 운영 schema의 불일치를 배포 전에 발견하며, API runtime 계정이 DDL 권한을 계속 갖지 않게 하기 위해서다.
 
 **감수할 점**: Entity 또는 제약 변경마다 SQL migration을 함께 작성해야 한다. 애플리케이션 시작 프로세스가 migration 자격 증명도 받으므로 완전한 자격 증명 격리가 필요해지면 별도 일회성 migration 실행기로 분리해야 한다. 적용된 DDL을 자동 rollback하지 않으며 후속 호환 migration 또는 RDS 복구 절차를 사용한다.
+
+## ADR-020: 기존 EC2 한 대에 OIDC와 SSM으로 백엔드를 자동 배포한다
+
+**선택**: Docker Hub에 commit SHA 이미지가 게시되면 GitHub Actions가 `production` environment로 제한된 AWS OIDC role을 얻고 SSM Run Command로 기존 Ubuntu EC2의 배포 script를 실행한다. EC2에는 Nginx와 Docker를 두고 API container는 `127.0.0.1:8080`에만 노출한다. Elastic IP를 포함한 `sslip.io` 임시 주소와 Let's Encrypt 인증서를 사용한다. 운영 DB는 같은 VPC의 private Single-AZ RDS MySQL 8.4.10을 사용하며 runtime과 Flyway 계정을 분리하고 TLS host 검증을 강제한다. 운영 secret은 SSM Parameter Store Standard SecureString으로 관리한다.
+
+새 image는 `sha-<12자리>` 불변 태그로 교체하고 health check에 실패하면 직전 image를 다시 실행한다. 운영 migration은 자동 rollback하지 않으며 이전 application과 호환되는 추가형 변경을 기본으로 한다. 초기에는 frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ를 사용하지 않는다.
+
+**선택한 이유**: 이미 만든 EC2와 공개 Docker Hub image를 재사용하면서 장기 AWS access key와 SSH 기반 자동 배포를 피하고, 초기 트래픽에서 load balancer 비용과 운영 구성 수를 줄이기 위해서다. Nginx가 TLS와 신뢰할 client IP 경계를 담당하고 SSM이 배포와 운영 접속의 감사 가능한 통로를 제공한다.
+
+**감수할 점**: 배포 중 한 container를 교체하므로 짧은 중단이 있고 EC2와 Single-AZ RDS가 단일 장애 지점이다. Elastic IP와 RDS는 사용량이 적어도 비용이 발생하며 AWS Budget은 알림만 제공하고 지출을 차단하지 않는다. `sslip.io`는 구매한 서비스 도메인이 아니므로 frontend와 실제 OAuth browser E2E를 배포할 때 정식 도메인과 cookie·redirect 설정을 다시 결정해야 한다. ALB나 CloudFront를 추가하면 forwarded header 신뢰 정책도 다시 설계해야 한다.

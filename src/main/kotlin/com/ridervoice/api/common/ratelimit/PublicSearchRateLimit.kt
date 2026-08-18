@@ -74,7 +74,8 @@ class PublicSearchRateLimitInterceptor(
         val principal = SecurityContextHolder.getContext().authentication
             ?.principal as? AuthenticatedUserPrincipal
         return principal?.let { "user:${it.userId}" }
-            // Forwarded IP headers are intentionally ignored until a trusted-proxy policy exists.
+            // In prod, Spring resolves this from the header overwritten by the localhost Nginx proxy.
+            // Other profiles continue to use the direct peer address and ignore forwarded headers.
             ?: "remote:${request.remoteAddr}"
     }
 }

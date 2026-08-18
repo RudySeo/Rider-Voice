@@ -33,7 +33,7 @@ jobs:
           cache-provider: basic
 
       - name: Validate workflow contracts
-        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py
+        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py scripts/test_aws_deployment_contract.py
 
       - name: Build backend
         run: ./gradlew build --no-daemon
