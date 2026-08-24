@@ -185,3 +185,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 이미 만든 EC2와 공개 Docker Hub image를 재사용하면서 장기 AWS access key와 SSH 기반 자동 배포를 피하고, 초기 트래픽에서 load balancer 비용과 운영 구성 수를 줄이기 위해서다. Nginx가 TLS와 신뢰할 client IP 경계를 담당하고 SSM이 배포와 운영 접속의 감사 가능한 통로를 제공한다.
 
 **감수할 점**: 배포 중 한 container를 교체하므로 짧은 중단이 있고 EC2와 Single-AZ RDS가 단일 장애 지점이다. Elastic IP와 RDS는 사용량이 적어도 비용이 발생하며 AWS Budget은 알림만 제공하고 지출을 차단하지 않는다. `sslip.io`는 구매한 서비스 도메인이 아니므로 frontend와 실제 OAuth browser E2E를 배포할 때 정식 도메인과 cookie·redirect 설정을 다시 결정해야 한다. ALB나 CloudFront를 추가하면 forwarded header 신뢰 정책도 다시 설계해야 한다.
+
+## ADR-021: 기존 EC2에 Prometheus와 Grafana를 함께 실행한다
+
+**선택**: Spring Boot Actuator와 Micrometer Prometheus registry로 `/actuator/prometheus`를 제공하고, 기존 단일 EC2의 전용 Docker network에서 Prometheus가 15초마다 API를 수집한다. Prometheus와 Grafana는 운영 전용 Docker Compose가 선언적으로 관리하고 API container의 health rollback 배포는 기존 배포 script가 담당한다. Grafana는 Prometheus datasource와 Rider Voice 기본 dashboard를 provisioning한다. 두 UI는 EC2 localhost에만 bind하고 SSM port forwarding으로 접근한다. 로컬에서는 Spring과 MySQL을 기존 프로세스로 유지하고 Prometheus와 Grafana만 Docker Compose로 실행한다. Prometheus 보관 한도는 7일과 2GB이며 두 서비스의 데이터는 Docker volume에 유지한다.
+
+**선택한 이유**: 현재 단일 API 인스턴스의 HTTP 오류율과 지연, JVM, process와 DB connection pool 상태를 기존 EC2와 SSM 경계 안에서 낮은 구성 비용으로 확인하기 위해서다. 공개 domain이나 monitoring ingress를 추가하지 않고 로컬과 운영에서 같은 dashboard를 검증할 수 있다.
+
+**감수할 점**: EC2가 중단되면 API와 관측 stack이 함께 중단되어 외부 장애 감지나 고가용성 알림을 제공하지 못한다. 초기 범위에는 Alertmanager, 로그·trace, node exporter와 cAdvisor를 포함하지 않는다. 외부 감지 또는 장기 보관이 필요해지면 별도 host나 관리형 서비스를 새 ADR로 결정한다.

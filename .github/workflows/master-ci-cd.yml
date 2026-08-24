@@ -33,7 +33,7 @@ jobs:
           cache-provider: basic
 
       - name: Validate workflow contracts
-        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py scripts/test_aws_deployment_contract.py
+        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py scripts/test_aws_deployment_contract.py scripts/test_monitoring_contract.py
 
       - name: Build backend
         run: ./gradlew build --no-daemon
@@ -50,6 +50,10 @@ jobs:
       DB_MIGRATION_PASSWORD: ci-migration-password
       KAKAO_CLIENT_ID: ci-test-client
       KAKAO_LOCAL_REST_API_KEY: ci-test-key
+      OBSERVABILITY_NETWORK_NAME: rider-voice-observability-ci
+      PROMETHEUS_VOLUME_NAME: rider-voice-prometheus-data-ci
+      GRAFANA_VOLUME_NAME: rider-voice-grafana-data-ci
+      GRAFANA_ADMIN_PASSWORD_FILE: /tmp/rider-voice-grafana-admin-password-ci
     services:
       mysql:
         image: mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6
@@ -129,11 +133,15 @@ jobs:
 
       - name: Start backend container
         run: |
+          docker network create rider-voice-observability-ci
           docker run --detach \
             --name rider-voice-smoke \
-            --network host \
+            --network rider-voice-observability-ci \
+            --network-alias rider-voice-api \
+            --add-host host.docker.internal:host-gateway \
+            --publish 127.0.0.1:8080:8080 \
             --env SPRING_PROFILES_ACTIVE=prod \
-            --env DB_URL \
+            --env DB_URL=jdbc:mysql://host.docker.internal:3306/rider?connectionTimeZone=UTC\&forceConnectionTimeZoneToSession=true \
             --env DB_USERNAME \
             --env DB_PASSWORD \
             --env DB_MIGRATION_USERNAME \
@@ -160,8 +168,33 @@ jobs:
           docker logs rider-voice-smoke || true
           exit 1
 
+      - name: Start monitoring stack
+        run: |
+          install -m 0600 /dev/null "$GRAFANA_ADMIN_PASSWORD_FILE"
+          printf '%s' 'ci-grafana-password' > "$GRAFANA_ADMIN_PASSWORD_FILE"
+          docker compose -f monitoring/compose.prod.yml up --detach --wait --pull always
+
+      - name: Verify monitoring stack
+        run: |
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:9090/-/ready >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null && \
+               curl --fail --silent --get \
+                 --data-urlencode 'query=up{job="rider-voice-api"}' \
+                 http://127.0.0.1:9090/api/v1/query | jq --exit-status '.data.result[0].value[1] == "1"' >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f monitoring/compose.prod.yml logs || true
+          exit 1
+
       - name: Collect container logs and clean up
         if: always()
         run: |
           docker logs rider-voice-smoke || true
+          docker compose -f monitoring/compose.prod.yml logs || true
+          docker compose -f monitoring/compose.prod.yml down --volumes || true
           docker rm --force rider-voice-smoke || true
+          docker network rm rider-voice-observability-ci || true
+          rm -f "$GRAFANA_ADMIN_PASSWORD_FILE"

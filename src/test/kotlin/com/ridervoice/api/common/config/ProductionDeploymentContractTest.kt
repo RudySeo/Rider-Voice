@@ -39,6 +39,7 @@ class ProductionDeploymentContractTest {
                 .withFailMessage("%s failed bash syntax validation:%n%s", fileName, output)
                 .isZero()
         }
+        assertThat(DEPLOYMENT_DIRECTORY.resolve("monitoring.sh")).doesNotExist()
     }
 
     private fun scriptText(fileName: String): String = Files.readString(DEPLOYMENT_DIRECTORY.resolve(fileName))

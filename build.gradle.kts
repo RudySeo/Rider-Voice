@@ -35,6 +35,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine")
 
     runtimeOnly("com.mysql:mysql-connector-j")
+    runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.flywaydb:flyway-mysql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -91,6 +91,13 @@ class SecurityPolicyMockMvcTest {
     }
 
     @Test
+    fun `prometheus endpoint is available to the private collector without an API token`() {
+        mockMvc.get("/actuator/prometheus").andExpect {
+            status { isOk() }
+        }
+    }
+
+    @Test
     fun `authentication failures do not expose bearer tokens provider details or stack traces`() {
         val rawToken = "invalid-provider-secret-token"
 
@@ -192,6 +199,7 @@ private const val TEST_ADMIN_ID = 43L
 private class SecurityPolicyFixtureController {
     @GetMapping(
         "/actuator/health",
+        "/actuator/prometheus",
         "/swagger-ui.html",
         "/v3/api-docs",
     )

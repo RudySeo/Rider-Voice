@@ -22,6 +22,7 @@
 - Spring Boot, Spring MVC와 Spring Security OAuth2 Client
 - Spring Data JPA, Hibernate, Flyway와 MySQL 8.4.10
 - Spring `RestClient`, Spring Cache와 Caffeine
+- Spring Boot Actuator, Micrometer와 Prometheus registry
 - springdoc-openapi와 RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc와 HTTP stub server
 
@@ -31,7 +32,7 @@
 - TanStack Query, React Router, React Hook Form과 Zod
 - CSS Modules, Vitest와 Testing Library
 
-API 서버, frontend와 `rider` MySQL 데이터베이스는 로컬 개발에서 각각 로컬 프로세스로 실행한다. 운영 데이터베이스는 private RDS MySQL 8.4.10이며 CI도 같은 버전으로 검증한다. 백엔드 API는 별도의 `linux/amd64` Docker 이미지로 패키징하고, GitHub Actions가 master 대상 PR을 검증한 뒤 병합된 commit을 공개 Docker Hub 저장소에 게시해 기존 Ubuntu EC2 한 대에 자동 배포한다. frontend는 운영 이미지와 배포에서 제외한다. 초기 MVP는 API 서버 한 대를 기준으로 하며 Docker Compose, Testcontainers, ALB, ECS, Route 53, NAT Gateway, Redis, Kafka와 Elasticsearch는 포함하지 않는다.
+API 서버, frontend와 `rider` MySQL 데이터베이스는 로컬 개발에서 각각 로컬 프로세스로 실행한다. 로컬 관측 환경만 Docker Compose로 Prometheus와 Grafana를 실행해 host의 API를 수집한다. 운영 데이터베이스는 private RDS MySQL 8.4.10이며 CI도 같은 버전으로 검증한다. 백엔드 API는 별도의 `linux/amd64` Docker 이미지로 패키징하고, GitHub Actions가 master 대상 PR을 검증한 뒤 병합된 commit을 공개 Docker Hub 저장소에 게시해 기존 Ubuntu EC2 한 대에 자동 배포한다. frontend는 운영 이미지와 배포에서 제외한다. 초기 MVP는 API 서버 한 대를 기준으로 하며 전체 애플리케이션용 Docker Compose, Testcontainers, ALB, ECS, Route 53, NAT Gateway, Redis, Kafka와 Elasticsearch는 포함하지 않는다.
 
 로컬 비밀값은 Git에서 제외한 프로젝트 루트 `.env`로 관리한다. `local` profile만 이 파일을 선택적으로 읽고 OS·IDE 환경 변수가 있으면 그 값을 우선한다.
 
@@ -222,6 +223,7 @@ GitHub Actions에서는 frontend를 제외하고 master 대상 PR에서 다음 �
 - 격리된 빈 MySQL 8.4.10 service container에 Flyway migration을 적용하고 Hibernate validation, 재실행 안전성과 schema 주요 제약을 확인한다.
 - migration이 적용된 같은 MySQL에서 schema·unique·동시성 통합 테스트를 수행한다.
 - 같은 MySQL schema와 CI 전용 dummy provider 설정으로 만들어진 Docker 이미지를 운영 profile로 실행하고 `/actuator/health`를 확인한다.
+- API, Prometheus와 Grafana를 격리된 Docker network에서 실행해 Prometheus target과 Grafana health를 확인한다.
 - 필수 검증이 성공한 PR만 master에 병합할 수 있게 보호하고, master push에서는 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 Docker Hub에 게시한다.
 
 실제 DB·카카오 secret은 Docker build와 이미지에 포함하지 않는다. CI는 일회용 DB 값과 dummy provider 값을 사용한다. Docker Hub PAT는 GitHub Environment secret으로, 자동 Draft PR용 fine-grained GitHub PAT는 최소 저장소 권한의 Repository secret으로 전달한다. 운영 secret은 아래 운영 배포 경계에 정의한 SSM Parameter Store에서만 읽는다.
@@ -237,6 +239,12 @@ Internet
   -> Docker API 127.0.0.1:8080
   -> private RDS MySQL 8.4.10:3306 (TLS VERIFY_IDENTITY)
 
+관리자 browser
+  -> SSM port forwarding
+  -> Grafana 127.0.0.1:3000
+  -> Prometheus 127.0.0.1:9090
+  -> Docker network의 API:8080/actuator/prometheus
+
 master push
   -> Docker Hub sha-<12자리> 이미지 게시
   -> GitHub OIDC로 production deploy role 획득
@@ -245,10 +253,17 @@ master push
 ```
 
 - EC2의 8080과 RDS의 3306은 인터넷에 공개하지 않는다. RDS는 EC2 security group에서만 접근한다.
+- Grafana 3000과 Prometheus 9090도 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. 관리자는 SSM port forwarding으로만 접근한다.
+- API, Prometheus와 Grafana는 `rider-voice-observability` Docker network를 공유한다. Prometheus는 container DNS로 API의 `/actuator/prometheus`를 15초마다 수집한다.
+- Prometheus와 Grafana는 운영 전용 Docker Compose가 관리한다. API는 새 image health check와 자동 rollback을 유지하기 위해 별도 배포 script가 관리한다.
+- Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
+- Prometheus 데이터는 7일과 2GB 중 먼저 도달하는 한도로 보관하고 Grafana 데이터와 함께 Docker volume에 저장한다.
+- Grafana anonymous access와 사용자 가입은 비활성화한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.
 - Nginx가 외부에서 들어온 `X-Forwarded-For`를 폐기하고 직접 연결한 client의 `$remote_addr`로 덮어쓴다. API는 localhost Nginx만 접근할 수 있고 운영 profile만 forwarded header를 신뢰하므로 검색 호출 제한에 검증된 client IP가 사용된다.
 - Nginx는 `Host`, `X-Forwarded-Proto`와 `X-Forwarded-For`를 API에 전달한다. ALB나 CloudFront가 앞에 추가되면 trusted proxy 정책을 새로 결정한다.
-- 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화해 root 전용 임시 env 파일로 만들며 GitHub와 Docker image는 값을 읽지 않는다.
+- 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화한다. API secret은 root 전용 임시 env 파일로 만들고 Grafana 비밀번호는 root 전용 Compose secret 파일로 mount하며 GitHub와 Docker image는 값을 읽지 않는다.
 - RDS runtime 계정은 DML만, migration 계정은 Flyway에 필요한 DDL과 DML만 갖고 둘 다 TLS를 강제한다. RDS CA truststore는 EC2에 두고 container에 read-only로 mount한 뒤 MySQL Connector/J의 JDBC 연결에만 적용한다. JVM의 기본 truststore는 공개 HTTPS provider 인증에 사용하며 RDS 전용 truststore로 전역 교체하지 않는다.
 - 새 container는 commit 기반 불변 태그로 실행하고 `/actuator/health`가 제한 시간 안에 `UP`이 아니면 이전 image를 다시 실행한다. Flyway schema는 자동 rollback하지 않으므로 migration은 이전 application과 호환되는 추가형 변경을 기본으로 한다.
 - EC2는 SSM Session Manager로 운영하고 확인 후 SSH ingress를 제거한다. GitHub는 장기 AWS access key 대신 repository와 `production` environment가 제한된 OIDC role을 사용한다.
 - frontend가 배포되기 전에는 공개 API, OpenAPI와 health endpoint만 운영 검증 범위다. 카카오 로그인 성공 후 frontend `/auth/callback` 화면은 정상 완료 기준에 포함하지 않는다.
+- Prometheus, Grafana와 API가 같은 EC2에 있으므로 EC2 자체 장애 시 관측 화면도 중단된다. 외부 장애 감지나 고가용성이 필요해지면 별도 host 또는 관리형 관측 서비스를 새로 결정한다.

@@ -12,10 +12,12 @@ PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "master-publish.yml"
 ROLLBACK_WORKFLOW = ROOT / ".github" / "workflows" / "production-rollback.yml"
 BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY = ROOT / "deploy" / "ec2" / "deploy.sh"
+MONITORING_COMPOSE = ROOT / "monitoring" / "compose.prod.yml"
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
 SSM_DEPLOY = ROOT / "deploy" / "github" / "send-ssm-deploy.sh"
 AWS_GUIDE = ROOT / "deploy" / "aws" / "README.md"
 OIDC_TRUST_POLICY = ROOT / "deploy" / "aws" / "github-oidc-trust-policy.json"
+EC2_PARAMETER_POLICY = ROOT / "deploy" / "aws" / "ec2-parameter-policy.json"
 
 
 class AwsDeploymentContractTest(unittest.TestCase):
@@ -38,6 +40,11 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("rds-truststore.p12", bootstrap)
         self.assertIn("nginx -t", bootstrap)
         self.assertIn("amazon-ssm-agent", bootstrap)
+        self.assertIn("docker-compose-plugin", bootstrap)
+        self.assertIn("compose.prod.yml", bootstrap)
+        self.assertNotIn("monitoring.sh", bootstrap)
+        self.assertIn("prometheus-prod.yml", bootstrap)
+        self.assertIn("rider-voice-overview.json", bootstrap)
 
     def test_deploy_uses_ssm_env_an_immutable_image_and_health_rollback(self) -> None:
         deploy = DEPLOY.read_text(encoding="utf-8")
@@ -48,10 +55,26 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("chmod 600", deploy)
         self.assertRegex(deploy, r"sha-\[0-9a-f\].*12")
         self.assertIn("127.0.0.1:8080:8080", deploy)
+        self.assertIn("rider-voice-observability", deploy)
         self.assertIn("rds-truststore.p12", deploy)
         self.assertIn("/actuator/health", deploy)
         self.assertIn("rollback", deploy.lower())
         self.assertNotRegex(deploy, r"(?m)^\s*(source|\.)\s+.*api\.env")
+
+    def test_monitoring_compose_uses_private_ports_secret_and_persistent_volumes(self) -> None:
+        monitoring = MONITORING_COMPOSE.read_text(encoding="utf-8")
+
+        self.assertIn("GF_SECURITY_ADMIN_PASSWORD__FILE", monitoring)
+        self.assertIn("/run/secrets/grafana_admin_password", monitoring)
+        self.assertIn("127.0.0.1:3000:3000", monitoring)
+        self.assertIn("127.0.0.1:9090:9090", monitoring)
+        self.assertIn("rider-voice-prometheus-data", monitoring)
+        self.assertIn("rider-voice-grafana-data", monitoring)
+        self.assertIn("rider-voice-observability", monitoring)
+        self.assertIn("external: true", monitoring)
+        self.assertIn("no-new-privileges:true", monitoring)
+        self.assertIn("healthcheck:", monitoring)
+        self.assertNotIn("latest", monitoring)
 
     def test_master_publish_deploys_with_oidc_only_after_image_publish(self) -> None:
         workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
@@ -85,6 +108,13 @@ class AwsDeploymentContractTest(unittest.TestCase):
         )
         self.assertNotIn("*", subject)
 
+    def test_ec2_role_can_read_path_and_single_monitoring_parameter(self) -> None:
+        policy = json.loads(EC2_PARAMETER_POLICY.read_text(encoding="utf-8"))
+        actions = policy["Statement"][0]["Action"]
+
+        self.assertIn("ssm:GetParameter", actions)
+        self.assertIn("ssm:GetParametersByPath", actions)
+
     def test_manual_rollback_reuses_the_production_oidc_path(self) -> None:
         rollback = ROLLBACK_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", rollback)
@@ -103,6 +133,9 @@ class AwsDeploymentContractTest(unittest.TestCase):
 
     def test_console_guide_covers_the_required_security_and_cost_boundaries(self) -> None:
         guide = AWS_GUIDE.read_text(encoding="utf-8")
+        self.assertNotIn("monitoring.sh", guide)
+        self.assertIn("compose.prod.yml", guide)
+        self.assertIn("GF_SECURITY_ADMIN_PASSWORD__FILE", guide)
         for required in (
             "db.t4g.micro",
             "MySQL 8.4.10",
@@ -117,6 +150,10 @@ class AwsDeploymentContractTest(unittest.TestCase):
             "repo:RudySeo@78248966/Rider-Voice@1308728176:environment:production",
             "80%",
             "100%",
+            "GRAFANA_ADMIN_PASSWORD",
+            "AWS-StartPortForwardingSession",
+            "3000",
+            "9090",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, guide)

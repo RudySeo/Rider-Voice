@@ -37,6 +37,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - Spring Boot, Spring MVC, Spring Security OAuth2 Client
 - Spring Data JPA, Hibernate, Flyway, MySQL 8.4.10
 - Spring `RestClient`, Spring Cache, Caffeine
+- Spring Boot Actuator, Micrometer, Prometheus와 Grafana
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc, 로컬 MySQL 통합 테스트
 - 카카오 REST OAuth와 카카오 로컬 REST API
@@ -44,7 +45,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - TanStack Query, React Router, React Hook Form, Zod
 - Vitest, Testing Library와 CSS Modules
 
-초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시합니다. Redis, Kafka, Elasticsearch, Docker Compose, Testcontainers와 AWS는 현재 범위가 아닙니다.
+초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시하고 기존 단일 EC2에 배포합니다. 운영 메트릭은 같은 EC2의 Prometheus와 Grafana 컨테이너가 수집·표시합니다. Redis, Kafka, Elasticsearch, 전체 애플리케이션용 Docker Compose, Testcontainers와 ECS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
@@ -65,10 +66,11 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
 - JDK 25 백엔드 Docker 이미지와 master 대상 PR 검증 성공 후 Docker Hub 게시 자동화
+- 기존 EC2 자동 배포와 운영 전용 Docker Compose 기반 비공개 Prometheus·Grafana 대시보드
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E, AWS·production 서버 배포는 구현 범위에 포함하지 않습니다.
+관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E와 frontend 운영 배포는 구현 범위에 포함하지 않습니다.
 
 ## frontend prototype
 
@@ -130,8 +132,9 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 - MySQL 8.4.10
 - Gradle Wrapper
 - Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)
+- 로컬 모니터링 실행 시 Docker Engine과 Docker Compose v2
 
-기본 로컬 개발에서는 API 서버와 MySQL을 로컬 프로세스로 실행합니다. Docker Compose와 Testcontainers는 사용하지 않습니다.
+기본 로컬 개발에서는 API 서버와 MySQL을 로컬 프로세스로 실행합니다. Prometheus와 Grafana를 확인할 때만 `monitoring/compose.yml`을 사용하며 전체 애플리케이션용 Docker Compose와 Testcontainers는 사용하지 않습니다.
 
 Hibernate `ddl-auto=update`로 로컬 schema를 반영합니다. 기존 `rider` 데이터베이스를 자동으로 삭제하거나 초기화하지 않으므로, 기존 데이터가 필요한 환경에서는 DROP/truncate를 실행하지 않습니다.
 
@@ -188,6 +191,26 @@ npm run dev
 ```
 
 `npm run dev`의 기본 주소는 `http://localhost:5173`입니다.
+
+## 로컬 모니터링
+
+Spring Boot API를 `localhost:8080`에서 먼저 실행한 뒤 Prometheus와 Grafana만 Compose로 시작합니다. 실제 비밀번호 파일은 Git에서 제외됩니다.
+
+```bash
+cp monitoring/.env.example monitoring/.env
+# monitoring/.env의 GRAFANA_ADMIN_PASSWORD를 변경
+docker compose --env-file monitoring/.env -f monitoring/compose.yml up -d
+```
+
+- Grafana: `http://localhost:3000`
+- Prometheus: `http://localhost:9090`
+- Spring metric: `http://localhost:8080/actuator/prometheus`
+
+종료할 때는 영속 volume을 보존하기 위해 `down`만 사용합니다. 데이터를 의도적으로 초기화할 때만 `down --volumes`를 사용합니다.
+
+```bash
+docker compose --env-file monitoring/.env -f monitoring/compose.yml down
+```
 
 backend endpoint나 DTO 계약이 변경되면 backend를 실행한 상태에서 TypeScript generated type을 다시 생성하고 변경된 `src/shared/api/generated.ts`를 함께 커밋합니다. 생성 파일을 직접 수정하지 않습니다.
 
