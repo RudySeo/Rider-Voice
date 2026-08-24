@@ -193,3 +193,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 현재 단일 API 인스턴스의 HTTP 오류율과 지연, JVM, process와 DB connection pool 상태를 기존 EC2와 SSM 경계 안에서 낮은 구성 비용으로 확인하기 위해서다. 공개 domain이나 monitoring ingress를 추가하지 않고 로컬과 운영에서 같은 dashboard를 검증할 수 있다.
 
 **감수할 점**: EC2가 중단되면 API와 관측 stack이 함께 중단되어 외부 장애 감지나 고가용성 알림을 제공하지 못한다. 초기 범위에는 Alertmanager, 로그·trace, node exporter와 cAdvisor를 포함하지 않는다. 외부 감지 또는 장기 보관이 필요해지면 별도 host나 관리형 서비스를 새 ADR로 결정한다.
+
+## ADR-022: Grafana만 기존 HTTPS 도메인에서 로그인 접근을 허용한다
+
+**선택**: ADR-021의 UI 접근 결정 중 Grafana 부분을 변경한다. Grafana container의 `3000` 포트는 계속 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. 대신 기존 Nginx와 TLS 도메인의 `/grafana/` 하위 경로를 Grafana로 reverse proxy한다. Grafana는 하위 경로를 canonical root URL로 사용하고 secure cookie, 익명 접속·회원가입 차단과 로그인 시도 제한을 적용한다. Prometheus `9090`과 `/actuator/prometheus`는 계속 비공개로 유지한다.
+
+**선택한 이유**: 별도 관리자 PC 설정 없이 외부에서 운영 dashboard를 확인하되, 평문 `3000` 포트를 직접 공개하거나 Prometheus query UI와 원본 metric을 노출하지 않기 위해서다. 기존 443/TCP와 인증서를 재사용하므로 새 load balancer, DNS와 security group 규칙이 필요하지 않다.
+
+**감수할 점**: Grafana 로그인 화면이 인터넷에 노출되어 자동 스캔과 로그인 시도의 대상이 된다. 강한 관리자 비밀번호와 Grafana의 로그인 보호를 유지하고 보안 업데이트를 적용해야 한다. 외부 접근이 더 이상 필요하지 않으면 Nginx `/grafana/` 경로와 Grafana 하위 경로 설정을 제거해 SSM 전용 접근으로 되돌린다.

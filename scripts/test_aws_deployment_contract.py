@@ -76,6 +76,19 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("healthcheck:", monitoring)
         self.assertNotIn("latest", monitoring)
 
+    def test_grafana_uses_the_existing_https_domain_without_public_container_ports(self) -> None:
+        monitoring = MONITORING_COMPOSE.read_text(encoding="utf-8")
+        nginx = NGINX.read_text(encoding="utf-8")
+        bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+
+        self.assertIn("GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:?set GRAFANA_ROOT_URL}", monitoring)
+        self.assertIn("GF_SERVER_SERVE_FROM_SUB_PATH=true", monitoring)
+        self.assertIn("GF_SECURITY_COOKIE_SECURE=true", monitoring)
+        self.assertIn('location ^~ /grafana/', nginx)
+        self.assertIn("proxy_pass http://127.0.0.1:3000", nginx)
+        self.assertIn("GRAFANA_ROOT_URL", bootstrap)
+        self.assertIn("https://${DOMAIN}/grafana/", bootstrap)
+
     def test_master_publish_deploys_with_oidc_only_after_image_publish(self) -> None:
         workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("needs: publish-image", workflow)

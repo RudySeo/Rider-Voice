@@ -6,6 +6,7 @@ readonly INSTALL_DIR="/opt/rider-voice"
 readonly CERT_DIR="${INSTALL_DIR}/certs"
 readonly MONITORING_SOURCE_DIR="${SCRIPT_DIR}/../monitoring"
 readonly MONITORING_INSTALL_DIR="${INSTALL_DIR}/monitoring"
+readonly MONITORING_ENV_FILE="${MONITORING_INSTALL_DIR}/.env"
 readonly NGINX_SITE="/etc/nginx/sites-available/rider-voice"
 readonly CERTBOT_ROOT="/var/www/certbot"
 readonly RDS_CA_URL="https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
@@ -147,6 +148,9 @@ install -m 0644 \
 install -m 0644 \
     "${MONITORING_SOURCE_DIR}/grafana/dashboards/rider-voice-overview.json" \
     "${MONITORING_INSTALL_DIR}/grafana/dashboards/rider-voice-overview.json"
+GRAFANA_ROOT_URL="https://${DOMAIN}/grafana/"
+printf 'GRAFANA_ROOT_URL=%s\n' "${GRAFANA_ROOT_URL}" > "${MONITORING_ENV_FILE}"
+chmod 0600 "${MONITORING_ENV_FILE}"
 
 trust_work_dir="$(mktemp -d)"
 curl --fail --silent --show-error --location "${RDS_CA_URL}" \
@@ -214,4 +218,4 @@ nginx -t
 systemctl reload nginx
 
 echo "EC2 bootstrap complete for https://${DOMAIN}"
-echo "Next: create /rider-voice/prod SSM parameters, run ${INSTALL_DIR}/deploy.sh, then start monitoring with Docker Compose."
+echo "Next: create /rider-voice/prod SSM parameters, run ${INSTALL_DIR}/deploy.sh, then start monitoring with Docker Compose and ${MONITORING_ENV_FILE}."

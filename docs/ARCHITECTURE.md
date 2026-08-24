@@ -240,8 +240,11 @@ Internet
   -> private RDS MySQL 8.4.10:3306 (TLS VERIFY_IDENTITY)
 
 관리자 browser
+  -> Nginx HTTPS /grafana/
+  -> Grafana 127.0.0.1:3000 (로그인 필요)
+
+운영자 진단
   -> SSM port forwarding
-  -> Grafana 127.0.0.1:3000
   -> Prometheus 127.0.0.1:9090
   -> Docker network의 API:8080/actuator/prometheus
 
@@ -253,12 +256,12 @@ master push
 ```
 
 - EC2의 8080과 RDS의 3306은 인터넷에 공개하지 않는다. RDS는 EC2 security group에서만 접근한다.
-- Grafana 3000과 Prometheus 9090도 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. 관리자는 SSM port forwarding으로만 접근한다.
+- Grafana 3000과 Prometheus 9090은 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. Grafana만 기존 HTTPS 도메인의 `/grafana/`에서 Nginx reverse proxy로 제공하며 Prometheus UI는 SSM port forwarding으로만 접근한다.
 - API, Prometheus와 Grafana는 `rider-voice-observability` Docker network를 공유한다. Prometheus는 container DNS로 API의 `/actuator/prometheus`를 15초마다 수집한다.
 - Prometheus와 Grafana는 운영 전용 Docker Compose가 관리한다. API는 새 image health check와 자동 rollback을 유지하기 위해 별도 배포 script가 관리한다.
 - Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
 - Prometheus 데이터는 7일과 2GB 중 먼저 도달하는 한도로 보관하고 Grafana 데이터와 함께 Docker volume에 저장한다.
-- Grafana anonymous access와 사용자 가입은 비활성화한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.
+- Grafana anonymous access와 사용자 가입은 비활성화하고 HTTPS secure cookie와 로그인 시도 제한을 적용한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.
 - Nginx가 외부에서 들어온 `X-Forwarded-For`를 폐기하고 직접 연결한 client의 `$remote_addr`로 덮어쓴다. API는 localhost Nginx만 접근할 수 있고 운영 profile만 forwarded header를 신뢰하므로 검색 호출 제한에 검증된 client IP가 사용된다.
 - Nginx는 `Host`, `X-Forwarded-Proto`와 `X-Forwarded-For`를 API에 전달한다. ALB나 CloudFront가 앞에 추가되면 trusted proxy 정책을 새로 결정한다.
 - 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화한다. API secret은 root 전용 임시 env 파일로 만들고 Grafana 비밀번호는 root 전용 Compose secret 파일로 mount하며 GitHub와 Docker image는 값을 읽지 않는다.

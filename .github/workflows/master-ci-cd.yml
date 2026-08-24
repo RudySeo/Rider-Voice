@@ -54,6 +54,7 @@ jobs:
       PROMETHEUS_VOLUME_NAME: rider-voice-prometheus-data-ci
       GRAFANA_VOLUME_NAME: rider-voice-grafana-data-ci
       GRAFANA_ADMIN_PASSWORD_FILE: /tmp/rider-voice-grafana-admin-password-ci
+      GRAFANA_ROOT_URL: http://127.0.0.1:3000/grafana/
     services:
       mysql:
         image: mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6
@@ -178,7 +179,7 @@ jobs:
         run: |
           for attempt in $(seq 1 45); do
             if curl --fail --silent http://127.0.0.1:9090/-/ready >/dev/null && \
-               curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null && \
+               curl --fail --silent http://127.0.0.1:3000/grafana/api/health >/dev/null && \
                curl --fail --silent --get \
                  --data-urlencode 'query=up{job="rider-voice-api"}' \
                  http://127.0.0.1:9090/api/v1/query | jq --exit-status '.data.result[0].value[1] == "1"' >/dev/null; then

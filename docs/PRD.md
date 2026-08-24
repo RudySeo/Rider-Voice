@@ -111,6 +111,7 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - Elastic IP 기반 `sslip.io` 임시 주소, Nginx와 Let's Encrypt를 이용한 HTTPS
 - Spring Boot Actuator와 Micrometer 기반 운영 메트릭
 - 기존 단일 EC2에서 실행하는 Prometheus·Grafana 컨테이너와 기본 운영 대시보드
+- 기존 HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로 접근하는 운영 대시보드
 - 로컬 Spring 프로세스를 수집하는 개발용 Prometheus·Grafana Compose 구성
 
 ### 이번에 포함하지 않는 것
@@ -138,4 +139,4 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - 운영 API는 Nginx 뒤의 localhost Docker container로만 실행되고 HTTPS health check를 통과해야 하며, 새 container가 정상화되지 않으면 이전 이미지로 복구해야 합니다.
 - RDS는 외부에 공개하지 않고 EC2에서 TLS host 검증을 거쳐 runtime·migration 분리 계정으로 연결해야 합니다.
 - Prometheus는 비공개 Docker network에서 API 메트릭을 수집하고 Grafana 대시보드에서 API 상태, HTTP 요청, JVM과 DB connection pool 상태를 확인할 수 있어야 합니다.
-- Prometheus와 Grafana UI는 인터넷에 공개하지 않고 EC2 localhost와 SSM port forwarding으로만 접근할 수 있어야 합니다.
+- Prometheus UI와 metric endpoint는 인터넷에 공개하지 않아야 하며, Grafana는 EC2 localhost binding을 유지한 채 기존 HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로만 접근할 수 있어야 합니다.
