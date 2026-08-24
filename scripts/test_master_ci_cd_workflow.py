@@ -38,6 +38,7 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertNotIn("publish-image:", self.pr_content)
         self.assertIn("./gradlew build", self.pr_content)
         self.assertIn("scripts/test_aws_deployment_contract.py", self.pr_content)
+        self.assertIn("scripts/test_monitoring_contract.py", self.pr_content)
         self.assertIn("./gradlew migrationTest", self.pr_content)
         self.assertIn("./gradlew integrationTest", self.pr_content)
         self.assertNotIn("DOCKERHUB_TOKEN", self.pr_content)
@@ -70,6 +71,13 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertIn("load: true", self.pr_content)
         self.assertIn("/actuator/health", self.pr_content)
         self.assertIn("docker run", self.pr_content)
+        self.assertIn("Verify monitoring stack", self.pr_content)
+        self.assertIn("monitoring/compose.prod.yml", self.pr_content)
+        self.assertIn("docker compose", self.pr_content)
+        self.assertNotIn("--name rider-voice-prometheus-smoke", self.pr_content)
+        self.assertNotIn("--name rider-voice-grafana-smoke", self.pr_content)
+        self.assertIn("up{job=", self.pr_content)
+        self.assertIn("/api/health", self.pr_content)
 
     def test_publish_runs_only_for_master_push_without_full_validation(self) -> None:
         self.assertRegex(

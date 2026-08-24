@@ -8,6 +8,7 @@ tsconfig.tsbuildinfo
 /frontend/.vite/
 .env
 .env*.local
+/monitoring/.env
 
 # Gradle and Kotlin
 .gradle/

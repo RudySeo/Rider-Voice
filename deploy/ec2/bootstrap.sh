@@ -4,6 +4,8 @@ set -Eeuo pipefail
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly INSTALL_DIR="/opt/rider-voice"
 readonly CERT_DIR="${INSTALL_DIR}/certs"
+readonly MONITORING_SOURCE_DIR="${SCRIPT_DIR}/../monitoring"
+readonly MONITORING_INSTALL_DIR="${INSTALL_DIR}/monitoring"
 readonly NGINX_SITE="/etc/nginx/sites-available/rider-voice"
 readonly CERTBOT_ROOT="/var/www/certbot"
 readonly RDS_CA_URL="https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem"
@@ -57,6 +59,17 @@ for asset in deploy.sh nginx-http.conf.template nginx.conf.template; do
         exit 1
     fi
 done
+for asset in \
+    compose.prod.yml \
+    prometheus/prometheus-prod.yml \
+    grafana/provisioning/datasources/prometheus.yml \
+    grafana/provisioning/dashboards/rider-voice.yml \
+    grafana/dashboards/rider-voice-overview.json; do
+    if [[ ! -f "${MONITORING_SOURCE_DIR}/${asset}" ]]; then
+        echo "Missing monitoring asset: ${MONITORING_SOURCE_DIR}/${asset}" >&2
+        exit 1
+    fi
+done
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -73,7 +86,11 @@ if ! command -v docker >/dev/null 2>&1; then
     printf 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
         "${VERSION_CODENAME}" > /etc/apt/sources.list.d/docker.list
     apt-get update
-    apt-get install --yes docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+    apt-get install --yes docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+if ! docker compose version >/dev/null 2>&1; then
+    apt-get update
+    apt-get install --yes docker-compose-plugin
 fi
 systemctl enable --now docker
 
@@ -104,8 +121,32 @@ else
     systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
 fi
 
-install -m 0755 -d "${INSTALL_DIR}" "${CERT_DIR}" /var/lib/rider-voice "${CERTBOT_ROOT}"
+install -m 0755 -d \
+    "${INSTALL_DIR}" \
+    "${CERT_DIR}" \
+    "${MONITORING_INSTALL_DIR}/prometheus" \
+    "${MONITORING_INSTALL_DIR}/grafana/provisioning/datasources" \
+    "${MONITORING_INSTALL_DIR}/grafana/provisioning/dashboards" \
+    "${MONITORING_INSTALL_DIR}/grafana/dashboards" \
+    /var/lib/rider-voice \
+    "${CERTBOT_ROOT}"
+install -m 0700 -d "${MONITORING_INSTALL_DIR}/secrets"
 install -m 0755 "${SCRIPT_DIR}/deploy.sh" "${INSTALL_DIR}/deploy.sh"
+install -m 0644 \
+    "${MONITORING_SOURCE_DIR}/compose.prod.yml" \
+    "${MONITORING_INSTALL_DIR}/compose.prod.yml"
+install -m 0644 \
+    "${MONITORING_SOURCE_DIR}/prometheus/prometheus-prod.yml" \
+    "${MONITORING_INSTALL_DIR}/prometheus/prometheus-prod.yml"
+install -m 0644 \
+    "${MONITORING_SOURCE_DIR}/grafana/provisioning/datasources/prometheus.yml" \
+    "${MONITORING_INSTALL_DIR}/grafana/provisioning/datasources/prometheus.yml"
+install -m 0644 \
+    "${MONITORING_SOURCE_DIR}/grafana/provisioning/dashboards/rider-voice.yml" \
+    "${MONITORING_INSTALL_DIR}/grafana/provisioning/dashboards/rider-voice.yml"
+install -m 0644 \
+    "${MONITORING_SOURCE_DIR}/grafana/dashboards/rider-voice-overview.json" \
+    "${MONITORING_INSTALL_DIR}/grafana/dashboards/rider-voice-overview.json"
 
 trust_work_dir="$(mktemp -d)"
 curl --fail --silent --show-error --location "${RDS_CA_URL}" \
@@ -173,4 +214,4 @@ nginx -t
 systemctl reload nginx
 
 echo "EC2 bootstrap complete for https://${DOMAIN}"
-echo "Next: create /rider-voice/prod SSM parameters, then run ${INSTALL_DIR}/deploy.sh."
+echo "Next: create /rider-voice/prod SSM parameters, run ${INSTALL_DIR}/deploy.sh, then start monitoring with Docker Compose."
