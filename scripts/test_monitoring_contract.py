@@ -18,6 +18,7 @@ DATASOURCE = ROOT / "monitoring" / "grafana" / "provisioning" / "datasources" / 
 DASHBOARD_PROVIDER = ROOT / "monitoring" / "grafana" / "provisioning" / "dashboards" / "rider-voice.yml"
 DASHBOARD = ROOT / "monitoring" / "grafana" / "dashboards" / "rider-voice-overview.json"
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
+BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY_SCRIPT = ROOT / "deploy" / "ec2" / "deploy.sh"
 
 
@@ -106,6 +107,30 @@ class MonitoringContractTest(unittest.TestCase):
             nginx,
             r"location\s+=\s+/actuator/prometheus\s*\{\s*return\s+404;\s*\}",
         )
+
+    def test_grafana_is_exposed_only_through_the_https_subpath(self) -> None:
+        monitoring = PRODUCTION_COMPOSE.read_text(encoding="utf-8")
+        nginx = NGINX.read_text(encoding="utf-8")
+        bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
+
+        self.assertIn("GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:?set GRAFANA_ROOT_URL}", monitoring)
+        self.assertIn("GF_SERVER_SERVE_FROM_SUB_PATH=true", monitoring)
+        self.assertIn("GF_SECURITY_COOKIE_SECURE=true", monitoring)
+        self.assertIn("GF_SECURITY_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION=false", monitoring)
+        self.assertIn("GF_SECURITY_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS=5", monitoring)
+        self.assertIn("127.0.0.1:3000:3000", monitoring)
+        self.assertRegex(
+            nginx,
+            r"location\s+=\s+/grafana\s*\{\s*return\s+301\s+/grafana/;\s*\}",
+        )
+        self.assertRegex(nginx, r"location\s+\^~\s+/grafana/\s*\{")
+        self.assertIn("proxy_pass http://127.0.0.1:3000", nginx)
+        self.assertIn("map $http_upgrade $grafana_connection_upgrade", nginx)
+        self.assertIn("proxy_set_header Upgrade $http_upgrade", nginx)
+        self.assertIn("proxy_set_header Connection $grafana_connection_upgrade", nginx)
+        self.assertIn('GRAFANA_ROOT_URL="https://${DOMAIN}/grafana/"', bootstrap)
+        self.assertIn("MONITORING_ENV_FILE", bootstrap)
+        self.assertIn('chmod 0600 "${MONITORING_ENV_FILE}"', bootstrap)
 
 
 if __name__ == "__main__":

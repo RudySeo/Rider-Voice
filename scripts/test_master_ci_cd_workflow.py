@@ -77,7 +77,8 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertNotIn("--name rider-voice-prometheus-smoke", self.pr_content)
         self.assertNotIn("--name rider-voice-grafana-smoke", self.pr_content)
         self.assertIn("up{job=", self.pr_content)
-        self.assertIn("/api/health", self.pr_content)
+        self.assertIn("GRAFANA_ROOT_URL: http://127.0.0.1:3000/grafana/", self.pr_content)
+        self.assertIn("/grafana/api/health", self.pr_content)
 
     def test_publish_runs_only_for_master_push_without_full_validation(self) -> None:
         self.assertRegex(

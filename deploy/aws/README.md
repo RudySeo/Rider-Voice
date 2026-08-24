@@ -1,6 +1,6 @@
 # Rider Voice AWS 백엔드 배포 가이드
 
-이 문서는 서울 리전(`ap-northeast-2`)의 기존 Ubuntu x86_64 EC2 한 대에 backend와 비공개 Prometheus·Grafana 관측 stack을 배포하는 절차다. frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ는 사용하지 않는다. AWS Budget은 알림일 뿐 리소스나 지출을 자동으로 중지하지 않는다.
+이 문서는 서울 리전(`ap-northeast-2`)의 기존 Ubuntu x86_64 EC2 한 대에 backend, 비공개 Prometheus와 HTTPS 로그인으로 접근하는 Grafana 관측 stack을 배포하는 절차다. frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ는 사용하지 않는다. AWS Budget은 알림일 뿐 리소스나 지출을 자동으로 중지하지 않는다.
 
 ## 준비할 값
 
@@ -32,7 +32,7 @@ Elastic IP를 포함한 public IPv4 주소는 EC2에 연결되어 있거나 EC2�
 | 포트 | 소스 | 용도 |
 | --- | --- | --- |
 | 80/TCP | `0.0.0.0/0` | Let's Encrypt HTTP-01 및 HTTPS 이동 |
-| 443/TCP | `0.0.0.0/0` | 공개 HTTPS API |
+| 443/TCP | `0.0.0.0/0` | 공개 HTTPS API와 `/grafana/` |
 | 22/TCP | 현재 관리자 공인 IP `/32` | 최초 bootstrap만 사용하고 SSM 검증 후 삭제 |
 
 3000, 8080과 9090은 inbound에 추가하지 않는다. EC2 outbound는 Docker Hub, AWS API, Let's Encrypt와 패키지 저장소에 HTTPS로 연결할 수 있어야 한다.
@@ -142,6 +142,31 @@ sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_E
 
 bootstrap은 Docker와 Compose plugin, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore와 관측 stack의 Compose 자산을 설치한다. 완료 후 현재 검증된 최초 이미지를 배포하고 Grafana secret 파일을 준비한 다음 관측 stack을 시작한다.
 
+이미 bootstrap이 끝난 EC2에 이번 관측 자산을 처음 반영하거나 갱신할 때는 22/TCP를 다시 열지 않고 AWS Console의 `Systems Manager` → `Session Manager` shell에서 병합된 정확한 commit을 내려받아 실행할 수 있다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
+
+```bash
+MERGED_COMMIT_SHA="replace-with-40-character-lowercase-commit-sha"
+case "${MERGED_COMMIT_SHA}" in
+  *[!0-9a-f]*|'') echo "40자리 소문자 commit SHA가 필요합니다." >&2; exit 1 ;;
+esac
+test "${#MERGED_COMMIT_SHA}" -eq 40
+
+ASSET_ROOT="$(mktemp -d /tmp/rider-voice-assets.XXXXXX)"
+install -d "${ASSET_ROOT}/source"
+curl --fail --silent --show-error --location \
+  "https://github.com/RudySeo/Rider-Voice/archive/${MERGED_COMMIT_SHA}.tar.gz" \
+  --output "${ASSET_ROOT}/source.tar.gz"
+tar --extract --gzip \
+  --file "${ASSET_ROOT}/source.tar.gz" \
+  --directory "${ASSET_ROOT}/source" \
+  --strip-components=1
+cp -a "${ASSET_ROOT}/source/deploy/ec2" "${ASSET_ROOT}/rider-voice-ec2"
+cp -a "${ASSET_ROOT}/source/monitoring" "${ASSET_ROOT}/monitoring"
+sudo "${ASSET_ROOT}/rider-voice-ec2/bootstrap.sh" \
+  "203-0-113-10.sslip.io" \
+  "admin@example.com"
+```
+
 ```bash
 sudo /opt/rider-voice/deploy.sh <DOCKERHUB_USERNAME>/rider-voice-api sha-81eb17b7a492
 sudo sh -ceu '
@@ -159,6 +184,7 @@ sudo sh -ceu '
   unset grafana_admin_password
 '
 sudo docker compose \
+  --env-file /opt/rider-voice/monitoring/.env \
   -f /opt/rider-voice/monitoring/compose.prod.yml \
   up --detach --wait --pull always
 curl --fail https://<EIP-WITH-DASHES>.sslip.io/actuator/health
@@ -171,18 +197,19 @@ Docker의 3000, 8080과 9090 binding이 `127.0.0.1`인지 확인하고 외부에
 
 운영 Compose는 Prometheus와 Grafana만 관리한다. API는 health check와 rollback을 유지하기 위해 기존 `deploy.sh`가 관리한다. Prometheus는 `rider-voice-observability` Docker network에서 `rider-voice-api:8080/actuator/prometheus`를 수집한다. Grafana datasource와 Rider Voice dashboard는 자동으로 provisioning되며 Prometheus는 7일 또는 2GB 중 먼저 도달하는 시점까지 metric을 보관한다.
 
-두 UI는 인터넷에 공개하지 않는다. 관리자 PC에 AWS CLI와 Session Manager plugin을 설치하고 다음 명령으로 Grafana를 local port에 연결한다.
-접속하는 IAM principal에는 대상 instance의 `ssm:StartSession`과 session 종료 권한을 최소 범위로 부여한다. GitHub deploy role에는 이 권한을 추가하지 않는다.
+Grafana container의 `3000` 포트는 localhost binding을 유지하며 Nginx가 기존 TLS 도메인의 `/grafana/`만 reverse proxy한다. browser에서 `https://<DOMAIN>/grafana/`에 접속하고 사용자 `admin`과 SSM `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD`에 저장한 비밀번호로 로그인한다. 익명 접속과 회원가입은 비활성화되어 있고 HTTPS secure cookie와 로그인 시도 제한을 적용한다.
+
+Prometheus UI와 원본 metric은 인터넷에 공개하지 않는다. Prometheus UI가 필요할 때만 관리자 PC의 AWS CLI와 Session Manager plugin으로 local port에 연결한다. 접속하는 IAM principal에는 대상 instance의 `ssm:StartSession`과 session 종료 권한을 최소 범위로 부여한다. GitHub deploy role에는 이 권한을 추가하지 않는다.
 
 ```bash
 aws ssm start-session \
   --region ap-northeast-2 \
   --target <EC2_INSTANCE_ID> \
   --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+  --parameters '{"portNumber":["9090"],"localPortNumber":["9090"]}'
 ```
 
-session이 열린 동안 browser에서 `http://localhost:3000`으로 접속한다. Prometheus UI가 필요할 때는 별도 terminal에서 `portNumber`와 `localPortNumber`를 모두 `9090`으로 바꿔 실행한다. port forwarding session 내용은 기록되지 않으므로 운영 접근 권한은 최소 인원에게만 부여한다.
+session이 열린 동안 browser에서 `http://localhost:9090`으로 Prometheus UI에 접속한다. port forwarding session 내용은 기록되지 않으므로 운영 접근 권한은 최소 인원에게만 부여한다.
 
 Grafana container는 root 전용 파일을 Compose secret으로 mount하고 `GF_SECURITY_ADMIN_PASSWORD__FILE`로 읽는다. 관리자 비밀번호는 최초 database 생성 때만 적용된다. 비밀번호를 회전할 때는 SSM 값을 바꾸고 secret 파일을 다시 내려받은 뒤 EC2에서 Grafana CLI로 기존 database의 관리자 비밀번호도 함께 변경하고 container를 재기동한다.
 
@@ -215,11 +242,12 @@ GitHub 저장소 `Settings` → `Environments`에서 `production` environment를
 - `docker inspect rider-voice-api`에서 image가 병합 commit의 `sha-<12자리>`인지 확인
 - `curl https://<DOMAIN>/actuator/health`가 `UP`인지 확인
 - 외부 `curl https://<DOMAIN>/actuator/prometheus`가 `404`인지 확인
-- `curl http://127.0.0.1:9090/-/ready`와 `curl http://127.0.0.1:3000/api/health`가 성공하는지 확인
+- `curl http://127.0.0.1:9090/-/ready`와 `curl http://127.0.0.1:3000/grafana/api/health`가 성공하는지 확인
+- browser에서 `https://<DOMAIN>/grafana/` 로그인과 dashboard 표시를 확인
 - Prometheus query `up{job="rider-voice-api"}`가 `1`이고 Grafana dashboard가 데이터를 표시하는지 확인
 - GitHub Actions 로그와 EC2 Docker 로그에 password와 token이 없는지 확인
 - EC2 재부팅 후 Nginx와 container가 자동 시작하는지 확인
 
 자동 배포 실패 시 EC2 script는 직전 image를 다시 시작하고 GitHub job은 실패로 남긴다. 수동 rollback은 GitHub Actions의 `Backend production rollback`에서 이전 `sha-<12자리>`를 입력한다. Flyway migration은 자동으로 되돌리지 않으므로 컬럼 삭제나 이름 변경은 호환 가능한 두 번의 배포로 나눈다.
 
-배포 asset이 변경되면 새 버전의 `deploy/ec2`와 `monitoring` 디렉터리를 EC2로 복사하고 bootstrap을 다시 실행해 `/opt/rider-voice/deploy.sh`와 관측 Compose 설정을 갱신한다. 이후 `docker compose -f /opt/rider-voice/monitoring/compose.prod.yml up --detach --wait --pull always`를 다시 실행한다. API와 관측 stack은 같은 EC2에 있으므로 instance 장애 시 둘 다 중단된다. 외부 장애 감지가 필요해지면 별도 host나 관리형 관측 서비스를 결정한다.
+배포 asset이 변경되면 새 버전의 `deploy/ec2`와 `monitoring` 디렉터리를 EC2로 복사하고 bootstrap을 다시 실행해 `/opt/rider-voice/deploy.sh`, Nginx와 관측 Compose 설정을 갱신한다. 이후 `docker compose --env-file /opt/rider-voice/monitoring/.env -f /opt/rider-voice/monitoring/compose.prod.yml up --detach --wait --pull always`를 다시 실행한다. API와 관측 stack은 같은 EC2에 있으므로 instance 장애 시 둘 다 중단된다. 외부 장애 감지가 필요해지면 별도 host나 관리형 관측 서비스를 결정한다.
