@@ -2,13 +2,13 @@ package com.ridervoice.api.common.config
 
 import com.ridervoice.api.auth.application.AuthService
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.ExchangeMobileLoginUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
-import com.ridervoice.api.auth.presentation.AuthController
-import com.ridervoice.api.auth.presentation.AuthCookieManager
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.UserController
+import com.ridervoice.api.auth.presentation.MobileAuthController
 import com.ridervoice.api.common.security.OpaqueAccessTokenAuthenticationFilter
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
 import com.ridervoice.api.common.security.SecurityConfig
@@ -51,14 +51,15 @@ class FoundationVerificationTest {
         mockMvc.get("/v3/api-docs").andExpect {
             status { isOk() }
             jsonPath("$.paths['/api/v1/auth/oauth2/exchange']") { doesNotExist() }
-            jsonPath("$.paths['/api/v1/auth/refresh'].post") { exists() }
+            jsonPath("$.paths['/api/v1/auth/refresh']") { doesNotExist() }
+            jsonPath("$.paths['/api/v1/auth/mobile/refresh'].post") { exists() }
             jsonPath("$.paths['/api/v1/auth/consents']") { doesNotExist() }
             jsonPath("$.paths['/api/v1/users/me'].get") { exists() }
             jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth") { isArray() }
             jsonPath("$.components.securitySchemes.bearerAuth.type") { value("http") }
             jsonPath("$.components.securitySchemes.bearerAuth.scheme") { value("bearer") }
             jsonPath("$.components.securitySchemes.bearerAuth.bearerFormat") { value("opaque") }
-            jsonPath("$.components.securitySchemes.refreshCookie.in") { value("cookie") }
+            jsonPath("$.components.securitySchemes.refreshCookie") { doesNotExist() }
         }
     }
 
@@ -72,8 +73,6 @@ class FoundationVerificationTest {
 
     @Test
     fun `authentication controllers depend on input ports instead of the concrete application service`() {
-        assertThat(AuthController::class.java.declaredConstructors.single().parameterTypes)
-            .doesNotContain(AuthService::class.java)
         assertThat(UserController::class.java.declaredConstructors.single().parameterTypes)
             .doesNotContain(AuthService::class.java)
     }
@@ -86,9 +85,8 @@ class FoundationVerificationTest {
         ],
     )
     @Import(
-        AuthController::class,
         UserController::class,
-        AuthCookieManager::class,
+        MobileAuthController::class,
         AuthResponseMapper::class,
         AuthOpenApiConfiguration::class,
         OpenApiConfiguration::class,
@@ -98,13 +96,16 @@ class FoundationVerificationTest {
     )
     class TestApplication {
         @Bean
+        fun getCurrentUser(): GetCurrentUserUseCase = mock(GetCurrentUserUseCase::class.java)
+
+        @Bean
+        fun exchangeMobileLogin(): ExchangeMobileLoginUseCase = mock(ExchangeMobileLoginUseCase::class.java)
+
+        @Bean
         fun refreshSession(): RefreshSessionUseCase = mock(RefreshSessionUseCase::class.java)
 
         @Bean
         fun logout(): LogoutUseCase = mock(LogoutUseCase::class.java)
-
-        @Bean
-        fun getCurrentUser(): GetCurrentUserUseCase = mock(GetCurrentUserUseCase::class.java)
 
         @Bean
         fun accessTokenAuthenticator(): AccessTokenAuthenticator = mock(AccessTokenAuthenticator::class.java)

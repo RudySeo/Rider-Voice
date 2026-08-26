@@ -37,6 +37,12 @@ interface ReviewRepository {
 
     fun findOwnedActiveForUpdate(authorUserId: Long, reviewId: Long): Review?
 
+    fun findOwnedActive(authorUserId: Long, reviewId: Long): Review?
+
+    fun countAllByAuthorUserId(authorUserId: Long): Long
+
+    fun countPubliclyVisibleByAuthorUserId(authorUserId: Long): Long
+
     fun countByAuthorUserIdSince(authorUserId: Long, since: Instant): Long
 
     fun findByAuthorUserId(

@@ -89,6 +89,8 @@ class ReviewHttpMapper {
     fun toMyReviewListResponse(result: MyReviewListResult) = MyReviewListResponse(
         items = result.items.map(::toReviewResponse),
         nextCursor = result.nextCursor?.let(::encodeCursor),
+        authoredCount = result.authoredCount,
+        publiclyVisibleCount = result.publiclyVisibleCount,
     )
 
     fun toPublicReviewListResponse(result: PublicReviewListResult) = PublicReviewListResponse(

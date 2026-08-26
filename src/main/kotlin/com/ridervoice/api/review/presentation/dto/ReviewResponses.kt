@@ -41,6 +41,10 @@ data class MyReviewListResponse(
     val items: List<ReviewResponse>,
     @field:Schema(description = "createdAt과 reviewId 기반 opaque cursor", nullable = true)
     val nextCursor: String?,
+    @field:Schema(format = "int64", description = "삭제·전체 제외를 포함한 전체 작성 건수")
+    val authoredCount: Long,
+    @field:Schema(format = "int64", description = "현재 공개 중인 활성 리뷰 건수")
+    val publiclyVisibleCount: Long,
 )
 
 data class PublicReviewListResponse(

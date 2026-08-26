@@ -25,6 +25,8 @@ import com.ridervoice.api.review.application.port.`in`.DeleteReviewResult
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewQuery
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.domain.ReviewCommentStatus
@@ -101,6 +103,9 @@ class ReviewApiContractMockMvcTest {
     @MockitoBean
     private lateinit var listMyReviews: ListMyReviewsUseCase
 
+    @MockitoBean
+    private lateinit var getOwnedReview: GetOwnedReviewUseCase
+
     @Test
     fun `review owner endpoints require USER authentication`() {
         mockMvc.post("/api/v1/reviews") {
@@ -122,8 +127,9 @@ class ReviewApiContractMockMvcTest {
         }.andExpect { status { isUnauthorized() } }
 
         mockMvc.delete("/api/v1/reviews/100").andExpect { status { isUnauthorized() } }
+        mockMvc.get("/api/v1/reviews/100").andExpect { status { isUnauthorized() } }
 
-        verifyNoInteractions(createReview, updateReview, deleteReview, listMyReviews)
+        verifyNoInteractions(createReview, updateReview, deleteReview, listMyReviews, getOwnedReview)
     }
 
     @Test
@@ -253,6 +259,14 @@ class ReviewApiContractMockMvcTest {
                 nextCursor = ReviewCursor(result.createdAt, result.reviewId),
             ),
         )
+        `when`(getOwnedReview.get(GetOwnedReviewQuery(TEST_USER_ID, 100L))).thenReturn(result)
+
+        mockMvc.get("/api/v1/reviews/100") {
+            with(authenticatedUser())
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.reviewId") { value(100) }
+        }
 
         mockMvc.patch("/api/v1/reviews/100") {
             with(authenticatedUser())
@@ -280,6 +294,8 @@ class ReviewApiContractMockMvcTest {
             status { isOk() }
             jsonPath("$.items[0].reviewId") { value(100) }
             jsonPath("$.nextCursor") { isString() }
+            jsonPath("$.authoredCount") { value(0) }
+            jsonPath("$.publiclyVisibleCount") { value(0) }
         }
     }
 
@@ -328,6 +344,7 @@ class ReviewApiContractMockMvcTest {
             jsonPath("$.paths['/api/v1/reviews'].post.security[0].bearerAuth") { isArray() }
             jsonPath("$.paths['/api/v1/users/me/reviews'].get.security[0].bearerAuth") { isArray() }
             jsonPath("$.paths['/api/v1/reviews/{reviewId}'].patch.security[0].bearerAuth") { isArray() }
+            jsonPath("$.paths['/api/v1/reviews/{reviewId}'].get.security[0].bearerAuth") { isArray() }
             jsonPath("$.paths['/api/v1/reviews/{reviewId}'].delete.security[0].bearerAuth") { isArray() }
             jsonPath("$.paths['/api/v1/reviews'].post.requestBody.content['application/json'].schema['\$ref']") {
                 value("#/components/schemas/CreateReviewRequest")

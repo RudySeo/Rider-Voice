@@ -183,6 +183,14 @@ internal class ReviewPersistenceAdapter(
     override fun findOwnedActiveForUpdate(authorUserId: Long, reviewId: Long): Review? =
         reviews.findOwnedActiveForUpdate(authorUserId, reviewId, ReviewVisibilityStatus.ACTIVE).orElse(null)
 
+    override fun findOwnedActive(authorUserId: Long, reviewId: Long): Review? =
+        reviews.findOwnedActive(authorUserId, reviewId, ReviewVisibilityStatus.ACTIVE).orElse(null)
+
+    override fun countAllByAuthorUserId(authorUserId: Long): Long = reviews.countByAuthorId(authorUserId)
+
+    override fun countPubliclyVisibleByAuthorUserId(authorUserId: Long): Long =
+        reviews.countPubliclyVisibleByAuthorId(authorUserId, ReviewVisibilityStatus.ACTIVE)
+
     override fun countByAuthorUserIdSince(authorUserId: Long, since: Instant): Long =
         reviews.countByAuthorIdAndCreatedAtGreaterThanEqual(authorUserId, since)
 

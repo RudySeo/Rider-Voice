@@ -1,6 +1,7 @@
 package com.ridervoice.api.auth.application.port.out
 
 import com.ridervoice.api.auth.domain.OAuthAccount
+import com.ridervoice.api.auth.domain.MobileLoginGrant
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
@@ -19,4 +20,9 @@ interface OAuthAccountStore {
 interface UserSessionStore {
     fun findSessionForUpdate(refreshTokenHash: String): UserSession?
     fun saveSession(session: UserSession): UserSession
+}
+
+interface MobileLoginGrantStore {
+    fun findGrantForUpdate(codeHash: String): MobileLoginGrant?
+    fun saveGrant(grant: MobileLoginGrant): MobileLoginGrant
 }

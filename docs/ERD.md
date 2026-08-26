@@ -2,9 +2,9 @@
 
 ## 1. 기준
 
-Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 10개 도메인 테이블 구조와 주요 관계를 정리합니다. 운영 schema의 최초 기준은 Flyway `V1__create_initial_schema.sql`이며 이후 변경은 새 versioned migration으로 반영합니다.
+Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 11개 도메인 테이블 구조와 주요 관계를 정리합니다. 운영 schema의 최초 기준은 Flyway `V1__create_initial_schema.sql`이며 모바일 로그인 grant는 `V2__create_mobile_login_grants.sql`에서 추가하고 이후 변경도 새 versioned migration으로 반영합니다.
 
-Flyway가 생성하는 `flyway_schema_history`는 migration 적용 이력용 관리 테이블이므로 아래 10개 도메인 테이블 수와 관계도에는 포함하지 않습니다.
+Flyway가 생성하는 `flyway_schema_history`는 migration 적용 이력용 관리 테이블이므로 아래 11개 도메인 테이블 수와 관계도에는 포함하지 않습니다.
 
 모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 
@@ -38,6 +38,14 @@ erDiagram
         varchar refresh_token_hash UK
         datetime expires_at
         datetime revoked_at "nullable"
+    }
+
+    MOBILE_LOGIN_GRANTS {
+        bigint id PK
+        bigint user_id FK
+        varchar code_hash UK
+        datetime expires_at
+        datetime consumed_at "nullable"
     }
 
     PICKUP_LOCATIONS {
@@ -121,6 +129,7 @@ erDiagram
 
     USERS ||--o{ OAUTH_ACCOUNTS : connects
     USERS ||--o{ USER_SESSIONS : owns
+    USERS ||--o{ MOBILE_LOGIN_GRANTS : exchanges
  
 
     PICKUP_LOCATIONS ||--o{ RESTAURANTS : contains
@@ -148,6 +157,7 @@ erDiagram
 | 인증 | `users` | 내부 사용자 권한과 이용 상태 | - |
 | 인증 | `oauth_accounts` | 외부 OAuth 계정 연결 | `(provider, provider_subject)`, `(user_id, provider)` |
 | 인증 | `user_sessions` | refresh token 만료·폐기·회전 | `(refresh_token_hash)` |
+| 인증 | `mobile_login_grants` | 2분 유효 모바일 OAuth 교환 코드 hash와 일회성 소비 상태 | `(code_hash)` |
 | 음식점 | `pickup_locations` | 실제 픽업 장소 | `(location_key)` |
 | 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, brand_name)`, `(kakao_place_id)` |
 | 음식점 | `restaurant_platforms` | 배달 플랫폼 메타데이터 | - |

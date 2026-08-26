@@ -4,6 +4,20 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'src/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.env.docker.example'
+      - 'deploy/**'
+      - 'monitoring/**'
+      - '.github/workflows/master-publish.yml'
 
 permissions:
   contents: read

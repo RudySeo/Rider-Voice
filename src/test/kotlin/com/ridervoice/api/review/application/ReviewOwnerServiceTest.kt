@@ -9,6 +9,7 @@ import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.model.ReviewCursor
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewCommand
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewQuery
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.out.NewReviewPersistenceCommand
 import com.ridervoice.api.review.application.port.out.ReviewRepository
@@ -48,6 +49,9 @@ class ReviewOwnerServiceTest {
         assertThatThrownBy {
             fixture.service.delete(DeleteReviewCommand(AUTHOR_ID, REVIEW_ID))
         }.isInstanceOf(ResourceNotFoundException::class.java)
+        assertThatThrownBy {
+            fixture.service.get(GetOwnedReviewQuery(AUTHOR_ID, REVIEW_ID))
+        }.isInstanceOf(ResourceNotFoundException::class.java)
     }
 
     @Test
@@ -73,6 +77,8 @@ class ReviewOwnerServiceTest {
 
         assertThat(result.items.map { it.reviewId }).containsExactly(103L, 102L)
         assertThat(result.nextCursor).isEqualTo(ReviewCursor(second.createdAt, second.id))
+        assertThat(result.authoredCount).isEqualTo(7)
+        assertThat(result.publiclyVisibleCount).isEqualTo(3)
     }
 
     private fun fixture(active: Review?, listed: List<Review> = emptyList()): Fixture {
@@ -107,6 +113,10 @@ class ReviewOwnerServiceTest {
         override fun findLatestSubmissionForUpdate(authorUserId: Long, restaurantId: Long): ReviewSubmissionSnapshot? = null
         override fun findOwnedActiveForUpdate(authorUserId: Long, reviewId: Long): Review? =
             active?.takeIf { it.author.id == authorUserId && it.id == reviewId && it.isActive }
+        override fun findOwnedActive(authorUserId: Long, reviewId: Long): Review? =
+            active?.takeIf { it.author.id == authorUserId && it.id == reviewId && it.isActive }
+        override fun countAllByAuthorUserId(authorUserId: Long): Long = 7
+        override fun countPubliclyVisibleByAuthorUserId(authorUserId: Long): Long = 3
         override fun countByAuthorUserIdSince(authorUserId: Long, since: Instant): Long = error("not used")
         override fun findByAuthorUserId(authorUserId: Long, cursor: ReviewCursor?, limit: Int) = listed.take(limit)
     }

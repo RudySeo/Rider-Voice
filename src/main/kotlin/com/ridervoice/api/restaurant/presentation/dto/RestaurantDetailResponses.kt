@@ -59,4 +59,6 @@ data class RestaurantAggregateMetricResponse(
     val observedCount: Int,
     val notObservedCount: Int,
     val distribution: Map<String, BigDecimal>,
+    @field:Schema(nullable = true, description = "항목별 응답의 1.0~5.0 환산 점수. 종합 별점이 아닙니다.")
+    val score: BigDecimal?,
 )

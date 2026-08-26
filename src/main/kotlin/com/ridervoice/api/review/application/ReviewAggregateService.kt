@@ -12,6 +12,7 @@ import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
 import com.ridervoice.api.review.domain.ReviewRating
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Service
 internal class ReviewAggregateService(
@@ -84,7 +85,18 @@ internal class ReviewAggregateService(
             observedCount = observedCount,
             notObservedCount = notObservedCount,
             distribution = distribution(counts, observedCount),
+            score = score(counts, observedCount),
         )
+    }
+
+    private fun score(counts: Map<ReviewRating, Int>, observedCount: Int): BigDecimal? {
+        if (observedCount == 0) return null
+        val weightedTotal = OBSERVED_RATINGS.sumOf { rating ->
+            (counts[rating] ?: 0) * RATING_WEIGHTS.getValue(rating)
+        }
+        val convertedNumerator = 4 * weightedTotal - observedCount
+        val convertedDenominator = 3 * observedCount
+        return BigDecimal(convertedNumerator).divide(BigDecimal(convertedDenominator), 1, RoundingMode.HALF_UP)
     }
 
     private fun distribution(
@@ -133,6 +145,12 @@ internal class ReviewAggregateService(
             ReviewRating.GOOD,
             ReviewRating.NEEDS_IMPROVEMENT,
             ReviewRating.MAJOR_IMPROVEMENT,
+        )
+        val RATING_WEIGHTS = mapOf(
+            ReviewRating.VERY_GOOD to 4,
+            ReviewRating.GOOD to 3,
+            ReviewRating.NEEDS_IMPROVEMENT to 2,
+            ReviewRating.MAJOR_IMPROVEMENT to 1,
         )
     }
 }

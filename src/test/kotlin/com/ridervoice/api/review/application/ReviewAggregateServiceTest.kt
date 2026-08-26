@@ -164,10 +164,13 @@ class ReviewAggregateServiceTest {
                 ReviewRating.MAJOR_IMPROVEMENT to BigDecimal("20.0"),
             ),
         )
+        assertThat(result.metrics.packagingStability.score).isEqualByComparingTo("3.4")
         assertThat(result.metrics.orderReadiness.distribution).containsEntry(ReviewRating.GOOD, BigDecimal("80.0"))
+        assertThat(result.metrics.orderReadiness.score).isEqualByComparingTo("3.4")
         assertThat(result.metrics.handoffAccuracy.observedCount).isZero()
         assertThat(result.metrics.handoffAccuracy.notObservedCount).isEqualTo(5)
         assertThat(result.metrics.handoffAccuracy.distribution).isEmpty()
+        assertThat(result.metrics.handoffAccuracy.score).isNull()
     }
 
     @Test
@@ -188,6 +191,7 @@ class ReviewAggregateServiceTest {
 
         assertThat(result.status).isEqualTo(AggregationStatus.PUBLISHED)
         assertThat(result.metrics!!.pickupSpaceCleanliness.distribution.keys).containsExactly(ReviewRating.VERY_GOOD, ReviewRating.GOOD, ReviewRating.NEEDS_IMPROVEMENT, ReviewRating.MAJOR_IMPROVEMENT)
+        assertThat(result.metrics.pickupSpaceCleanliness.score).isEqualByComparingTo("3.7")
         assertThat(result.metrics.pickupSpaceCleanliness.distribution[ReviewRating.GOOD]).isEqualByComparingTo("100.0")
         assertThat(result.metrics.staffInteraction.distribution[ReviewRating.NEEDS_IMPROVEMENT]).isEqualByComparingTo("100.0")
         assertThat(result.metrics.riderRespect.distribution[ReviewRating.MAJOR_IMPROVEMENT]).isEqualByComparingTo("100.0")

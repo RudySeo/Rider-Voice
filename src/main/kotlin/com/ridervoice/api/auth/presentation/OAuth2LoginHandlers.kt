@@ -1,11 +1,10 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
+import com.ridervoice.api.auth.application.port.`in`.PrepareMobileLoginUseCase
 import com.ridervoice.api.auth.domain.OAuthProvider
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.authentication.InternalAuthenticationServiceException
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
@@ -17,11 +16,8 @@ import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class OAuth2LoginSuccessHandler(
-    private val completeProviderLogin: CompleteProviderLoginUseCase,
+    private val prepareMobileLogin: PrepareMobileLoginUseCase,
     private val failureHandler: OAuth2LoginFailureHandler,
-    private val cookies: AuthCookieManager,
-    @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
-    private val frontendBaseUrl: String,
 ) : AuthenticationSuccessHandler {
 
     override fun onAuthenticationSuccess(
@@ -35,13 +31,11 @@ class OAuth2LoginSuccessHandler(
             val provider = OAuthProvider.entries.firstOrNull {
                 it.name.equals(oauth.authorizedClientRegistrationId, ignoreCase = true)
             } ?: throw InternalAuthenticationServiceException("Unsupported OAuth provider")
-            val result = completeProviderLogin.complete(
-                CompleteSocialLoginCommand(provider, oauth.principal.name),
-            )
+            val command = CompleteSocialLoginCommand(provider, oauth.principal.name)
+            val destination = mobileCallback(prepareMobileLogin.prepareMobileLogin(command).exchangeCode)
 
             destroyTemporarySession(request)
-            cookies.writeRefreshToken(response, result.refreshToken)
-            response.sendRedirect(frontendCallback())
+            response.sendRedirect(destination)
         } catch (_: RuntimeException) {
             failureHandler.onAuthenticationFailure(
                 request,
@@ -51,20 +45,16 @@ class OAuth2LoginSuccessHandler(
         }
     }
 
-    private fun frontendCallback(): String = UriComponentsBuilder
-        .fromUriString(frontendBaseUrl.trimEnd('/'))
-        .path(FRONTEND_CALLBACK_PATH)
+    private fun mobileCallback(code: String): String = UriComponentsBuilder
+        .fromUriString(MOBILE_CALLBACK)
+        .queryParam("code", code)
         .build()
         .encode()
         .toUriString()
 }
 
 @Component
-class OAuth2LoginFailureHandler(
-    private val cookies: AuthCookieManager,
-    @Value("\${ridervoice.auth.frontend-base-url:http://localhost:5173}")
-    private val frontendBaseUrl: String,
-) : AuthenticationFailureHandler {
+class OAuth2LoginFailureHandler : AuthenticationFailureHandler {
 
     override fun onAuthenticationFailure(
         request: HttpServletRequest,
@@ -72,10 +62,8 @@ class OAuth2LoginFailureHandler(
         exception: org.springframework.security.core.AuthenticationException,
     ) {
         destroyTemporarySession(request)
-        cookies.clearRefreshToken(response)
         val redirect = UriComponentsBuilder
-            .fromUriString(frontendBaseUrl.trimEnd('/'))
-            .path(FRONTEND_CALLBACK_PATH)
+            .fromUriString(MOBILE_CALLBACK)
             .queryParam("error", "oauth_failed")
             .build()
             .encode()
@@ -84,7 +72,7 @@ class OAuth2LoginFailureHandler(
     }
 }
 
-private const val FRONTEND_CALLBACK_PATH = "/auth/callback"
+private const val MOBILE_CALLBACK = "ridervoice://auth/callback"
 
 private fun destroyTemporarySession(request: HttpServletRequest) {
     request.getSession(false)?.invalidate()

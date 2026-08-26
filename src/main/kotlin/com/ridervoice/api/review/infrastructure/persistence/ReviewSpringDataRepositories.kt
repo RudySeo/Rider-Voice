@@ -16,6 +16,35 @@ import java.util.Optional
 
 internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
 
+    @Query(
+        """
+        select review from Review review
+        where review.author.id = :authorUserId and review.id = :reviewId
+          and review.currentSlot is not null and review.deletedAt is null
+          and review.visibilityStatus = :visibilityStatus
+        """,
+    )
+    fun findOwnedActive(
+        @Param("authorUserId") authorUserId: Long,
+        @Param("reviewId") reviewId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
+    ): Optional<Review>
+
+    fun countByAuthorId(authorUserId: Long): Long
+
+    @Query(
+        """
+        select count(review.id) from Review review
+        where review.author.id = :authorUserId
+          and review.currentSlot is not null and review.deletedAt is null
+          and review.visibilityStatus = :visibilityStatus
+        """,
+    )
+    fun countPubliclyVisibleByAuthorId(
+        @Param("authorUserId") authorUserId: Long,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
+    ): Long
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
         """

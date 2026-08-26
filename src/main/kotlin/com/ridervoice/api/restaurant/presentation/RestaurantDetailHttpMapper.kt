@@ -54,5 +54,6 @@ class RestaurantDetailHttpMapper {
         observedCount = observedCount,
         notObservedCount = notObservedCount,
         distribution = distribution,
+        score = score,
     )
 }

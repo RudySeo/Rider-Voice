@@ -175,6 +175,9 @@ class ReviewCreateServiceTest {
         override fun save(review: Review): Review = review
         override fun findLatestSubmissionForUpdate(authorUserId: Long, restaurantId: Long) = latest
         override fun findOwnedActiveForUpdate(authorUserId: Long, reviewId: Long): Review? = null
+        override fun findOwnedActive(authorUserId: Long, reviewId: Long): Review? = null
+        override fun countAllByAuthorUserId(authorUserId: Long): Long = 0
+        override fun countPubliclyVisibleByAuthorUserId(authorUserId: Long): Long = 0
         override fun countByAuthorUserIdSince(authorUserId: Long, since: Instant): Long {
             countedSince = since
             return recentReviewCount

@@ -6,6 +6,8 @@ import com.ridervoice.api.review.application.port.`in`.CreateReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewCommand
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewQuery
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListPublicRestaurantReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.presentation.dto.CreateReviewRequest
@@ -46,8 +48,21 @@ class ReviewController(
     private val createReview: CreateReviewUseCase,
     private val updateReview: UpdateReviewUseCase,
     private val deleteReview: DeleteReviewUseCase,
+    private val getOwnedReview: GetOwnedReviewUseCase,
     private val mapper: ReviewHttpMapper,
 ) {
+    @Operation(
+        summary = "내 활성 리뷰 단건 조회",
+        security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
+    )
+    @GetMapping("/{reviewId}")
+    fun get(
+        @Parameter(hidden = true) @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
+        @PathVariable @Positive reviewId: Long,
+    ): ReviewResponse = mapper.toReviewResponse(
+        getOwnedReview.get(GetOwnedReviewQuery(principal.userId, reviewId)),
+    )
+
     @Operation(
         summary = "리뷰 작성",
         security = [SecurityRequirement(name = OpenApiConfiguration.BEARER_AUTH)],
