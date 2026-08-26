@@ -66,6 +66,8 @@ export type PublicReview = {
   verificationNotice: string;
 };
 
+export type PublicReviewListResponse = { items: PublicReview[]; nextCursor: string | null };
+
 export type ReviewRatings = {
   pickupSpaceCleanliness: RatingValue;
   packagingStability: RatingValue;
@@ -88,5 +90,6 @@ export type MyReview = {
 };
 
 export type MyReviewListResponse = { items: MyReview[]; nextCursor: string | null; authoredCount: number; publiclyVisibleCount: number };
+export type DeleteReviewResponse = { reviewId: number };
 export type User = { id: number; status: string; role: 'USER' | 'ADMIN' };
 export type MobileSession = { accessToken: string; refreshToken: string; user: User };
