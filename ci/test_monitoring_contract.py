@@ -20,6 +20,7 @@ DASHBOARD = ROOT / "monitoring" / "grafana" / "dashboards" / "rider-voice-overvi
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
 BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY_SCRIPT = ROOT / "deploy" / "ec2" / "deploy.sh"
+RELEASE_SCRIPT = ROOT / "deploy" / "ec2" / "deploy-release.sh"
 
 
 class MonitoringContractTest(unittest.TestCase):
@@ -37,8 +38,8 @@ class MonitoringContractTest(unittest.TestCase):
     def test_local_compose_is_private_persistent_and_uses_pinned_images(self) -> None:
         compose = COMPOSE.read_text(encoding="utf-8")
 
-        self.assertRegex(compose, r"prom/prometheus:v3\.5\.5@sha256:[0-9a-f]{64}")
-        self.assertRegex(compose, r"grafana/grafana:13\.1\.4@sha256:[0-9a-f]{64}")
+        self.assertRegex(compose, r"prom/prometheus:v3\.14\.0@sha256:[0-9a-f]{64}")
+        self.assertRegex(compose, r"grafana/grafana:13\.2\.0@sha256:[0-9a-f]{64}")
         self.assertIn("127.0.0.1:9090:9090", compose)
         self.assertIn("127.0.0.1:3000:3000", compose)
         self.assertIn("prometheus-data:/prometheus", compose)
@@ -131,6 +132,24 @@ class MonitoringContractTest(unittest.TestCase):
         self.assertIn('GRAFANA_ROOT_URL="https://${DOMAIN}/grafana/"', bootstrap)
         self.assertIn("MONITORING_ENV_FILE", bootstrap)
         self.assertIn('chmod 0600 "${MONITORING_ENV_FILE}"', bootstrap)
+
+    def test_release_updates_monitoring_without_replacing_secrets_or_volumes(self) -> None:
+        release = RELEASE_SCRIPT.read_text(encoding="utf-8")
+        asset_block = re.search(r"MONITORING_ASSETS=\((.*?)\n\)", release, re.DOTALL)
+
+        self.assertIsNotNone(asset_block)
+        self.assertIn("compose.prod.yml", release)
+        self.assertIn("prometheus-prod.yml", release)
+        self.assertIn("rider-voice-overview.json", release)
+        self.assertIn("docker compose", release)
+        self.assertIn("--detach --wait", release)
+        self.assertIn("/-/ready", release)
+        self.assertIn("/grafana/api/health", release)
+        self.assertIn('up{job="rider-voice-api"}', release)
+        self.assertIn("restore_monitoring", release)
+        self.assertNotIn(".env", asset_block.group(1))
+        self.assertNotIn("secrets/", asset_block.group(1))
+        self.assertNotIn("docker volume rm", release)
 
 
 if __name__ == "__main__":

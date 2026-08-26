@@ -2,7 +2,7 @@ name: rider-voice-monitoring
 
 services:
   prometheus:
-    image: prom/prometheus:v3.5.5@sha256:332c2f43e7e389d74d3893b55bb02fbbd684208e681eeb604641d5d769c0fe2a
+    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
     container_name: rider-voice-prometheus-local
     restart: unless-stopped
     command:
@@ -21,7 +21,7 @@ services:
       - no-new-privileges:true
 
   grafana:
-    image: grafana/grafana:13.1.4@sha256:9be3a3ccdb06bcbb127f888b0c4c1d151837443e478887897a63a27d7b348043
+    image: grafana/grafana:13.2.0@sha256:3fd54ae1214669f8355f065ec9f6445d5279a3d77095ab048ca045685272429b
     container_name: rider-voice-grafana-local
     restart: unless-stopped
     depends_on:

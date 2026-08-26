@@ -12,6 +12,7 @@ PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "master-publish.yml"
 ROLLBACK_WORKFLOW = ROOT / ".github" / "workflows" / "production-rollback.yml"
 BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY = ROOT / "deploy" / "ec2" / "deploy.sh"
+RELEASE_DEPLOY = ROOT / "deploy" / "ec2" / "deploy-release.sh"
 MONITORING_COMPOSE = ROOT / "monitoring" / "compose.prod.yml"
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
 SSM_DEPLOY = ROOT / "deploy" / "github" / "send-ssm-deploy.sh"
@@ -98,6 +99,7 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("AWS_DEPLOY_ROLE_ARN", workflow)
         self.assertIn("EC2_INSTANCE_ID", workflow)
         self.assertIn("send-ssm-deploy.sh", workflow)
+        self.assertIn('"$GITHUB_SHA"', workflow)
         self.assertNotIn("AWS_ACCESS_KEY_ID", workflow)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", workflow)
 
@@ -135,6 +137,8 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("environment: production", rollback)
         self.assertIn("id-token: write", rollback)
         self.assertIn("send-ssm-deploy.sh", rollback)
+        self.assertIn("git rev-parse HEAD", rollback)
+        self.assertIn("steps.release.outputs.sha", rollback)
         self.assertNotIn("AWS_ACCESS_KEY_ID", rollback)
 
     def test_github_only_sends_a_validated_ssm_command(self) -> None:
@@ -143,6 +147,20 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("AWS-RunShellScript", sender)
         self.assertIn("get-command-invocation", sender)
         self.assertRegex(sender, r"sha-\[0-9a-f\].*12")
+        self.assertRegex(sender, r"RELEASE_SHA.*\^\[0-9a-f\].*40")
+        self.assertIn("deploy-release.sh", sender)
+        self.assertIn("raw.githubusercontent.com/RudySeo/Rider-Voice", sender)
+
+    def test_release_uses_exact_commit_assets_and_preserves_runtime_state(self) -> None:
+        release = RELEASE_DEPLOY.read_text(encoding="utf-8")
+
+        self.assertIn("Rider-Voice/archive/${RELEASE_SHA}.tar.gz", release)
+        self.assertIn("deploy/ec2/deploy.sh", release)
+        self.assertIn('MONITORING_ENV_FILE="${MONITORING_INSTALL_DIR}/.env"', release)
+        self.assertIn('GRAFANA_SECRET_FILE="${MONITORING_INSTALL_DIR}/secrets/grafana_admin_password"', release)
+        self.assertIn("restore_monitoring", release)
+        self.assertIn("flock --nonblock", release)
+        self.assertNotIn("docker volume rm", release)
 
     def test_console_guide_covers_the_required_security_and_cost_boundaries(self) -> None:
         guide = AWS_GUIDE.read_text(encoding="utf-8")

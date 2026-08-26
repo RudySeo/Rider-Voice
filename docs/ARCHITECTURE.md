@@ -261,13 +261,16 @@ master push
   -> Docker Hub sha-<12자리> 이미지 게시
   -> GitHub OIDC로 production deploy role 획득
   -> SSM Run Command
-  -> EC2의 deploy script가 새 container 기동과 health check
+  -> 정확한 master commit의 release script와 monitoring 자산 다운로드
+  -> EC2의 deploy script가 새 API container 기동과 health check
+  -> Prometheus·Grafana Compose 갱신과 내부 health check
 ```
 
 - EC2의 8080과 RDS의 3306은 인터넷에 공개하지 않는다. RDS는 EC2 security group에서만 접근한다.
 - Grafana 3000과 Prometheus 9090은 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. Grafana만 기존 HTTPS 도메인의 `/grafana/`에서 Nginx reverse proxy로 제공하며 Prometheus UI는 SSM port forwarding으로만 접근한다.
 - API, Prometheus와 Grafana는 `rider-voice-observability` Docker network를 공유한다. Prometheus는 container DNS로 API의 `/actuator/prometheus`를 15초마다 수집한다.
 - Prometheus와 Grafana는 운영 전용 Docker Compose가 관리한다. API는 새 image health check와 자동 rollback을 유지하기 위해 별도 배포 script가 관리한다.
+- release script는 GitHub가 전달한 40자리 master commit SHA를 검증하고 해당 commit의 배포 자산만 사용한다. monitoring 갱신은 기존 `.env`, Grafana secret과 named volume을 보존하며, health check 실패 시 직전 Compose·provisioning 자산을 복원한다.
 - Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
 - Prometheus 데이터는 7일과 2GB 중 먼저 도달하는 한도로 보관하고 Grafana 데이터와 함께 Docker volume에 저장한다.
 - Grafana anonymous access와 사용자 가입은 비활성화하고 HTTPS secure cookie와 로그인 시도 제한을 적용한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.
@@ -275,7 +278,7 @@ master push
 - Nginx는 `Host`, `X-Forwarded-Proto`와 `X-Forwarded-For`를 API에 전달한다. ALB나 CloudFront가 앞에 추가되면 trusted proxy 정책을 새로 결정한다.
 - 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화한다. API secret은 root 전용 임시 env 파일로 만들고 Grafana 비밀번호는 root 전용 Compose secret 파일로 mount하며 GitHub와 Docker image는 값을 읽지 않는다.
 - RDS runtime 계정은 DML만, migration 계정은 Flyway에 필요한 DDL과 DML만 갖고 둘 다 TLS를 강제한다. RDS CA truststore는 EC2에 두고 container에 read-only로 mount한 뒤 MySQL Connector/J의 JDBC 연결에만 적용한다. JVM의 기본 truststore는 공개 HTTPS provider 인증에 사용하며 RDS 전용 truststore로 전역 교체하지 않는다.
-- 새 container는 commit 기반 불변 태그로 실행하고 `/actuator/health`가 제한 시간 안에 `UP`이 아니면 이전 image를 다시 실행한다. Flyway schema는 자동 rollback하지 않으므로 migration은 이전 application과 호환되는 추가형 변경을 기본으로 한다.
+- 새 container는 commit 기반 불변 태그로 실행하고 `/actuator/health`가 제한 시간 안에 `UP`이 아니면 이전 image를 다시 실행한다. monitoring은 Prometheus readiness, Grafana health와 API target 수집을 확인한 뒤 완료한다. Flyway schema와 monitoring named volume의 내부 데이터는 자동 rollback하지 않으므로 변경은 이전 application·data와 호환되게 유지한다.
 - EC2는 SSM Session Manager로 운영하고 확인 후 SSH ingress를 제거한다. GitHub는 장기 AWS access key 대신 repository와 `production` environment가 제한된 OIDC role을 사용한다.
 - 모바일 앱 스토어 배포 전에는 공개 API, OpenAPI와 health endpoint만 운영 검증 범위다. 실제 카카오 로그인은 네이티브 개발 빌드에서 별도로 검증한다.
 - Prometheus, Grafana와 API가 같은 EC2에 있으므로 EC2 자체 장애 시 관측 화면도 중단된다. 외부 장애 감지나 고가용성이 필요해지면 별도 host 또는 관리형 관측 서비스를 새로 결정한다.

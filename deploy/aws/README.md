@@ -140,7 +140,7 @@ sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_E
 
 bootstrap은 Docker와 Compose plugin, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore와 관측 stack의 Compose 자산을 설치한다. 완료 후 현재 검증된 최초 이미지를 배포하고 Grafana secret 파일을 준비한 다음 관측 stack을 시작한다.
 
-이미 bootstrap이 끝난 EC2에 이번 관측 자산을 처음 반영하거나 갱신할 때는 22/TCP를 다시 열지 않고 AWS Console의 `Systems Manager` → `Session Manager` shell에서 병합된 정확한 commit을 내려받아 실행할 수 있다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
+이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 SSM Run Command로 실행한다. 이 script가 backend image를 교체한 뒤 monitoring 자산을 갱신하므로 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
 
 ```bash
 MERGED_COMMIT_SHA="replace-with-40-character-lowercase-commit-sha"
@@ -190,6 +190,8 @@ sudo /snap/bin/certbot renew --dry-run
 ```
 
 Docker의 3000, 8080과 9090 binding이 `127.0.0.1`인지 확인하고 외부에서 `http://<DOMAIN>`이 HTTPS로 이동하는지 확인한다. 외부 `https://<DOMAIN>/actuator/prometheus` 요청은 `404`여야 한다.
+
+자동 release는 `/opt/rider-voice/monitoring/.env`, `secrets/grafana_admin_password`와 두 named volume을 유지한다. 새 monitoring 구성이 정상화되지 않으면 직전 Compose·Prometheus·Grafana provisioning 파일을 복원하고 workflow를 실패시킨다. API image health 실패는 기존과 같이 직전 image로 자동 복구한다.
 
 ## 7. Prometheus와 Grafana 접속
 

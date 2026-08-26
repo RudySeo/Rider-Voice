@@ -143,8 +143,9 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - master 대상 PR에서 백엔드·MySQL 통합 테스트와 컨테이너 기동 검증이 성공해야 병합할 수 있으며, 병합된 백엔드 이미지만 Docker Hub에 게시되어야 합니다.
 - MySQL 통합 검증은 운영 RDS 목표 버전인 MySQL 8.4.10을 사용해야 합니다.
 - 완전히 빈 MySQL에 Flyway migration을 적용한 뒤 Entity, FK, unique와 index가 일치해야 합니다.
-- master 이미지가 Docker Hub에 게시되면 GitHub가 장기 AWS access key 없이 OIDC로 배포 권한을 얻어 지정 EC2에 자동 배포해야 합니다.
+- master 이미지가 Docker Hub에 게시되면 GitHub가 장기 AWS access key 없이 OIDC로 배포 권한을 얻어 지정 EC2에 자동 배포해야 합니다. 배포는 같은 master commit의 backend script와 monitoring 자산을 사용해야 합니다.
 - 운영 API는 Nginx 뒤의 localhost Docker container로만 실행되고 HTTPS health check를 통과해야 하며, 새 container가 정상화되지 않으면 이전 이미지로 복구해야 합니다.
 - RDS는 외부에 공개하지 않고 EC2에서 TLS host 검증을 거쳐 runtime·migration 분리 계정으로 연결해야 합니다.
 - Prometheus는 비공개 Docker network에서 API 메트릭을 수집하고 Grafana 대시보드에서 API 상태, HTTP 요청, JVM과 DB connection pool 상태를 확인할 수 있어야 합니다.
+- 운영 Prometheus·Grafana 변경은 기존 secret과 named volume을 보존한 채 자동 반영하고, 새 구성이 정상화되지 않으면 직전 구성으로 복구해야 합니다.
 - Prometheus UI와 metric endpoint는 인터넷에 공개하지 않아야 하며, Grafana는 EC2 localhost binding을 유지한 채 기존 HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로만 접근할 수 있어야 합니다.
