@@ -22,7 +22,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
 ) {
 
     @Test
-    fun `V1 migrates an empty database and Hibernate validates all mappings`() {
+    fun `all migrations apply to an empty database and Hibernate validates all mappings`() {
         val tables = jdbcTemplate.queryForList(
             """
             SELECT table_name
@@ -34,7 +34,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
 
         assertThat(entityManagerFactory.isOpen).isTrue()
         assertThat(tables).containsAll(DOMAIN_TABLES + "flyway_schema_history")
-        assertThat(successfulMigrationVersions()).containsExactly("1")
+        assertThat(successfulMigrationVersions()).containsExactly("1", "2")
     }
 
     @Test
@@ -42,11 +42,11 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
         val result = flyway.migrate()
 
         assertThat(result.migrationsExecuted).isZero()
-        assertThat(successfulMigrationVersions()).containsExactly("1")
+        assertThat(successfulMigrationVersions()).containsExactly("1", "2")
     }
 
     @Test
-    fun `V1 preserves identity keys and critical unique constraints`() {
+    fun `migrations preserve identity keys and critical unique constraints`() {
         val identityTables = jdbcTemplate.queryForList(
             """
             SELECT table_name
@@ -79,6 +79,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
             "uk_reviews_author_restaurant_current_slot",
             "uk_review_reports_reporter_review",
             "uk_restaurant_info_reports_reporter_restaurant",
+            "uk_mobile_login_grants_code_hash",
         )
     }
 
@@ -104,6 +105,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
             "review_reports",
             "restaurant_info_reports",
             "moderation_audits",
+            "mobile_login_grants",
         )
     }
 }
