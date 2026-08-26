@@ -1,4 +1,4 @@
-"""Static contracts for production Flyway schema ownership."""
+"""CI contracts for production Flyway schema ownership."""
 
 from pathlib import Path
 import re

@@ -1,4 +1,4 @@
-"""Contracts for local and single-EC2 Prometheus/Grafana monitoring."""
+"""CI contracts for local and single-EC2 Prometheus/Grafana monitoring."""
 
 import json
 import re

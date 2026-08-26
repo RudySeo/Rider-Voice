@@ -1,4 +1,4 @@
-"""Contract tests for the feature branch Draft PR workflow."""
+"""CI contract tests for the feature branch Draft PR workflow."""
 
 from pathlib import Path
 import re

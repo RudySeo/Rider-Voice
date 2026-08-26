@@ -1,4 +1,4 @@
-name: Backend PR CI
+name: Monorepo PR CI
 
 on:
   pull_request:
@@ -9,12 +9,34 @@ permissions:
   contents: read
 
 concurrency:
-  group: backend-pr-${{ github.event.pull_request.number }}
+  group: monorepo-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: filter
+        run: |
+          python3 ci/detect_ci_changes.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+
   backend-test:
     name: Backend test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -33,13 +55,15 @@ jobs:
           cache-provider: basic
 
       - name: Validate workflow contracts
-        run: python3 -m unittest scripts/test_feature_pr_workflow.py scripts/test_master_ci_cd_workflow.py scripts/test_flyway_schema_contract.py scripts/test_aws_deployment_contract.py scripts/test_monitoring_contract.py
+        run: python3 -m unittest ci.test_feature_pr_workflow ci.test_master_ci_cd_workflow ci.test_ci_change_detection ci.test_flyway_schema_contract ci.test_aws_deployment_contract ci.test_monitoring_contract
 
       - name: Build backend
         run: ./gradlew build --no-daemon
 
   integration-and-container-smoke:
     name: MySQL integration and container smoke
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -150,8 +174,6 @@ jobs:
             --env KAKAO_CLIENT_ID \
             --env KAKAO_LOCAL_REST_API_KEY \
             --env KAKAO_REDIRECT_URI=http://127.0.0.1:8080/api/v1/auth/oauth2/callback/kakao \
-            --env FRONTEND_BASE_URL=http://127.0.0.1:5173 \
-            --env AUTH_COOKIE_SECURE=false \
             rider-voice-api:ci
 
       - name: Verify backend health
@@ -199,3 +221,74 @@ jobs:
           docker rm --force rider-voice-smoke || true
           docker network rm rider-voice-observability-ci || true
           rm -f "$GRAFANA_ADMIN_PASSWORD_FILE"
+
+  mobile-test:
+    name: Mobile test
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Enable pinned pnpm
+        run: corepack enable
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check mobile app
+        run: pnpm run typecheck
+
+      - name: Lint mobile app
+        run: pnpm run lint
+
+      - name: Test mobile app
+        run: pnpm run test
+
+      - name: Check Expo dependency compatibility
+        run: pnpm exec expo install --check
+
+      - name: Export iOS app
+        run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/mobile-ios-export"
+
+      - name: Export Android app
+        run: pnpm exec expo export --platform android --output-dir "$RUNNER_TEMP/mobile-android-export"
+
+  ci-gate:
+    name: PR CI gate
+    if: always()
+    needs:
+      - changes
+      - backend-test
+      - integration-and-container-smoke
+      - mobile-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every selected validation to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BACKEND_TEST_RESULT: ${{ needs.backend-test.result }}
+          INTEGRATION_RESULT: ${{ needs.integration-and-container-smoke.result }}
+          MOBILE_RESULT: ${{ needs.mobile-test.result }}
+        run: |
+          test "$CHANGES_RESULT" = "success"
+          for result in \
+            "$BACKEND_TEST_RESULT" \
+            "$INTEGRATION_RESULT" \
+            "$MOBILE_RESULT"; do
+            case "$result" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          done

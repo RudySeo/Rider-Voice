@@ -1,4 +1,4 @@
-"""Contracts for the single-EC2 AWS production deployment."""
+"""CI contracts for the single-EC2 AWS production deployment."""
 
 import json
 import re

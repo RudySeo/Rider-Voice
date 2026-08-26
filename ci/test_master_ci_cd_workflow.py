@@ -1,6 +1,7 @@
-"""Contract tests for the split backend PR CI and master publish workflows."""
+"""CI contract tests for path-aware PR checks and backend-only publishing."""
 
 from pathlib import Path
+import json
 import re
 import unittest
 
@@ -11,6 +12,8 @@ PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "master-publish.yml"
 DOCKERFILE = ROOT / "Dockerfile"
 DOCKERIGNORE = ROOT / ".dockerignore"
 DOCKER_ENV_EXAMPLE = ROOT / ".env.docker.example"
+MOBILE_PACKAGE = ROOT / "mobile" / "package.json"
+MOBILE_APP_CONFIG = ROOT / "mobile" / "app.json"
 
 
 class MasterCiCdWorkflowTest(unittest.TestCase):
@@ -22,6 +25,8 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
             raise AssertionError(f"missing workflow: {PUBLISH_WORKFLOW}")
         cls.pr_content = PR_WORKFLOW.read_text(encoding="utf-8")
         cls.publish_content = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
+        cls.mobile_package = json.loads(MOBILE_PACKAGE.read_text(encoding="utf-8"))
+        cls.mobile_app_config = json.loads(MOBILE_APP_CONFIG.read_text(encoding="utf-8"))
 
     def test_pr_ci_runs_only_for_master_pull_requests(self) -> None:
         self.assertRegex(
@@ -37,14 +42,60 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertIn("integration-and-container-smoke:", self.pr_content)
         self.assertNotIn("publish-image:", self.pr_content)
         self.assertIn("./gradlew build", self.pr_content)
-        self.assertIn("scripts/test_aws_deployment_contract.py", self.pr_content)
-        self.assertIn("scripts/test_monitoring_contract.py", self.pr_content)
+        self.assertIn("ci.test_aws_deployment_contract", self.pr_content)
+        self.assertIn("ci.test_monitoring_contract", self.pr_content)
         self.assertIn("./gradlew migrationTest", self.pr_content)
         self.assertIn("./gradlew integrationTest", self.pr_content)
         self.assertNotIn("DOCKERHUB_TOKEN", self.pr_content)
-        self.assertNotIn("setup-node", self.pr_content)
-        self.assertNotIn("npm ", self.pr_content)
-        self.assertNotRegex(self.pr_content, r"(?m)^\s{2}frontend:")
+
+    def test_pr_ci_detects_changes_and_scopes_backend_jobs(self) -> None:
+        self.assertIn("changes:", self.pr_content)
+        self.assertIn("python3 ci/detect_ci_changes.py", self.pr_content)
+        self.assertIn("backend: ${{ steps.filter.outputs.backend }}", self.pr_content)
+        self.assertIn("mobile: ${{ steps.filter.outputs.mobile }}", self.pr_content)
+        self.assertNotIn("steps.filter.outputs.frontend", self.pr_content)
+        self.assertGreaterEqual(self.pr_content.count("needs: changes"), 3)
+        self.assertGreaterEqual(
+            self.pr_content.count("needs.changes.outputs.backend == 'true'"),
+            2,
+        )
+
+    def test_pr_ci_has_no_frontend_job(self) -> None:
+        self.assertNotIn("frontend-test:", self.pr_content)
+        self.assertNotIn("working-directory: frontend", self.pr_content)
+        self.assertNotIn("npm ci", self.pr_content)
+
+    def test_mobile_job_uses_locked_expo_validation(self) -> None:
+        self.assertIn("mobile-test:", self.pr_content)
+        self.assertIn("needs.changes.outputs.mobile == 'true'", self.pr_content)
+        self.assertIn("corepack enable", self.pr_content)
+        self.assertIn("pnpm install --frozen-lockfile", self.pr_content)
+        self.assertIn("pnpm run typecheck", self.pr_content)
+        self.assertIn("pnpm run lint", self.pr_content)
+        self.assertIn("pnpm run test", self.pr_content)
+        self.assertIn("pnpm exec expo install --check", self.pr_content)
+        self.assertNotIn("pnpm exec expo export --platform all", self.pr_content)
+        self.assertIn("pnpm exec expo export --platform ios", self.pr_content)
+        self.assertIn("$RUNNER_TEMP/mobile-ios-export", self.pr_content)
+        self.assertIn("pnpm exec expo export --platform android", self.pr_content)
+        self.assertIn("$RUNNER_TEMP/mobile-android-export", self.pr_content)
+
+    def test_mobile_app_has_no_expo_web_target(self) -> None:
+        self.assertNotIn("web", self.mobile_package["scripts"])
+        self.assertNotIn("react-dom", self.mobile_package["dependencies"])
+        self.assertNotIn("react-native-web", self.mobile_package["dependencies"])
+        self.assertNotIn("web", self.mobile_app_config["expo"])
+        self.assertIn("expo-web-browser", self.mobile_package["dependencies"])
+
+    def test_pr_ci_exposes_one_stable_final_gate(self) -> None:
+        self.assertIn("ci-gate:", self.pr_content)
+        self.assertIn("name: PR CI gate", self.pr_content)
+        self.assertIn("if: always()", self.pr_content)
+        self.assertIn("backend-test", self.pr_content)
+        self.assertIn("integration-and-container-smoke", self.pr_content)
+        self.assertNotIn("frontend-test", self.pr_content)
+        self.assertIn("mobile-test", self.pr_content)
+        self.assertIn("success|skipped", self.pr_content)
 
     def test_schema_migration_runs_before_integration_and_uses_separate_credentials(self) -> None:
         migration_position = self.pr_content.index("./gradlew migrationTest")
@@ -97,6 +148,29 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertNotIn("docker run", self.publish_content)
         self.assertNotIn("/actuator/health", self.publish_content)
 
+    def test_publish_trigger_is_limited_to_backend_impacting_paths(self) -> None:
+        self.assertRegex(
+            self.publish_content,
+            r"branches:\s*\n\s*- master\s*\n\s*paths:",
+        )
+        for backend_path in (
+            "'src/**'",
+            "'gradle/**'",
+            "'build.gradle.kts'",
+            "'settings.gradle.kts'",
+            "'gradlew'",
+            "'Dockerfile'",
+            "'.dockerignore'",
+            "'deploy/**'",
+            "'monitoring/**'",
+            "'.github/workflows/master-publish.yml'",
+        ):
+            with self.subTest(path=backend_path):
+                self.assertIn(f"- {backend_path}", self.publish_content)
+        self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]frontend/")
+        self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]mobile/")
+        self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]docs/")
+
     def test_publish_uses_traceable_tags_cache_and_attestations(self) -> None:
         self.assertIn("type=raw,value=latest", self.publish_content)
         self.assertIn("type=sha,prefix=sha-,format=short", self.publish_content)
@@ -133,7 +207,8 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertNotIn("frontend", dockerfile)
         self.assertNotIn("KAKAO_CLIENT_ID", dockerfile)
         self.assertNotIn("DB_PASSWORD", dockerfile)
-        self.assertIn("frontend/", dockerignore)
+        self.assertNotIn("frontend/", dockerignore)
+        self.assertIn("ci/", dockerignore)
         self.assertIn(".env", dockerignore)
         self.assertIn("DB_URL=", env_example)
         self.assertIn("KAKAO_CLIENT_ID=", env_example)
