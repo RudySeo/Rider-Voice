@@ -1,6 +1,6 @@
 # Rider Voice
 
-Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 API 서버입니다. 완성된 Spring Boot 서버와 주요 사용자 흐름을 검증하는 로컬 `/frontend` React SPA prototype을 함께 제공합니다.
+Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 서비스입니다. Spring Boot API와 Expo 기반 iOS·Android 모바일 앱으로 구성됩니다.
 
 초기 리뷰는 라이더 신분과 실제 방문이 인증된 정보가 아닙니다. 카카오 로그인은 서비스 계정 식별 수단이며 모든 공개 리뷰와 리포트는 `UNVERIFIED` 상태와 미인증 안내를 제공합니다.
 
@@ -41,15 +41,15 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - OpenAPI, RFC 7807 `ProblemDetail`
 - JUnit 5, MockK, MockMvc, 로컬 MySQL 통합 테스트
 - 카카오 REST OAuth와 카카오 로컬 REST API
-- Node 24 LTS, React 19, Vite 8, TypeScript와 npm
-- TanStack Query, React Router, React Hook Form, Zod
-- Vitest, Testing Library와 CSS Modules
+- Node 24 LTS, Expo SDK 57, React Native 0.86과 TypeScript
+- Expo Router, TanStack Query, React Hook Form과 Zod
+- Jest, React Native Testing Library와 Expo SecureStore
 
 초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시하고 기존 단일 EC2에 배포합니다. 운영 메트릭은 같은 EC2의 Prometheus와 Grafana 컨테이너가 수집·표시합니다. Redis, Kafka, Elasticsearch, 전체 애플리케이션용 Docker Compose, Testcontainers와 ECS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
-서버 API MVP와 로컬 React frontend prototype이 구현되어 있습니다.
+서버 API MVP와 Expo 기반 모바일 앱이 구현되어 있습니다.
 
 - Spring Security OAuth2 Client 기반 카카오 로그인과 미인증 안내
 - opaque access token, rotating refresh token과 logout
@@ -62,21 +62,21 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 이름·장소·상태 정정
 - OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
-- OAuth callback의 `HttpOnly` refresh cookie 설정과 cookie 기반 token 회전
-- 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
-- 실행 중인 OpenAPI 기반 TypeScript 타입, typed fetch client와 refresh token 회전
+- 일회용 OAuth 교환 코드, 앱 메모리 access token과 SecureStore refresh token 회전
+- 모바일 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
+- 실행 중인 OpenAPI 기반 TypeScript 타입과 typed fetch client
 - JDK 25 백엔드 Docker 이미지와 master 대상 PR 검증 성공 후 Docker Hub 게시 자동화
 - 기존 EC2 자동 배포, 비공개 Prometheus와 HTTPS `/grafana/` 운영 대시보드
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
-관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 브라우저 E2E와 frontend 운영 배포는 구현 범위에 포함하지 않습니다.
+관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 E2E와 모바일 앱 스토어 배포는 구현 범위에 포함하지 않습니다.
 
-## frontend prototype
+## 모바일 앱
 
-루트 Spring Boot 프로젝트는 그대로 유지하고 `/frontend`에 로컬 React SPA를 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인과 미인증 안내, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 브라우저에서 검증합니다. 관리자·신고 UI, 운영 배포와 실제 카카오 계정을 사용하는 브라우저 E2E는 포함하지 않습니다.
+루트 Spring Boot 프로젝트는 그대로 유지하고 `/mobile`에 Expo 기반 React Native 앱을 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인과 미인증 안내, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 iOS·Android 개발 빌드에서 검증합니다.
 
-OAuth 성공 시 backend callback은 신규 사용자를 `ACTIVE` 상태로 생성하고 refresh token을 `HttpOnly`, `SameSite=Lax` cookie로 설정한 뒤 고정된 `http://localhost:5173/auth/callback`으로 이동합니다. frontend는 `POST /api/v1/auth/refresh`를 자동 호출해 access token만 JSON으로 받고 refresh cookie는 회전됩니다. access token은 JavaScript module memory에만 보관하며 service token을 Web Storage나 URL에 저장하지 않습니다.
+OAuth 성공 시 backend callback은 신규 사용자를 `ACTIVE` 상태로 생성하고 2분 유효 일회용 코드만 `ridervoice://auth/callback`으로 전달합니다. 앱은 코드를 access/refresh token으로 한 번 교환하고 access token은 메모리, refresh token은 SecureStore에 보관합니다.
 
 모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
 
@@ -85,11 +85,12 @@ OAuth 성공 시 backend callback은 신규 사용자를 `ACTIVE` 상태로 생�
 ## 현재 API
 
 ```text
-# OAuth와 service token
-GET    /api/v1/auth/oauth2/authorization/kakao
+# 모바일 OAuth와 service token
+GET    /api/v1/auth/mobile/oauth2/authorization/kakao
 GET    /api/v1/auth/oauth2/callback/kakao
-POST   /api/v1/auth/refresh
-POST   /api/v1/auth/logout
+POST   /api/v1/auth/mobile/exchange
+POST   /api/v1/auth/mobile/refresh
+POST   /api/v1/auth/mobile/logout
 GET    /api/v1/users/me
 
 # 공개 조회
@@ -131,7 +132,7 @@ endpoint와 DTO를 변경할 때 OpenAPI annotation, schema와 계약 테스트�
 - JDK 25
 - MySQL 8.4.10
 - Gradle Wrapper
-- Node 24와 npm 11 (`frontend/.nvmrc` 사용 가능)
+- Node 24와 Corepack/pnpm 11
 - 로컬 모니터링 실행 시 Docker Engine과 Docker Compose v2
 
 기본 로컬 개발에서는 API 서버와 MySQL을 로컬 프로세스로 실행합니다. Prometheus와 Grafana를 확인할 때만 `monitoring/compose.yml`을 사용하며 전체 애플리케이션용 Docker Compose와 Testcontainers는 사용하지 않습니다.
@@ -152,7 +153,6 @@ mysql --user=<사용자> --password --database=rider < scripts/migrations/202608
 KAKAO_CLIENT_ID=your-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
 KAKAO_REDIRECT_URI=http://localhost:8080/api/v1/auth/oauth2/callback/kakao
-FRONTEND_BASE_URL=http://localhost:5173
 KAKAO_LOCAL_REST_API_KEY=your-kakao-rest-api-key
 DB_URL=jdbc:mysql://localhost:3306/rider?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
 DB_USERNAME=root
@@ -171,7 +171,7 @@ http://localhost:8080/api/v1/auth/oauth2/callback/kakao
 ./gradlew bootRun
 ```
 
-백엔드 Docker 이미지는 frontend를 포함하지 않는다. 로컬 컨테이너 실행이 필요하면 예제 파일을 복사한 뒤 실제 로컬 값으로 채운다. `.env.docker.local`은 Git에서 제외된다.
+백엔드 Docker 이미지는 mobile 앱을 포함하지 않는다. 로컬 컨테이너 실행이 필요하면 예제 파일을 복사한 뒤 실제 로컬 값으로 채운다. `.env.docker.local`은 Git에서 제외된다.
 
 ```bash
 cp .env.docker.example .env.docker.local
@@ -181,16 +181,14 @@ docker run --rm --env-file .env.docker.local -p 8080:8080 rider-voice-api:local
 
 Mac이나 Windows에서 호스트 MySQL에 연결할 때는 `DB_URL`의 host로 `host.docker.internal`을 사용한다. Linux에서는 실행 환경에 맞는 host 또는 Docker network 주소를 사용한다. 실제 DB·카카오 secret은 Dockerfile, build argument와 이미지에 넣지 않는다.
 
-frontend를 실행하기 전에 로컬 MySQL과 backend가 실행 중이어야 합니다. Vite 개발 서버는 브라우저의 `/api` 요청을 `http://localhost:8080`으로 proxy하므로 별도 frontend API URL 설정은 필요하지 않습니다. 다른 frontend origin을 사용할 때는 backend의 `FRONTEND_BASE_URL`도 같은 origin으로 설정하고 카카오 Redirect URI는 위 backend callback URI를 그대로 유지합니다.
+모바일 앱은 `/mobile`에서 실행합니다. Expo Go와 Expo Web은 공개 mock 미리보기에만 사용하고 실제 OAuth와 리뷰 변경은 `com.ridervoice.app` 개발 빌드에서 확인합니다.
 
 ```bash
-cd frontend
-nvm use
-npm ci
-npm run dev
+cd mobile
+corepack enable
+pnpm install --frozen-lockfile
+pnpm start
 ```
-
-`npm run dev`의 기본 주소는 `http://localhost:5173`입니다.
 
 ## 로컬 모니터링
 
@@ -214,11 +212,11 @@ docker compose --env-file monitoring/.env -f monitoring/compose.yml down
 
 운영 Grafana는 기존 API HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로 접근합니다. Grafana `3000`과 Prometheus `9090`은 EC2 localhost binding을 유지하며 security group에 추가하지 않습니다. 최초 설치와 운영 확인은 [AWS 배포 가이드](deploy/aws/README.md)를 따릅니다.
 
-backend endpoint나 DTO 계약이 변경되면 backend를 실행한 상태에서 TypeScript generated type을 다시 생성하고 변경된 `src/shared/api/generated.ts`를 함께 커밋합니다. 생성 파일을 직접 수정하지 않습니다.
+backend endpoint나 DTO 계약이 변경되면 backend를 실행한 상태에서 모바일 TypeScript generated type을 다시 생성하고 변경된 `src/shared/api/generated.ts`를 함께 커밋합니다. 생성 파일을 직접 수정하지 않습니다.
 
 ```bash
-cd frontend
-npm run api:generate
+cd mobile
+pnpm run api:generate
 ```
 
 ## 테스트
@@ -246,18 +244,21 @@ DB_MIGRATION_PASSWORD=<migration-password> \
 ./gradlew migrationTest
 ```
 
-frontend 회귀 검증은 Node 24에서 실행합니다.
+mobile 회귀 검증은 Node 24에서 실행합니다.
 
 ```bash
-cd frontend
-npm run lint
-npm test
-npm run build
+cd mobile
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+pnpm exec expo install --check
+pnpm exec expo export --platform ios --output-dir /tmp/rider-voice-mobile-ios
+pnpm exec expo export --platform android --output-dir /tmp/rider-voice-mobile-android
 ```
 
 ## 백엔드 Docker CI/CD
 
-`feat/**`와 `feature/**` 브랜치를 push하면 master 대상 Draft PR만 자동 생성한다. Draft PR을 포함한 master 대상 PR에서는 backend build, 빈 MySQL 8.4.10 Flyway migration, 기존 통합 테스트와 실제 운영 profile 컨테이너 health check를 수행한다. 필수 검증이 성공하고 최신 master 기준으로 확인된 PR만 병합할 수 있으며, master push에서는 전체 검증을 반복하지 않고 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시한다. frontend는 이 workflow와 Docker 이미지에서 제외된다.
+`feat/**`와 `feature/**` 브랜치를 push하면 master 대상 Draft PR만 자동 생성한다. Draft PR을 포함한 master 대상 PR에서는 변경 경로에 따라 backend 또는 mobile 검증을 수행한다. 필수 검증이 성공하고 최신 master 기준으로 확인된 PR만 병합할 수 있으며, backend 영향 변경이 master에 반영될 때만 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시하고 EC2에 배포한다. mobile은 백엔드 이미지와 배포 workflow에서 제외된다.
 
 GitHub `docker-hub` Environment에는 다음 값만 등록한다.
 

@@ -50,6 +50,8 @@ data class ReviewResult(
 data class MyReviewListResult(
     val items: List<ReviewResult>,
     val nextCursor: ReviewCursor?,
+    val authoredCount: Long = 0,
+    val publiclyVisibleCount: Long = 0,
 )
 
 data class PublicReviewListItemInput(
@@ -126,6 +128,7 @@ data class AggregateMetricResult(
     val observedCount: Int,
     val notObservedCount: Int,
     val distribution: Map<ReviewRating, BigDecimal>,
+    val score: BigDecimal? = null,
 ) {
     init {
         require(observedCount >= 0) { "Observed count must not be negative" }
@@ -134,10 +137,14 @@ data class AggregateMetricResult(
             "NOT_OBSERVED must not be included in the observed distribution"
         }
         if (observedCount == 0) {
+            require(score == null) { "A metric without observations must not have a score" }
             require(distribution.isEmpty()) {
                 "A metric without observations must have an empty distribution"
             }
         } else {
+            require(score != null && score.scale() == 1 && score >= BigDecimal("1.0") && score <= BigDecimal("5.0")) {
+                "An observed metric score must be between 1.0 and 5.0 with one decimal place"
+            }
             require(distribution.keys == OBSERVED_REVIEW_RATINGS) {
                 "An observed distribution must include all observed rating values"
             }

@@ -1,0 +1,70 @@
+# Rider Voice Mobile
+
+Rider Voice의 React Native 앱입니다. Expo SDK 57과 Expo Router를 사용하며 iOS와 Android를 지원합니다.
+
+## 현재 구현 범위
+
+- 홈에서 음식점 이름·주소 검색
+- Rider Voice 리뷰가 있는 음식점과 카카오 검색 장소 구분
+- 음식점 상세, 항목별 헬멧 점수, 공개 경험 확인
+- 카카오 로그인 안내 화면
+- 6단계 구조화 리뷰 작성과 선택 의견 입력
+- 내 활동과 리뷰 공개 상태 확인
+- 공식 배포본 LINE Seed Sans KR 서체 번들
+- 로딩·오류·빈 결과 상태
+- 백엔드 미설정 시 현실적인 목 데이터로 독립 실행
+
+거리와 가까운 순 정렬은 이번 MVP에서 제외했습니다.
+
+## 실행 환경
+
+- Node.js 22 이상
+- pnpm 11 이상
+- iOS Simulator, Android Emulator 또는 실제 기기
+
+## 시작하기
+
+```bash
+pnpm install
+pnpm start
+```
+
+실행 후 터미널에서 `i`를 누르면 iOS Simulator, `a`를 누르면 Android Emulator가 열립니다. Expo Go는 목 데이터 화면 확인에만 사용하고 실제 카카오 로그인은 개발 빌드로 확인합니다.
+
+## 백엔드 연결
+
+프로젝트 루트에 `.env.local`을 만들고 Spring Boot API 주소를 지정합니다.
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
+```
+
+- iOS Simulator: `http://localhost:8080`
+- Android Emulator: `http://10.0.2.2:8080`
+- 실제 기기: 개발 PC의 같은 네트워크 IP 사용
+
+환경 변수가 없으면 목 데이터 모드로 실행됩니다. 앱은 카카오 API나 데이터베이스를 직접 호출하지 않고 Spring Boot의 `/api/v1` API만 호출합니다.
+
+## 품질 검사
+
+```bash
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+pnpm exec expo install --check
+```
+
+## 실제 카카오 로그인 확인
+
+Expo Go에서는 실제 로그인을 사용할 수 없습니다. 백엔드와 로컬 MySQL을 실행하고 `.env.local`에 API 주소를 설정한 뒤 네이티브 개발 빌드를 실행합니다.
+
+```bash
+pnpm exec expo run:ios
+pnpm exec expo run:android
+```
+
+첫 실행은 Xcode 또는 Android Studio를 사용해 개발 빌드를 생성합니다. 생성되는 `/ios`, `/android` 폴더는 Git에 포함하지 않습니다.
+
+## 오픈소스 고지
+
+앱은 LY Corp.의 `LINE Seed KR`을 사용합니다. 폰트는 SIL Open Font License 1.1로 배포되며 라이선스 전문은 `assets/fonts/OFL.txt`에 포함되어 있습니다.

@@ -1,8 +1,8 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
-import com.ridervoice.api.auth.application.port.`in`.CompleteProviderLoginUseCase
-import com.ridervoice.api.auth.application.port.`in`.ProviderLoginResult
+import com.ridervoice.api.auth.application.port.`in`.MobileLoginGrantResult
+import com.ridervoice.api.auth.application.port.`in`.PrepareMobileLoginUseCase
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.infrastructure.oauth.KakaoOAuth2UserService
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
@@ -108,7 +108,7 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 
     @Test
-    fun `valid callback sets an HttpOnly refresh cookie redirects without tokens and destroys temporary session`() {
+    fun `mobile callback redirects with only a one-time exchange code and no service token`() {
         val authorization = beginAuthorization()
         val session = authorization.request.getSession(false) as MockHttpSession
         val state = queryParameter(authorization.response.getHeader("Location")!!, "state")
@@ -119,27 +119,14 @@ class OAuth2SecurityFlowMockMvcTest {
             this.session = session
         }.andExpect {
             status { isFound() }
-            redirectedUrl("http://localhost:5173/auth/callback")
-            header {
-                string(
-                    "Set-Cookie",
-                    org.hamcrest.Matchers.allOf(
-                        org.hamcrest.Matchers.containsString("rider_voice_refresh=service-refresh-token"),
-                        org.hamcrest.Matchers.containsString("HttpOnly"),
-                        org.hamcrest.Matchers.containsString("Secure"),
-                        org.hamcrest.Matchers.containsString("SameSite=Lax"),
-                        org.hamcrest.Matchers.containsString("Path=/api/v1/auth"),
-                        org.hamcrest.Matchers.containsString("Max-Age=2592000"),
-                    ),
-                )
-            }
+            redirectedUrl("ridervoice://auth/callback?code=one-time-exchange-code")
+            header { doesNotExist("Set-Cookie") }
         }.andReturn()
 
-        val login = context.getBean(RecordingProviderLoginUseCase::class.java)
-        assertThat(login.command).isEqualTo(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "123456789"))
         assertThat(callback.response.getHeader("Location"))
-            .doesNotContain("service-refresh-token", "onboarding-token", "code=")
-        assertThat(callback.request.getSession(false)).isNull()
+            .doesNotContain("provider-access-token", "refreshToken")
+        assertThat(context.getBean(RecordingProviderLoginUseCase::class.java).mobileCommand)
+            .isEqualTo(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "123456789"))
         assertThat(session.isInvalid).isTrue()
     }
 
@@ -154,7 +141,7 @@ class OAuth2SecurityFlowMockMvcTest {
             this.session = session
         }.andExpect {
             status { isFound() }
-            redirectedUrl("http://localhost:5173/auth/callback?error=oauth_failed")
+            redirectedUrl("ridervoice://auth/callback?error=oauth_failed")
         }.andReturn()
 
         assertThat(callback.response.getHeader("Location"))
@@ -186,7 +173,7 @@ class OAuth2SecurityFlowMockMvcTest {
     }
 
     private fun beginAuthorization() = mockMvc
-        .get("/api/v1/auth/oauth2/authorization/kakao")
+        .get("/api/v1/auth/mobile/oauth2/authorization/kakao")
         .andReturn()
 
     private fun providerBaseUri(path: String) = "http://127.0.0.1:${providerServer.address.port}$path"
@@ -210,7 +197,6 @@ class OAuth2SecurityFlowMockMvcTest {
     SecurityProblemHandler::class,
     OAuth2LoginSuccessHandler::class,
     OAuth2LoginFailureHandler::class,
-    AuthCookieManager::class,
     AuthResponseMapper::class,
     OAuth2SecurityFlowFixtureController::class,
     RecordingProviderLoginUseCase::class,
@@ -249,13 +235,12 @@ private class OAuth2SecurityFlowTestConfiguration {
 }
 
 @TestComponent
-private class RecordingProviderLoginUseCase : CompleteProviderLoginUseCase {
-    lateinit var command: CompleteSocialLoginCommand
-    var result = ProviderLoginResult("service-refresh-token")
+private class RecordingProviderLoginUseCase : PrepareMobileLoginUseCase {
+    lateinit var mobileCommand: CompleteSocialLoginCommand
 
-    override fun complete(command: CompleteSocialLoginCommand): ProviderLoginResult {
-        this.command = command
-        return result
+    override fun prepareMobileLogin(command: CompleteSocialLoginCommand): MobileLoginGrantResult {
+        mobileCommand = command
+        return MobileLoginGrantResult("one-time-exchange-code")
     }
 }
 

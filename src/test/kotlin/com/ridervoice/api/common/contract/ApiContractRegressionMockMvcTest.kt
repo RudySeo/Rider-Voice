@@ -1,14 +1,14 @@
 package com.ridervoice.api.common.contract
 
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.ExchangeMobileLoginUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
-import com.ridervoice.api.auth.presentation.AuthController
-import com.ridervoice.api.auth.presentation.AuthCookieManager
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.UserController
+import com.ridervoice.api.auth.presentation.MobileAuthController
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
@@ -57,6 +57,7 @@ import com.ridervoice.api.review.application.model.PublicReviewListResult
 import com.ridervoice.api.review.application.port.`in`.CreateReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListPublicRestaurantReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.ListPublicRestaurantReviewsUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
@@ -91,8 +92,8 @@ import java.time.Instant
 
 @WebMvcTest(
     controllers = [
-        AuthController::class,
         UserController::class,
+        MobileAuthController::class,
         RestaurantSearchController::class,
         AddressSearchController::class,
         RestaurantDetailController::class,
@@ -110,7 +111,6 @@ import java.time.Instant
     AuthOpenApiConfiguration::class,
     GlobalExceptionHandler::class,
     AuthResponseMapper::class,
-    AuthCookieManager::class,
     RestaurantSearchHttpMapper::class,
     RestaurantDetailHttpMapper::class,
     ReviewHttpMapper::class,
@@ -142,6 +142,7 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var refreshSession: RefreshSessionUseCase
     @MockitoBean private lateinit var logout: LogoutUseCase
     @MockitoBean private lateinit var getCurrentUser: GetCurrentUserUseCase
+    @MockitoBean private lateinit var exchangeMobileLogin: ExchangeMobileLoginUseCase
     @MockitoBean private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
     @MockitoBean private lateinit var searchRestaurants: SearchRestaurantsUseCase
     @MockitoBean private lateinit var searchAddresses: SearchAddressesUseCase
@@ -150,6 +151,7 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var updateReview: UpdateReviewUseCase
     @MockitoBean private lateinit var deleteReview: DeleteReviewUseCase
     @MockitoBean private lateinit var listMyReviews: ListMyReviewsUseCase
+    @MockitoBean private lateinit var getOwnedReview: GetOwnedReviewUseCase
     @MockitoBean private lateinit var listPublicReviews: ListPublicRestaurantReviewsUseCase
     @MockitoBean private lateinit var createReviewReport: CreateReviewReportUseCase
     @MockitoBean private lateinit var createRestaurantReport: CreateRestaurantInfoReportUseCase
@@ -173,7 +175,7 @@ class ApiContractRegressionMockMvcTest {
 
         assertThat(paths.propertyNames().asSequence().toSet()).isEqualTo(EXPECTED_PATHS)
         assertThat(apiOperations(paths)).containsExactlyInAnyOrderElementsOf(
-            PUBLIC_OPERATIONS + COOKIE_OPERATIONS + BEARER_OPERATIONS,
+            PUBLIC_OPERATIONS + BEARER_OPERATIONS,
         )
 
         PUBLIC_OPERATIONS.forEach { (path, method) ->
@@ -182,11 +184,9 @@ class ApiContractRegressionMockMvcTest {
         BEARER_OPERATIONS.forEach { (path, method) ->
             assertSecurity(paths, path, method, "bearerAuth")
         }
-        COOKIE_OPERATIONS.forEach { (path, method) ->
-            assertSecurity(paths, path, method, "refreshCookie")
-        }
         assertThat(document.at("/components/securitySchemes/bearerAuth/bearerFormat").stringValue())
             .isEqualTo("opaque")
+        assertThat(document.at("/components/securitySchemes/refreshCookie").isMissingNode).isTrue()
         assertThat(document.at("/components/securitySchemes/onboardingBearerAuth").isMissingNode).isTrue()
     }
 
@@ -325,8 +325,9 @@ class ApiContractRegressionMockMvcTest {
             RuntimeException("provider-secret stackTrace $rawToken"),
         )
 
-        val response = mockMvc.post("/api/v1/auth/refresh") {
-            cookie(jakarta.servlet.http.Cookie("rider_voice_refresh", rawToken))
+        val response = mockMvc.post("/api/v1/auth/mobile/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"refreshToken":"$rawToken"}"""
         }.andExpect {
             status { isInternalServerError() }
             content { contentType(MediaType.APPLICATION_PROBLEM_JSON) }
@@ -454,10 +455,11 @@ class ApiContractRegressionMockMvcTest {
 
     private companion object {
         val EXPECTED_PATHS = setOf(
-            "/api/v1/auth/oauth2/authorization/kakao",
             "/api/v1/auth/oauth2/callback/kakao",
-            "/api/v1/auth/refresh",
-            "/api/v1/auth/logout",
+            "/api/v1/auth/mobile/oauth2/authorization/kakao",
+            "/api/v1/auth/mobile/exchange",
+            "/api/v1/auth/mobile/refresh",
+            "/api/v1/auth/mobile/logout",
             "/api/v1/users/me",
             "/api/v1/restaurants/search",
             "/api/v1/restaurants/{restaurantId}",
@@ -483,16 +485,14 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val PUBLIC_OPERATIONS = setOf(
-            "/api/v1/auth/oauth2/authorization/kakao" to "get",
             "/api/v1/auth/oauth2/callback/kakao" to "get",
+            "/api/v1/auth/mobile/oauth2/authorization/kakao" to "get",
+            "/api/v1/auth/mobile/exchange" to "post",
+            "/api/v1/auth/mobile/refresh" to "post",
+            "/api/v1/auth/mobile/logout" to "post",
             "/api/v1/restaurants/search" to "get",
             "/api/v1/restaurants/{restaurantId}" to "get",
             "/api/v1/restaurants/{restaurantId}/reviews" to "get",
-        )
-
-        val COOKIE_OPERATIONS = setOf(
-            "/api/v1/auth/refresh" to "post",
-            "/api/v1/auth/logout" to "post",
         )
 
         val BEARER_OPERATIONS = setOf(
@@ -501,6 +501,7 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/reviews" to "post",
             "/api/v1/users/me/reviews" to "get",
             "/api/v1/reviews/{reviewId}" to "patch",
+            "/api/v1/reviews/{reviewId}" to "get",
             "/api/v1/reviews/{reviewId}" to "delete",
             "/api/v1/reviews/{reviewId}/reports" to "post",
             "/api/v1/restaurants/{restaurantId}/reports" to "post",
@@ -519,6 +520,9 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val REQUEST_REFS = mapOf(
+            ("/api/v1/auth/mobile/exchange" to "post") to "MobileExchangeRequest",
+            ("/api/v1/auth/mobile/refresh" to "post") to "MobileRefreshRequest",
+            ("/api/v1/auth/mobile/logout" to "post") to "MobileLogoutRequest",
             ("/api/v1/reviews" to "post") to "CreateReviewRequest",
             ("/api/v1/reviews/{reviewId}" to "patch") to "UpdateReviewRequest",
             ("/api/v1/reviews/{reviewId}/reports" to "post") to "CreateReviewReportRequest",
@@ -534,7 +538,8 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val RESPONSE_REFS = mapOf(
-            ("/api/v1/auth/refresh" to "post") to ("200" to "AccessSessionResponse"),
+            ("/api/v1/auth/mobile/exchange" to "post") to ("200" to "MobileSessionResponse"),
+            ("/api/v1/auth/mobile/refresh" to "post") to ("200" to "MobileSessionResponse"),
             ("/api/v1/users/me" to "get") to ("200" to "UserResponse"),
             ("/api/v1/restaurants/search" to "get") to ("200" to "RestaurantSearchResponse"),
             ("/api/v1/restaurants/{restaurantId}" to "get") to ("200" to "RestaurantDetailResponse"),
@@ -543,6 +548,7 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/reviews" to "post") to ("201" to "ReviewResponse"),
             ("/api/v1/users/me/reviews" to "get") to ("200" to "MyReviewListResponse"),
             ("/api/v1/reviews/{reviewId}" to "patch") to ("200" to "ReviewResponse"),
+            ("/api/v1/reviews/{reviewId}" to "get") to ("200" to "ReviewResponse"),
             ("/api/v1/reviews/{reviewId}" to "delete") to ("200" to "DeleteReviewResponse"),
             ("/api/v1/reviews/{reviewId}/reports" to "post") to ("201" to "ReviewReportResponse"),
             ("/api/v1/restaurants/{restaurantId}/reports" to "post") to ("201" to "RestaurantInfoReportResponse"),
@@ -567,7 +573,8 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val EXPECTED_SCHEMA_NAMES = setOf(
-            "ProblemDetail", "AccessSessionResponse", "UserResponse",
+            "ProblemDetail", "MobileSessionResponse", "MobileExchangeRequest",
+            "MobileRefreshRequest", "MobileLogoutRequest", "UserResponse",
             "RestaurantSearchResponse", "RestaurantSearchCandidateResponse",
             "AddressSearchResponse", "AddressSearchCandidateResponse", "RestaurantDetailResponse",
             "RestaurantPickupLocationResponse", "RestaurantBrandReportResponse",

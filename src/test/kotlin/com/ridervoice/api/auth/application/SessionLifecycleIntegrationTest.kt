@@ -34,10 +34,11 @@ class SessionLifecycleIntegrationTest : MySqlIntegrationTest() {
     private lateinit var sessions: UserSessionRepository
 
     @Test
-    fun `OAuth callback completion creates an active user and refresh session`() {
+    fun `mobile OAuth exchange creates an active user and refresh session`() {
         val subject = "pending-${UUID.randomUUID()}"
-        val login = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject))
-        val result = auth.refresh(RefreshSessionCommand(login.refreshToken))
+        val login = auth.prepareMobileLogin(CompleteSocialLoginCommand(OAuthProvider.KAKAO, subject))
+        val exchanged = auth.exchangeMobileLogin(login.exchangeCode)
+        val result = auth.refresh(RefreshSessionCommand(exchanged.refreshToken))
 
         val persistedUser = users.findById(result.user.id).orElseThrow()
         assertThat(persistedUser.status).isEqualTo(UserStatus.ACTIVE)

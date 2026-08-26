@@ -49,5 +49,6 @@ internal class ReviewAggregateRestaurantReportProvider(
         observedCount = observedCount,
         notObservedCount = notObservedCount,
         distribution = distribution.mapKeys { (rating, _) -> rating.name },
+        score = score,
     )
 }

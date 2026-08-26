@@ -77,6 +77,7 @@ data class RestaurantAggregateMetricResult(
     val observedCount: Int,
     val notObservedCount: Int,
     val distribution: Map<String, BigDecimal>,
+    val score: BigDecimal? = null,
 )
 
 data class RestaurantBrandReportMetrics(

@@ -58,7 +58,7 @@ class OAuth2SecurityConfig(
     }
 
     private companion object {
-        const val AUTHORIZATION_BASE_URI = "/api/v1/auth/oauth2/authorization"
+        const val AUTHORIZATION_BASE_URI = "/api/v1/auth/mobile/oauth2/authorization"
         const val CALLBACK_BASE_URI = "/api/v1/auth/oauth2/callback"
         const val REAUTHENTICATION_PARAMETER = "prompt"
         const val REAUTHENTICATION_VALUE = "login"

@@ -74,6 +74,17 @@ fun interface ListMyReviewsUseCase {
     fun list(command: ListMyReviewsCommand): MyReviewListResult
 }
 
+fun interface GetOwnedReviewUseCase {
+    fun get(query: GetOwnedReviewQuery): ReviewResult
+}
+
+data class GetOwnedReviewQuery(val authorUserId: Long, val reviewId: Long) {
+    init {
+        require(authorUserId > 0) { "Author user ID must be positive" }
+        require(reviewId > 0) { "Review ID must be positive" }
+    }
+}
+
 data class ListMyReviewsCommand(
     val authorUserId: Long,
     val cursor: ReviewCursor?,

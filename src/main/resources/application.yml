@@ -39,9 +39,6 @@ springdoc:
 
 ridervoice:
   auth:
-    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
-    refresh-cookie:
-      secure: ${AUTH_COOKIE_SECURE:true}
     oauth2:
       kakao:
         client-id: ${KAKAO_CLIENT_ID:}

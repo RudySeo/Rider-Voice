@@ -8,7 +8,6 @@ import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.Parameter
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.responses.ApiResponses
-import io.swagger.v3.oas.models.headers.Header
 import io.swagger.v3.oas.models.PathItem
 import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springframework.context.annotation.Bean
@@ -28,32 +27,14 @@ class AuthOpenApiConfiguration {
         val paths = openApi.paths ?: Paths().also { openApi.paths = it }
 
         paths.addPathItem(
-            AUTHORIZATION_PATH,
-            PathItem().get(
-                Operation()
-                    .tags(listOf(AUTHENTICATION_TAG))
-                    .summary("카카오 OAuth 로그인 시작")
-                    .description(
-                        "prompt=login으로 카카오 계정을 다시 인증하도록 authorization endpoint로 redirect하고 " +
-                            "state를 임시 HTTP session에 저장합니다.",
-                    )
-                    .responses(
-                        ApiResponses().addApiResponse(
-                            "302",
-                            ApiResponse().description("카카오 authorization endpoint로 이동"),
-                        ),
-                    ),
-            ),
-        )
-        paths.addPathItem(
             CALLBACK_PATH,
             PathItem().get(
                 Operation()
                     .tags(listOf(AUTHENTICATION_TAG))
                     .summary("카카오 OAuth callback")
                     .description(
-                        "OAuth 로그인을 완료한 뒤 HttpOnly refresh cookie를 설정하고 " +
-                            "고정된 frontend callback URL로 redirect합니다.",
+                        "OAuth 로그인을 완료한 뒤 일회용 교환 코드를 발급하고 " +
+                            "Rider Voice 모바일 deep link로 redirect합니다.",
                     )
                     .addParametersItem(callbackParameter("code"))
                     .addParametersItem(callbackParameter("state"))
@@ -61,15 +42,22 @@ class AuthOpenApiConfiguration {
                         ApiResponses()
                             .addApiResponse(
                                 "302",
-                                ApiResponse()
-                                    .description("refresh cookie 설정 후 고정된 frontend callback URL로 이동")
-                                    .addHeaderObject(
-                                        "Set-Cookie",
-                                        Header().description("HttpOnly Rider Voice refresh token cookie")
-                                            .schema(StringSchema()),
-                                    ),
+                                ApiResponse().description("일회용 code가 포함된 모바일 deep link로 이동"),
                             ),
                     ),
+            ),
+        )
+        paths.addPathItem(
+            MOBILE_AUTHORIZATION_PATH,
+            PathItem().get(
+                Operation()
+                    .tags(listOf(AUTHENTICATION_TAG))
+                    .summary("네이티브 카카오 OAuth 로그인 시작")
+                    .description(
+                        "prompt=login으로 카카오 계정을 다시 인증하도록 authorization endpoint로 redirect하고 " +
+                            "state를 임시 HTTP session에 저장합니다.",
+                    )
+                    .responses(ApiResponses().addApiResponse("302", ApiResponse().description("카카오 authorization endpoint로 이동"))),
             ),
         )
     }
@@ -90,7 +78,7 @@ class AuthOpenApiConfiguration {
 
     private companion object {
         const val AUTHENTICATION_TAG = "Authentication"
-        const val AUTHORIZATION_PATH = "/api/v1/auth/oauth2/authorization/kakao"
         const val CALLBACK_PATH = "/api/v1/auth/oauth2/callback/kakao"
+        const val MOBILE_AUTHORIZATION_PATH = "/api/v1/auth/mobile/oauth2/authorization/kakao"
     }
 }

@@ -126,7 +126,10 @@ class ReviewApplicationContractsTest {
             "save",
             "findLatestSubmissionForUpdate",
             "findOwnedActiveForUpdate",
+            "findOwnedActive",
             "countByAuthorUserIdSince",
+            "countAllByAuthorUserId",
+            "countPubliclyVisibleByAuthorUserId",
             "findByAuthorUserId",
         )
     }

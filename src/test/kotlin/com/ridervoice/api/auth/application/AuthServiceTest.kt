@@ -4,9 +4,11 @@ import com.ridervoice.api.auth.application.port.`in`.CompleteSocialLoginCommand
 import com.ridervoice.api.auth.application.port.`in`.LogoutCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
+import com.ridervoice.api.auth.application.port.out.MobileLoginGrantStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
+import com.ridervoice.api.auth.domain.MobileLoginGrant
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserRole
@@ -37,10 +39,47 @@ class AuthServiceTest {
     private val users = mock(UserStore::class.java)
     private val accounts = mock(OAuthAccountStore::class.java)
     private val sessions = mock(UserSessionStore::class.java)
-    private val auth = AuthService(users, accounts, sessions, clock)
+    private val grants = mock(MobileLoginGrantStore::class.java)
+    private val auth = AuthService(users, accounts, sessions, grants, clock)
 
     @Test
-    fun `provider login creates a new active social account and stores only a hashed refresh token`() {
+    fun `mobile provider login stores only a two minute hashed one-time code`() {
+        val user = activeUser()
+        `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "mobile-subject"))
+            .thenReturn(OAuthAccount(user, OAuthProvider.KAKAO, "mobile-subject"))
+        `when`(users.findUserForUpdate(user.id)).thenReturn(user)
+        `when`(grants.saveGrant(anyValue())).thenAnswer { it.arguments[0] as MobileLoginGrant }
+
+        val result = auth.prepareMobileLogin(
+            CompleteSocialLoginCommand(OAuthProvider.KAKAO, "mobile-subject"),
+        )
+
+        assertThat(result.exchangeCode).isNotBlank()
+        val saved = savedArgument<MobileLoginGrant>(grants, "saveGrant")
+        assertThat(saved.codeHash).isEqualTo(sha256(result.exchangeCode))
+        assertThat(saved.codeHash).isNotEqualTo(result.exchangeCode)
+        assertThat(saved.expiresAt).isEqualTo(now.plusSeconds(120))
+        verify(sessions, never()).saveSession(anyValue())
+    }
+
+    @Test
+    fun `mobile exchange consumes the grant and replay is rejected`() {
+        val user = activeUser()
+        val code = "one-time-code"
+        val grant = MobileLoginGrant(user, sha256(code), now.plusSeconds(120))
+        `when`(grants.findGrantForUpdate(sha256(code))).thenReturn(grant)
+        `when`(sessions.saveSession(anyValue())).thenAnswer { it.arguments[0] as UserSession }
+
+        val tokens = auth.exchangeMobileLogin(code)
+
+        assertThat(tokens.accessToken).isNotBlank()
+        assertThat(tokens.refreshToken).isNotBlank()
+        assertThat(grant.consumedAt).isEqualTo(now)
+        assertThrows<AuthenticationRequiredException> { auth.exchangeMobileLogin(code) }
+    }
+
+    @Test
+    fun `provider login creates a new active social account and stores only a hashed one-time code`() {
         val command = CompleteSocialLoginCommand(OAuthProvider.KAKAO, "provider-subject")
         `when`(accounts.findOAuthAccount(command.provider, command.providerSubject)).thenReturn(null)
         `when`(users.saveUser(anyValue())).thenAnswer {
@@ -48,44 +87,40 @@ class AuthServiceTest {
         }
         `when`(accounts.saveOAuthAccount(anyValue()))
             .thenAnswer { it.arguments[0] as OAuthAccount }
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
+        `when`(grants.saveGrant(anyValue())).thenAnswer { it.arguments[0] as MobileLoginGrant }
 
-        val result = auth.complete(command)
+        val result = auth.prepareMobileLogin(command)
 
-        assertThat(result.refreshToken).isNotBlank()
+        assertThat(result.exchangeCode).isNotBlank()
         val savedAccount = savedArgument<OAuthAccount>(accounts, "saveOAuthAccount")
         assertThat(savedAccount.user.id).isEqualTo(10L)
         assertThat(savedAccount.provider).isEqualTo(OAuthProvider.KAKAO)
         assertThat(savedAccount.providerSubject).isEqualTo("provider-subject")
-        val savedSession = savedArgument<UserSession>(sessions, "saveSession")
-        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.refreshToken))
-        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.refreshToken)
-        assertThat(savedSession.expiresAt).isEqualTo(now.plus(Duration.ofDays(30)))
+        val savedGrant = savedArgument<MobileLoginGrant>(grants, "saveGrant")
+        assertThat(savedGrant.codeHash).isEqualTo(sha256(result.exchangeCode))
+        assertThat(savedGrant.expiresAt).isEqualTo(now.plus(Duration.ofMinutes(2)))
         assertThat(savedAccount.user.status).isEqualTo(UserStatus.ACTIVE)
         assertThat(savedAccount.user.role).isEqualTo(UserRole.USER)
     }
 
     @Test
-    fun `provider login for an active account creates a refresh session`() {
+    fun `provider login for an active account creates a mobile login grant`() {
         val user = activeUser()
         val account = OAuthAccount(user, OAuthProvider.KAKAO, "active-subject")
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "active-subject")).thenReturn(account)
         `when`(users.findUserForUpdate(user.id)).thenReturn(user)
-        `when`(sessions.saveSession(anyValue()))
-            .thenAnswer { it.arguments[0] as UserSession }
+        `when`(grants.saveGrant(anyValue())).thenAnswer { it.arguments[0] as MobileLoginGrant }
 
-        val result = auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject"))
+        val result = auth.prepareMobileLogin(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "active-subject"))
 
-        assertThat(result.refreshToken).isNotBlank()
+        assertThat(result.exchangeCode).isNotBlank()
         verify(users).findUserForUpdate(user.id)
-        val savedSession = savedArgument<UserSession>(sessions, "saveSession")
-        assertThat(savedSession.refreshTokenHash).isEqualTo(sha256(result.refreshToken))
-        assertThat(savedSession.refreshTokenHash).isNotEqualTo(result.refreshToken)
+        verify(grants).saveGrant(anyValue())
+        verify(sessions, never()).saveSession(anyValue())
     }
 
     @Test
-    fun `suspended social account cannot create a refresh session`() {
+    fun `suspended social account cannot create a mobile login grant`() {
         val user = activeUser()
         setStatus(user, UserStatus.SUSPENDED)
         `when`(accounts.findOAuthAccount(OAuthProvider.KAKAO, "suspended-subject"))
@@ -93,10 +128,11 @@ class AuthServiceTest {
         `when`(users.findUserForUpdate(user.id)).thenReturn(user)
 
         assertThrows<AuthenticationRequiredException> {
-            auth.complete(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "suspended-subject"))
+            auth.prepareMobileLogin(CompleteSocialLoginCommand(OAuthProvider.KAKAO, "suspended-subject"))
         }
 
         verify(sessions, never()).saveSession(anyValue())
+        verify(grants, never()).saveGrant(anyValue())
     }
 
     @Test
@@ -112,9 +148,9 @@ class AuthServiceTest {
     }
 
     @Test
-    fun `social login completion is transactional`() {
+    fun `mobile login preparation is transactional`() {
         val method = AuthService::class.java.getMethod(
-            "complete",
+            "prepareMobileLogin",
             CompleteSocialLoginCommand::class.java,
         )
 
@@ -124,7 +160,7 @@ class AuthServiceTest {
     @Test
     fun `access token expires after fifteen minutes`() {
         val mutableClock = MutableClock(now)
-        val service = AuthService(users, accounts, sessions, mutableClock)
+        val service = AuthService(users, accounts, sessions, grants, mutableClock)
         val user = activeUser()
         `when`(users.findUser(user.id)).thenReturn(user)
 
@@ -153,7 +189,7 @@ class AuthServiceTest {
     @Test
     fun `access token is invalid after service restart`() {
         val accessToken = issueTokens(auth, activeUser()).accessToken
-        val restarted = AuthService(users, accounts, sessions, clock)
+        val restarted = AuthService(users, accounts, sessions, grants, clock)
 
         assertThat(restarted.authenticate(accessToken)).isNull()
     }

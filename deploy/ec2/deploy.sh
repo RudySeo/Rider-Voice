@@ -73,8 +73,6 @@ readonly REQUIRED_PARAMETERS=(
     KAKAO_CLIENT_ID
     KAKAO_LOCAL_REST_API_KEY
     KAKAO_REDIRECT_URI
-    FRONTEND_BASE_URL
-    AUTH_COOKIE_SECURE
 )
 readonly OPTIONAL_PARAMETERS=(KAKAO_CLIENT_SECRET)
 
@@ -118,10 +116,6 @@ if ! grep -Eiq '(^|[?&])sslMode=VERIFY_IDENTITY(&|$)' <<< "${DB_URL}"; then
 fi
 if grep -Eiq '(^|[?&])trustCertificateKeyStore(Url|Password|Type)=' <<< "${DB_URL}"; then
     echo "DB_URL must not contain trustCertificateKeyStore properties." >&2
-    exit 1
-fi
-if [[ "$(read_parameter AUTH_COOKIE_SECURE)" != "true" ]]; then
-    echo "AUTH_COOKIE_SECURE must be true in production." >&2
     exit 1
 fi
 readonly DB_URL_WITH_TRUSTSTORE="${DB_URL}&trustCertificateKeyStoreUrl=file:${TRUSTSTORE_CONTAINER_PATH}&trustCertificateKeyStorePassword=${TRUSTSTORE_PASSWORD}&trustCertificateKeyStoreType=PKCS12"

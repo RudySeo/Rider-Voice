@@ -36,17 +36,17 @@
 
 **선택**: 카카오 로그인 시작, 요청 위조 방지 값(`state`), 인증 코드 교환과 사용자 정보 조회는 Spring Security OAuth2 Client로 처리한다. 카카오 사용자 정보에서는 `id`만 계정 식별값으로 사용한다.
 
-모든 카카오 인가 요청에는 `prompt=login`을 사용해 기존 카카오 브라우저 세션과 관계없이 계정을 다시 인증한다. 로그인 과정에서만 임시 HTTP session을 사용하고 완료되면 폐기한다. 성공 시 refresh token을 `HttpOnly`, `SameSite=Lax` cookie로 설정하고 고정된 frontend callback 주소로 이동한다. 서비스 token은 URL에 넣지 않는다.
+모든 카카오 인가 요청에는 `prompt=login`을 사용해 기존 카카오 브라우저 세션과 관계없이 계정을 다시 인증한다. 로그인 과정에서만 임시 HTTP session을 사용하고 완료되면 폐기한다. 성공 시 2분 유효 일회용 코드만 `ridervoice://auth/callback`에 전달한다. 서비스 token과 provider 오류는 URL에 넣지 않는다.
 
-**선택한 이유**: OAuth 보안 흐름을 직접 구현하는 범위를 줄이고 웹과 이후 클라이언트가 같은 Rider Voice 인증 방식을 사용하게 하며, 로그아웃한 사용자가 이전 카카오 계정으로 자동 로그인되지 않고 원하는 계정으로 다시 인증할 수 있게 하기 위해서다.
+**선택한 이유**: OAuth 보안 흐름을 직접 구현하는 범위를 줄이고, 로그아웃한 사용자가 이전 카카오 계정으로 자동 로그인되지 않고 원하는 계정으로 다시 인증할 수 있게 하기 위해서다.
 
-**감수할 점**: REST API는 로그인용 임시 session을 로그인 상태로 받아들이지 않도록 분리해야 한다. refresh cookie를 사용하는 endpoint는 cookie 속성과 만료를 일관되게 관리해야 한다. 카카오 세션이 남아 있어도 로그인할 때마다 재인증 단계가 추가된다.
+**감수할 점**: REST API는 로그인용 임시 session을 로그인 상태로 받아들이지 않도록 분리해야 한다. 카카오 세션이 남아 있어도 로그인할 때마다 재인증 단계가 추가된다. custom scheme callback은 Expo Go가 아닌 개발 빌드에서 검증해야 한다.
 
 ## ADR-005: Rider Voice 전용 토큰을 사용한다
 
-**선택**: OAuth callback을 정상 완료하면 신규 사용자를 `ACTIVE` 상태로 만들고 Rider Voice refresh session을 생성한다. 현재 MVP에는 실제 약관 문서와 동의 절차가 없으므로 약관 버전이나 동의 시각을 저장하지 않는다. 별도의 onboarding token과 OAuth 교환 코드는 사용하지 않는다. 애플리케이션에서 생성하는 사용자의 권한은 항상 `USER`이며 `ADMIN`은 운영자가 DB에서 직접 부여한다. frontend는 `HttpOnly` refresh cookie로 access token을 발급받는다.
+**선택**: OAuth callback을 정상 완료하면 신규 사용자를 `ACTIVE` 상태로 만들고 ADR-024의 모바일 일회용 교환 코드를 발급한다. 애플리케이션에서 생성하는 사용자의 권한은 항상 `USER`이며 `ADMIN`은 운영자가 DB에서 직접 부여한다.
 
-access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. refresh token은 30일 동안 유효하며 backend에는 원문 대신 hash로 저장하고 browser에는 `HttpOnly` cookie로 보관하며 사용할 때마다 교체한다. 두 토큰 모두 URL과 Web Storage에 넣지 않는다.
+access token은 15분 동안 유효하고 앱 메모리에만 둔다. refresh token은 30일 동안 유효하며 backend에는 원문 대신 hash로 저장하고 앱에서는 SecureStore에 보관하며 사용할 때마다 교체한다. 두 token 모두 URL과 일반 Web Storage에 넣지 않는다.
 
 **선택한 이유**: 카카오 로그인과 Rider Voice의 로그인 상태를 분리하고, 서비스가 refresh session을 직접 폐기하거나 교체할 수 있게 하기 위해서다.
 
@@ -80,7 +80,7 @@ access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. ref
 
 ## ADR-009: 작성자 5명부터 평가 결과를 공개한다
 
-**선택**: 배달 브랜드와 픽업 장소 결과를 따로 계산하고 각각 서로 다른 유효 작성자 5명부터 공개한다. 종합 점수, 평균 별점과 순위는 만들지 않는다.
+**선택**: 배달 브랜드와 픽업 장소 결과를 따로 계산하고 각각 서로 다른 유효 작성자 5명부터 공개한다. 공개 항목은 네 단계 응답을 동일 간격으로 1.0~5.0에 환산해 소수점 첫째 자리의 `score`를 함께 제공한다. `NOT_OBSERVED`는 점수 분모에서 제외하고 관찰 응답이 없으면 `score=null`이다. 이는 6개 항목 각각의 표현이며 종합 점수, 평균 별점과 순위는 만들지 않는다.
 
 장소 결과에서는 같은 작성자가 여러 브랜드에 리뷰해도 가장 최근의 유효한 리뷰 하나만 사용한다. `NOT_OBSERVED`는 개수에는 포함하지만 평가 비율에서는 제외한다.
 
@@ -142,6 +142,8 @@ access token은 15분 동안 유효하고 JavaScript 메모리에만 둔다. ref
 
 ## ADR-016: 로컬 React 화면으로 사용자 흐름을 확인한다
 
+> **상태: 폐기됨.** ADR-025에 따라 `/frontend`와 브라우저 refresh cookie 계약을 제거하고 모바일 앱만 유지한다. 아래 내용은 당시 선택의 기록이다.
+
 **선택**: 기존 Spring Boot 프로젝트는 그대로 두고 `/frontend`에 React, Vite와 TypeScript 기반 SPA를 둔다. TanStack Query, React Router, React Hook Form, Zod, CSS Modules, Vitest와 Testing Library를 사용한다. 실행 중인 OpenAPI에서 API 타입을 생성한다.
 
 access token은 JavaScript 메모리에 보관하고 refresh token은 backend가 설정한 `HttpOnly` cookie에 보관한다. Web Storage에는 서비스 토큰을 저장하지 않는다.
@@ -152,13 +154,13 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 
 ## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
 
-**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR에서 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를 수행하고, 필수 검증을 통과한 PR만 master에 병합할 수 있게 보호한다. master push에서는 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. frontend는 이미지와 이 workflow에서 제외한다.
+**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR workflow는 항상 시작하되 변경 경로를 먼저 판별하고, 백엔드 영향 변경에는 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를, `/mobile` 변경에는 pnpm 기반 typecheck·lint·test·Expo 의존성 및 export 검증을 각각 수행한다. 문서만 바뀐 PR은 애플리케이션 검증 job을 건너뛰되 하나의 최종 gate 상태를 남긴다. master push의 이미지 게시와 EC2 배포는 백엔드 영향 경로가 바뀐 경우에만 실행하며, 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. mobile은 백엔드 이미지에 포함하지 않고 이번 자동화에서 배포하지 않는다.
 
 Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된 PR의 CI를 별도 승인 없이 시작하기 위한 fine-grained GitHub PAT는 Contents Read와 Pull requests Read/Write만 허용한 Repository secret으로 관리하고, 값이 없으면 기본 `GITHUB_TOKEN`을 사용한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
 
-**선택한 이유**: PR의 merge ref로 master와 결합된 결과를 한 번 검증해 테스트하지 않은 이미지가 registry에 게시되는 것을 막고, feature push와 master push의 중복 검증 시간을 줄이며, commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물을 분리하기 위해서다.
+**선택한 이유**: PR의 merge ref로 master와 결합된 결과를 변경 영역별로 검증해 테스트하지 않은 백엔드 이미지가 registry에 게시되는 것을 막고, 서로 독립적인 backend·mobile 검증의 실행 시간과 실패 범위를 줄이기 위해서다. PR workflow 자체는 경로 필터로 생략하지 않아 branch protection의 필수 상태가 대기 상태로 남지 않게 하고, master에서는 백엔드 영향 변경만 게시·배포해 모바일 또는 문서 변경이 불필요한 서버 배포를 일으키지 않게 한다. commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물도 분리한다.
 
-**감수할 점**: master 직접 push를 차단하고 `Backend test`, `MySQL integration and container smoke` 상태 검사를 필수화해야 이 정책이 안전하다. PR은 최신 master 기준 검증을 통과해야 하며, 보호 규칙 우회가 발생하면 게시 전에 전체 검증을 반복하지 않는 위험이 생긴다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. 이번 자동화는 Docker Hub 전달에서 끝나며 실제 서버 배포, Docker Compose와 운영 secret store는 제공하지 않는다.
+**감수할 점**: master 직접 push를 차단하고 변경 영역별 job을 모으는 최종 `PR CI gate` 상태 검사를 필수화해야 이 정책이 안전하다. 경로 분류 규칙에 백엔드 영향 파일이 누락되면 검증이나 배포가 생략될 수 있으므로 workflow와 분류기 변경은 모든 영역 검증을 실행하고 계약 테스트로 경계를 고정한다. PR은 최신 master 기준 검증을 통과해야 하며, 보호 규칙 우회가 발생하면 게시 전에 전체 검증을 반복하지 않는 위험이 생긴다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. mobile app store build·배포는 별도 운영 결정으로 남긴다.
 
 ## ADR-018: 운영 DB 기준을 RDS MySQL 8.4 LTS로 맞춘다
 
@@ -201,3 +203,39 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 별도 관리자 PC 설정 없이 외부에서 운영 dashboard를 확인하되, 평문 `3000` 포트를 직접 공개하거나 Prometheus query UI와 원본 metric을 노출하지 않기 위해서다. 기존 443/TCP와 인증서를 재사용하므로 새 load balancer, DNS와 security group 규칙이 필요하지 않다.
 
 **감수할 점**: Grafana 로그인 화면이 인터넷에 노출되어 자동 스캔과 로그인 시도의 대상이 된다. 강한 관리자 비밀번호와 Grafana의 로그인 보호를 유지하고 보안 업데이트를 적용해야 한다. 외부 접근이 더 이상 필요하지 않으면 Nginx `/grafana/` 경로와 Grafana 하위 경로 설정을 제거해 SSM 전용 접근으로 되돌린다.
+
+## ADR-023: Expo 기반 React Native 모바일 앱을 별도로 개발한다
+
+**선택**: 기존 Spring Boot API를 유지하고 `/mobile`에 Expo SDK 57, React Native 0.86과 TypeScript 기반 iOS·Android 앱을 둔다. Expo Router로 화면을 구성하고 TanStack Query로 서버 상태를 관리한다. 앱은 Spring Boot `/api/v1`만 호출하며 카카오와 DB를 직접 호출하지 않는다. 현재 검색 계약에는 위치 좌표가 없으므로 사용자 위치 권한, 거리 표시와 가까운 순 정렬은 포함하지 않는다.
+
+현재 브라우저용 OAuth의 refresh cookie를 모바일에 그대로 의존하지 않는다. 모바일 인증은 ADR-024의 일회용 교환 코드와 앱 딥링크 계약을 사용한다.
+
+**선택한 이유**: 확정한 모바일 UI를 iOS와 Android의 안전 영역, 키보드와 접근성 규칙에 맞게 실제 앱 구조로 구현하면서 기존 서버 정책과 API 계약을 재사용하기 위해서다. 위치 기능을 초기 범위에서 제외하면 불필요한 권한 요청 없이 음식점명과 주소 중심의 핵심 검색·리뷰 흐름부터 검증할 수 있다.
+
+**감수할 점**: 모바일용 서버 계약과 보안 테스트가 추가로 필요하다. 화면과 native 기능은 iOS Simulator와 Android Emulator에서 각각 검증해야 한다.
+
+## ADR-024: 네이티브 OAuth에는 일회용 교환 코드와 SecureStore를 사용한다
+
+**선택**: iOS bundle identifier와 Android application id를 `com.ridervoice.app`, callback을 `ridervoice://auth/callback`으로 고정한다. 네이티브 개발 빌드는 시스템 브라우저에서 기존 Spring Security OAuth2 Client 흐름을 시작한다. 성공 callback은 256-bit 무작위 코드를 생성하고 backend에는 SHA-256 hash, 사용자, 2분 만료 시각과 사용 시각만 저장한다. 딥링크에는 이 일회용 코드만 전달하며 `/api/v1/auth/mobile/exchange`가 아직 사용되지 않은 코드를 한 번 소비하면서 15분 access token과 30일 refresh token을 발급한다. provider 실패에는 고정된 `error=oauth_failed`만 전달한다.
+
+앱은 access token을 메모리에만 두고 refresh token을 SecureStore에 저장한다. refresh는 매번 token을 회전하며 로그아웃은 server session을 폐기하고 로컬 token을 항상 제거한다. Expo Go는 고정 custom scheme을 신뢰할 수 있는 실제 인증 환경으로 취급하지 않고 공개 mock 조회만 제공한다.
+
+**선택한 이유**: 서비스 token과 provider 오류를 URL·브라우저 기록에 노출하지 않으면서 네이티브 앱이 브라우저와 같은 계정 식별 흐름을 재사용하고, 탈취된 단기 코드의 재사용 가능성을 제한하기 위해서다.
+
+**감수할 점**: `mobile_login_grants` 정리와 만료·재사용 검증이 필요하고, SecureStore 동작과 custom scheme callback은 Expo Go가 아닌 iOS·Android 개발 빌드에서 검증해야 한다.
+
+## ADR-025: React frontend와 브라우저 인증 계약을 제거한다
+
+**선택**: `/frontend` React prototype을 삭제하고 모바일 앱을 유일한 사용자 클라이언트로 유지한다. 브라우저용 OAuth 시작 endpoint, refresh cookie 기반 refresh·logout API, `FRONTEND_BASE_URL`, `AUTH_COOKIE_SECURE`와 `refreshCookie` OpenAPI scheme을 제거한다. 카카오 provider callback URI는 유지하지만 성공과 실패는 항상 `ridervoice://auth/callback`으로 전달한다.
+
+**선택한 이유**: 같은 사용자 흐름을 웹과 모바일에서 중복 관리하지 않고 실제 제품 클라이언트인 iOS·Android 앱에 구현과 검증을 집중하기 위해서다.
+
+**감수할 점**: 기존 브라우저 클라이언트와 cookie 인증 API의 하위 호환성은 제공하지 않는다. custom scheme OAuth는 Expo Go나 일반 웹 브라우저가 아니라 네이티브 개발 빌드에서 검증해야 한다.
+
+## ADR-026: 모바일 클라이언트는 iOS와 Android만 지원한다
+
+**선택**: `/mobile`은 iOS와 Android만 지원하고 Expo Web target은 제거한다. `react-dom`, `react-native-web`, 웹 실행 script, 웹 전용 app 설정과 layout 분기를 유지하지 않는다. CI는 iOS와 Android export를 각각 검증한다. `expo-web-browser`는 웹 클라이언트용 의존성이 아니라 네이티브 카카오 로그인 창을 여는 데 사용하므로 유지한다.
+
+**선택한 이유**: 실제 제품 대상인 iOS·Android에서 안전 영역, 키보드, SecureStore와 custom scheme OAuth를 검증하는 데 집중하고 별도의 브라우저 호환 계층을 다시 만들지 않기 위해서다.
+
+**감수할 점**: 브라우저에서 모바일 화면을 미리 볼 수 없으며 Xcode iOS Simulator, Android Emulator 또는 실제 기기가 필요하다. Expo Go에서는 화면 확인만 가능하고 실제 카카오 로그인은 네이티브 개발 빌드에서 확인한다.

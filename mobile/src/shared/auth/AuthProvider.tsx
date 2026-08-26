@@ -1,0 +1,46 @@
+import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+
+import { apiBaseUrl } from '@/shared/api/clientConfig';
+import type { User } from '@/shared/api/types';
+import { exchangeMobileCode, getCurrentUser, logoutMobileSession, nativeAuthAvailable, refreshMobileSession } from '@/shared/auth/session';
+
+const CALLBACK = 'ridervoice://auth/callback';
+const INTENT_KEY = 'rider-voice.pending-intent';
+export type PendingIntent = { kind: 'activity' } | { kind: 'existingReview'; restaurantId: number; place: string } | { kind: 'kakaoReview'; query: string; kakaoPlaceId: string; place: string };
+type AuthContextValue = { user: User | null; restoring: boolean; available: boolean; login: (intent?: PendingIntent) => Promise<PendingIntent | null>; logout: () => Promise<void> };
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: PropsWithChildren) {
+  const [user, setUser] = useState<User | null>(getCurrentUser());
+  const [restoring, setRestoring] = useState(nativeAuthAvailable);
+  useEffect(() => {
+    if (!nativeAuthAvailable) return;
+    refreshMobileSession().finally(() => { setUser(getCurrentUser()); setRestoring(false); });
+  }, []);
+  const value = useMemo<AuthContextValue>(() => ({
+    user, restoring, available: nativeAuthAvailable,
+    login: async (intent) => {
+      if (!nativeAuthAvailable || !apiBaseUrl) throw new Error('실제 로그인은 iOS·Android 개발 빌드에서 사용할 수 있어요.');
+      if (intent) await SecureStore.setItemAsync(INTENT_KEY, JSON.stringify(intent));
+      const result = await WebBrowser.openAuthSessionAsync(`${apiBaseUrl}/api/v1/auth/mobile/oauth2/authorization/kakao`, CALLBACK);
+      if (result.type !== 'success') return null;
+      const callback = new URL(result.url);
+      const code = callback.searchParams.get('code');
+      if (!code || callback.searchParams.has('error')) throw new Error('카카오 로그인을 완료하지 못했어요.');
+      setUser(await exchangeMobileCode(code));
+      const stored = await SecureStore.getItemAsync(INTENT_KEY);
+      await SecureStore.deleteItemAsync(INTENT_KEY);
+      return stored ? JSON.parse(stored) as PendingIntent : null;
+    },
+    logout: async () => { await logoutMobileSession(); setUser(null); },
+  }), [restoring, user]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error('useAuth must be used within AuthProvider');
+  return value;
+}

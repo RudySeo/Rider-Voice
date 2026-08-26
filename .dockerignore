@@ -11,7 +11,7 @@
 .env.*
 
 build
-frontend/
+ci/
 docs/
 phases/
 scripts/

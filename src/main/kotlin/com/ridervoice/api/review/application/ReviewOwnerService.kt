@@ -10,6 +10,8 @@ import com.ridervoice.api.review.application.port.`in`.DeleteReviewResult
 import com.ridervoice.api.review.application.port.`in`.DeleteReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsCommand
 import com.ridervoice.api.review.application.port.`in`.ListMyReviewsUseCase
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewQuery
+import com.ridervoice.api.review.application.port.`in`.GetOwnedReviewUseCase
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewCommand
 import com.ridervoice.api.review.application.port.`in`.UpdateReviewUseCase
 import com.ridervoice.api.review.application.port.out.ReviewRepository
@@ -22,7 +24,11 @@ import java.time.Clock
 internal class ReviewOwnerService(
     private val reviews: ReviewRepository,
     private val clock: Clock,
-) : UpdateReviewUseCase, DeleteReviewUseCase, ListMyReviewsUseCase {
+) : UpdateReviewUseCase, DeleteReviewUseCase, ListMyReviewsUseCase, GetOwnedReviewUseCase {
+
+    @Transactional(readOnly = true)
+    override fun get(query: GetOwnedReviewQuery): ReviewResult =
+        reviews.findOwnedActive(query.authorUserId, query.reviewId)?.toResult() ?: throw reviewNotFound()
 
     @Transactional
     override fun update(command: UpdateReviewCommand): ReviewResult {
@@ -58,6 +64,8 @@ internal class ReviewOwnerService(
             } else {
                 null
             },
+            authoredCount = reviews.countAllByAuthorUserId(command.authorUserId),
+            publiclyVisibleCount = reviews.countPubliclyVisibleByAuthorUserId(command.authorUserId),
         )
     }
 

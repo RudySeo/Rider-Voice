@@ -17,8 +17,6 @@ spring:
 
 ridervoice:
   auth:
-    refresh-cookie:
-      secure: false
     oauth2:
       kakao:
         client-id: integration-test-client

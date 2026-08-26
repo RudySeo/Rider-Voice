@@ -172,8 +172,9 @@ class SecurityPolicyMockMvcTest {
             Endpoint(HttpMethod.GET, "/api/v1/restaurants/search", Scope.PUBLIC),
             Endpoint(HttpMethod.GET, "/api/v1/restaurants/10", Scope.PUBLIC),
             Endpoint(HttpMethod.GET, "/api/v1/restaurants/10/reviews", Scope.PUBLIC),
-            Endpoint(HttpMethod.POST, "/api/v1/auth/refresh", Scope.PUBLIC),
-            Endpoint(HttpMethod.POST, "/api/v1/auth/logout", Scope.PUBLIC),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/exchange", Scope.PUBLIC),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/refresh", Scope.PUBLIC),
+            Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/logout", Scope.PUBLIC),
             Endpoint(HttpMethod.GET, "/api/v1/users/me", Scope.USER),
             Endpoint(HttpMethod.GET, "/api/v1/addresses/search", Scope.USER),
             Endpoint(HttpMethod.POST, "/api/v1/reviews", Scope.USER),
@@ -206,8 +207,9 @@ private class SecurityPolicyFixtureController {
     fun publicGet() = "ok"
 
     @PostMapping(
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout",
+        "/api/v1/auth/mobile/exchange",
+        "/api/v1/auth/mobile/refresh",
+        "/api/v1/auth/mobile/logout",
     )
     fun publicPost() = "ok"
 

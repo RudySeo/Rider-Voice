@@ -1,9 +1,11 @@
 package com.ridervoice.api.auth.infrastructure.persistence
 
 import com.ridervoice.api.auth.application.port.out.OAuthAccountStore
+import com.ridervoice.api.auth.application.port.out.MobileLoginGrantStore
 import com.ridervoice.api.auth.application.port.out.UserSessionStore
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.OAuthAccount
+import com.ridervoice.api.auth.domain.MobileLoginGrant
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
@@ -14,7 +16,8 @@ class AuthPersistenceAdapter(
     private val users: UserRepository,
     private val accounts: OAuthAccountRepository,
     private val sessions: UserSessionRepository,
-) : UserStore, OAuthAccountStore, UserSessionStore {
+    private val mobileLoginGrants: MobileLoginGrantRepository,
+) : UserStore, OAuthAccountStore, UserSessionStore, MobileLoginGrantStore {
 
     override fun findUser(userId: Long): User? = users.findById(userId).orElse(null)
 
@@ -33,4 +36,9 @@ class AuthPersistenceAdapter(
         sessions.findByRefreshTokenHashForUpdate(refreshTokenHash).orElse(null)
 
     override fun saveSession(session: UserSession): UserSession = sessions.save(session)
+
+    override fun findGrantForUpdate(codeHash: String): MobileLoginGrant? =
+        mobileLoginGrants.findByCodeHashForUpdate(codeHash).orElse(null)
+
+    override fun saveGrant(grant: MobileLoginGrant): MobileLoginGrant = mobileLoginGrants.save(grant)
 }
