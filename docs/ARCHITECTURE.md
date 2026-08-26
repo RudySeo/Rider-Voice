@@ -233,7 +233,7 @@ GitHub Actions의 master 대상 PR workflow는 변경 파일을 먼저 backend�
 - API, Prometheus와 Grafana를 격리된 Docker network에서 실행해 Prometheus target과 Grafana health를 확인한다.
 - mobile 변경은 Node.js 24, Corepack과 고정된 pnpm을 사용해 frozen lockfile 설치, typecheck, Jest, Expo lint, Expo 의존성 호환성과 iOS·Android export를 검증한다.
 - 변경 영역별 job 결과를 최종 `PR CI gate`가 모으며, 이 상태가 성공한 PR만 master에 병합할 수 있게 보호한다.
-- master push에서는 백엔드 영향 경로가 바뀐 경우에만 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 Docker Hub에 게시하고 EC2에 배포한다. mobile 배포는 이 workflow의 범위가 아니다.
+- master push에서는 백엔드 영향 경로가 바뀐 경우에만 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 Docker Hub에 게시하고 EC2에 배포한다. GitHub Actions 장애 등으로 push event가 유실된 경우에는 master ref로만 제한된 수동 실행을 복구 수단으로 사용한다. mobile 배포는 이 workflow의 범위가 아니다.
 
 실제 DB·카카오 secret은 Docker build와 이미지에 포함하지 않는다. CI는 일회용 DB 값과 dummy provider 값을 사용한다. Docker Hub PAT는 GitHub Environment secret으로, 자동 Draft PR용 fine-grained GitHub PAT는 최소 저장소 권한의 Repository secret으로 전달한다. 운영 secret은 아래 운영 배포 경계에 정의한 SSM Parameter Store에서만 읽는다.
 
