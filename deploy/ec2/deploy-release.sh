@@ -18,6 +18,9 @@ readonly INSTALL_DIR="/opt/rider-voice"
 readonly MONITORING_INSTALL_DIR="${INSTALL_DIR}/monitoring"
 readonly MONITORING_ENV_FILE="${MONITORING_INSTALL_DIR}/.env"
 readonly GRAFANA_SECRET_FILE="${MONITORING_INSTALL_DIR}/secrets/grafana_admin_password"
+readonly DEPLOY_AWS_REGION="ap-northeast-2"
+readonly PARAMETER_PATH="/rider-voice/prod"
+readonly KAKAO_REDIRECT_PATTERN='^https://([a-z0-9]([a-z0-9.-]*[a-z0-9])?)/api/v1/auth/oauth2/callback/kakao$'
 readonly RELEASE_LOCK="/run/lock/rider-voice-release.lock"
 readonly RELEASE_ARCHIVE_URL="https://github.com/RudySeo/Rider-Voice/archive/${RELEASE_SHA}.tar.gz"
 readonly -a MONITORING_ASSETS=(
@@ -41,20 +44,12 @@ if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
     exit 1
 fi
 
-for required_command in curl docker flock install jq mktemp tar; do
+for required_command in aws curl docker flock install jq mktemp tar; do
     if ! command -v "${required_command}" >/dev/null 2>&1; then
         echo "Missing required command: ${required_command}" >&2
         exit 1
     fi
 done
-if [[ ! -s "${MONITORING_ENV_FILE}" ]]; then
-    echo "Missing monitoring environment file: ${MONITORING_ENV_FILE}" >&2
-    exit 1
-fi
-if [[ ! -s "${GRAFANA_SECRET_FILE}" ]]; then
-    echo "Missing Grafana secret file: ${GRAFANA_SECRET_FILE}" >&2
-    exit 1
-fi
 
 exec 9>"${RELEASE_LOCK}"
 if ! flock --nonblock 9; then
@@ -71,6 +66,56 @@ readonly monitoring_source_dir="${source_dir}/monitoring"
 readonly backend_deploy_source="${source_dir}/deploy/ec2/deploy.sh"
 
 install -m 0755 -d "${source_dir}" "${previous_monitoring_dir}"
+
+initialize_monitoring_runtime() {
+    local redirect_uri
+    local domain
+    local grafana_password
+
+    install -m 0755 -d "${MONITORING_INSTALL_DIR}"
+    install -m 0700 -d "$(dirname "${GRAFANA_SECRET_FILE}")"
+
+    if [[ ! -s "${MONITORING_ENV_FILE}" ]]; then
+        if ! redirect_uri="$(aws ssm get-parameter \
+            --region "${DEPLOY_AWS_REGION}" \
+            --name "${PARAMETER_PATH}/KAKAO_REDIRECT_URI" \
+            --query Parameter.Value \
+            --output text)"; then
+            echo "Unable to read KAKAO_REDIRECT_URI from SSM." >&2
+            exit 1
+        fi
+        if [[ ! "${redirect_uri}" =~ ${KAKAO_REDIRECT_PATTERN} ]]; then
+            echo "KAKAO_REDIRECT_URI cannot initialize the Grafana root URL." >&2
+            exit 1
+        fi
+        domain="${BASH_REMATCH[1]}"
+        printf 'GRAFANA_ROOT_URL=https://%s/grafana/\n' "${domain}" \
+            > "${release_work_dir}/monitoring.env"
+        install -m 0600 "${release_work_dir}/monitoring.env" "${MONITORING_ENV_FILE}"
+    fi
+
+    if [[ ! -s "${GRAFANA_SECRET_FILE}" ]]; then
+        if ! grafana_password="$(aws ssm get-parameter \
+            --region "${DEPLOY_AWS_REGION}" \
+            --name "${PARAMETER_PATH}/GRAFANA_ADMIN_PASSWORD" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)"; then
+            echo "Unable to read GRAFANA_ADMIN_PASSWORD from SSM." >&2
+            exit 1
+        fi
+        if [[ -z "${grafana_password}" || "${grafana_password}" == *$'\n'* || "${grafana_password}" == *$'\r'* ]]; then
+            echo "GRAFANA_ADMIN_PASSWORD must be non-empty and single-line." >&2
+            exit 1
+        fi
+        printf '%s' "${grafana_password}" > "${release_work_dir}/grafana_admin_password"
+        install -m 0600 "${release_work_dir}/grafana_admin_password" "${GRAFANA_SECRET_FILE}"
+        unset grafana_password
+    fi
+}
+
+initialize_monitoring_runtime
+
 curl --fail --silent --show-error --location \
     "${RELEASE_ARCHIVE_URL}" \
     --output "${release_work_dir}/source.tar.gz"
@@ -83,17 +128,18 @@ if [[ ! -f "${backend_deploy_source}" ]]; then
     echo "Release archive does not contain deploy/ec2/deploy.sh." >&2
     exit 1
 fi
+had_previous_monitoring=true
 for relative_path in "${MONITORING_ASSETS[@]}"; do
     if [[ ! -f "${monitoring_source_dir}/${relative_path}" ]]; then
         echo "Release archive is missing monitoring/${relative_path}." >&2
         exit 1
     fi
-    if [[ ! -f "${MONITORING_INSTALL_DIR}/${relative_path}" ]]; then
-        echo "Installed monitoring asset is missing: ${relative_path}." >&2
-        exit 1
+    if [[ -f "${MONITORING_INSTALL_DIR}/${relative_path}" ]]; then
+        install -m 0755 -d "${previous_monitoring_dir}/$(dirname "${relative_path}")"
+        cp -p "${MONITORING_INSTALL_DIR}/${relative_path}" "${previous_monitoring_dir}/${relative_path}"
+    else
+        had_previous_monitoring=false
     fi
-    install -m 0755 -d "${previous_monitoring_dir}/$(dirname "${relative_path}")"
-    cp -p "${MONITORING_INSTALL_DIR}/${relative_path}" "${previous_monitoring_dir}/${relative_path}"
 done
 
 compose_source() {
@@ -129,6 +175,10 @@ install_monitoring() {
 
 restore_monitoring() {
     local relative_path
+    if [[ "${had_previous_monitoring}" != true ]]; then
+        echo "No complete previous monitoring configuration is available to restore." >&2
+        return 1
+    fi
     echo "Restoring the previous monitoring configuration." >&2
     for relative_path in "${MONITORING_ASSETS[@]}"; do
         install -m 0644 \

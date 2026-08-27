@@ -191,7 +191,7 @@ sudo /snap/bin/certbot renew --dry-run
 
 Docker의 3000, 8080과 9090 binding이 `127.0.0.1`인지 확인하고 외부에서 `http://<DOMAIN>`이 HTTPS로 이동하는지 확인한다. 외부 `https://<DOMAIN>/actuator/prometheus` 요청은 `404`여야 한다.
 
-자동 release는 `/opt/rider-voice/monitoring/.env`, `secrets/grafana_admin_password`와 두 named volume을 유지한다. 새 monitoring 구성이 정상화되지 않으면 직전 Compose·Prometheus·Grafana provisioning 파일을 복원하고 workflow를 실패시킨다. API image health 실패는 기존과 같이 직전 image로 자동 복구한다.
+자동 release는 `/opt/rider-voice/monitoring/.env`, `secrets/grafana_admin_password`와 두 named volume을 유지한다. 기존 EC2에 두 runtime 파일이 아직 없으면 `/rider-voice/prod/KAKAO_REDIRECT_URI`의 검증된 HTTPS origin으로 `.env`를 만들고 `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD`를 복호화해 root 전용 secret 파일을 최초 한 번 생성한다. 새 monitoring 구성이 정상화되지 않으면 직전 Compose·Prometheus·Grafana provisioning 파일을 복원하고 workflow를 실패시킨다. API image health 실패는 기존과 같이 직전 image로 자동 복구한다.
 
 ## 7. Prometheus와 Grafana 접속
 

@@ -276,7 +276,7 @@ master push
 - Grafana anonymous access와 사용자 가입은 비활성화하고 HTTPS secure cookie와 로그인 시도 제한을 적용한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.
 - Nginx가 외부에서 들어온 `X-Forwarded-For`를 폐기하고 직접 연결한 client의 `$remote_addr`로 덮어쓴다. API는 localhost Nginx만 접근할 수 있고 운영 profile만 forwarded header를 신뢰하므로 검색 호출 제한에 검증된 client IP가 사용된다.
 - Nginx는 `Host`, `X-Forwarded-Proto`와 `X-Forwarded-For`를 API에 전달한다. ALB나 CloudFront가 앞에 추가되면 trusted proxy 정책을 새로 결정한다.
-- 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화한다. API secret은 root 전용 임시 env 파일로 만들고 Grafana 비밀번호는 root 전용 Compose secret 파일로 mount하며 GitHub와 Docker image는 값을 읽지 않는다.
+- 운영 secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화한다. API secret은 root 전용 임시 env 파일로 만들고 Grafana 비밀번호는 root 전용 Compose secret 파일로 mount하며 GitHub와 Docker image는 값을 읽지 않는다. 기존 EC2에 monitoring runtime 파일이 없으면 release script가 SSM의 `KAKAO_REDIRECT_URI`에서 동일한 HTTPS origin을 검증해 Grafana root URL을 만들고 `GRAFANA_ADMIN_PASSWORD`를 root 전용 파일에 최초 한 번 저장한다.
 - RDS runtime 계정은 DML만, migration 계정은 Flyway에 필요한 DDL과 DML만 갖고 둘 다 TLS를 강제한다. RDS CA truststore는 EC2에 두고 container에 read-only로 mount한 뒤 MySQL Connector/J의 JDBC 연결에만 적용한다. JVM의 기본 truststore는 공개 HTTPS provider 인증에 사용하며 RDS 전용 truststore로 전역 교체하지 않는다.
 - 새 container는 commit 기반 불변 태그로 실행하고 `/actuator/health`가 제한 시간 안에 `UP`이 아니면 이전 image를 다시 실행한다. monitoring은 Prometheus readiness, Grafana health와 API target 수집을 확인한 뒤 완료한다. Flyway schema와 monitoring named volume의 내부 데이터는 자동 rollback하지 않으므로 변경은 이전 application·data와 호환되게 유지한다.
 - EC2는 SSM Session Manager로 운영하고 확인 후 SSH ingress를 제거한다. GitHub는 장기 AWS access key 대신 repository와 `production` environment가 제한된 OIDC role을 사용한다.

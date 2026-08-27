@@ -242,7 +242,7 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-027: 같은 master commit의 백엔드와 모니터링 자산을 함께 배포한다
 
-**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며 Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
+**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며, 기존 EC2에 두 runtime 파일이 아직 없으면 SSM의 카카오 redirect URI와 Grafana 비밀번호로 root 전용 파일을 최초 한 번 생성한다. Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
 
 **선택한 이유**: 기존 CD는 `monitoring/**` 변경에도 실행되지만 설치된 `/opt/rider-voice/monitoring`을 갱신하지 않아 저장소와 운영 구성이 달라질 수 있었다. backend image와 배포 script·monitoring 구성을 하나의 master commit으로 묶으면 어떤 운영 자산이 배포됐는지 추적하고 한 번의 release로 검증할 수 있다.
 
