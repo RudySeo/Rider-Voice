@@ -1,8 +1,3 @@
-map $http_upgrade $grafana_connection_upgrade {
-    default upgrade;
-    '' close;
-}
-
 server {
     listen 80;
     listen [::]:80;
@@ -38,24 +33,11 @@ server {
     }
 
     location = /grafana {
-        return 301 /grafana/;
+        return 404;
     }
 
     location ^~ /grafana/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header Forwarded "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Prefix /grafana;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $grafana_connection_upgrade;
-        proxy_connect_timeout 5s;
-        proxy_send_timeout 30s;
-        proxy_read_timeout 60s;
+        return 404;
     }
 
     location / {

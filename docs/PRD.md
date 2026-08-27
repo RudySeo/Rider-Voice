@@ -114,9 +114,7 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - 기존 Ubuntu EC2 한 대와 비공개 RDS MySQL을 사용하는 백엔드 운영 배포
 - GitHub OIDC와 SSM Run Command를 이용한 master 이미지 자동 배포 및 컨테이너 rollback
 - Elastic IP 기반 `sslip.io` 임시 주소, Nginx와 Let's Encrypt를 이용한 HTTPS
-- Spring Boot Actuator와 Micrometer 기반 운영 메트릭
-- 기존 단일 EC2에서 실행하는 Prometheus·Grafana 컨테이너와 기본 운영 대시보드
-- 기존 HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로 접근하는 운영 대시보드
+- Spring Boot Actuator와 Micrometer 기반 로컬·CI 메트릭
 - 로컬 Spring 프로세스를 수집하는 개발용 Prometheus·Grafana Compose 구성
 
 ### 이번에 포함하지 않는 것
@@ -128,6 +126,7 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - 모바일 앱 스토어 배포와 관리자 화면 배포
 - Redis, Kafka, Elasticsearch 같은 추가 인프라
 - 전체 애플리케이션용 Docker Compose, ALB, ECS, Route 53, NAT Gateway와 다중 API 인스턴스
+- 운영 EC2에서 실행하는 Prometheus·Grafana와 공개 `/grafana/` 대시보드
 - Alertmanager, 로그·트레이스 수집과 고가용성 모니터링
 
 ## 8. 완료 기준
@@ -143,9 +142,8 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - master 대상 PR에서 백엔드·MySQL 통합 테스트와 컨테이너 기동 검증이 성공해야 병합할 수 있으며, 병합된 백엔드 이미지만 Docker Hub에 게시되어야 합니다.
 - MySQL 통합 검증은 운영 RDS 목표 버전인 MySQL 8.4.10을 사용해야 합니다.
 - 완전히 빈 MySQL에 Flyway migration을 적용한 뒤 Entity, FK, unique와 index가 일치해야 합니다.
-- master 이미지가 Docker Hub에 게시되면 GitHub가 장기 AWS access key 없이 OIDC로 배포 권한을 얻어 지정 EC2에 자동 배포해야 합니다. 배포는 같은 master commit의 backend script와 monitoring 자산을 사용해야 합니다.
+- master 이미지가 Docker Hub에 게시되면 GitHub가 장기 AWS access key 없이 OIDC로 배포 권한을 얻어 지정 EC2에 자동 배포해야 합니다. 배포는 같은 master commit의 backend script와 Nginx 설정을 사용해야 합니다.
 - 운영 API는 Nginx 뒤의 localhost Docker container로만 실행되고 HTTPS health check를 통과해야 하며, 새 container가 정상화되지 않으면 이전 이미지로 복구해야 합니다.
 - RDS는 외부에 공개하지 않고 EC2에서 TLS host 검증을 거쳐 runtime·migration 분리 계정으로 연결해야 합니다.
-- Prometheus는 비공개 Docker network에서 API 메트릭을 수집하고 Grafana 대시보드에서 API 상태, HTTP 요청, JVM과 DB connection pool 상태를 확인할 수 있어야 합니다.
-- 운영 Prometheus·Grafana 변경은 기존 secret과 named volume을 보존한 채 자동 반영하고, 새 구성이 정상화되지 않으면 직전 구성으로 복구해야 합니다.
-- Prometheus UI와 metric endpoint는 인터넷에 공개하지 않아야 하며, Grafana는 EC2 localhost binding을 유지한 채 기존 HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로만 접근할 수 있어야 합니다.
+- 로컬 Prometheus는 개발 API 메트릭을 수집하고 Grafana 대시보드에서 API 상태, HTTP 요청, JVM과 DB connection pool 상태를 확인할 수 있어야 합니다.
+- 운영 EC2에는 Prometheus·Grafana container와 volume을 유지하지 않고 외부 metric endpoint, `/grafana`와 `/grafana/`를 `404`로 차단해야 합니다.

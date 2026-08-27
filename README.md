@@ -66,7 +66,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 모바일 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입과 typed fetch client
 - JDK 25 백엔드 Docker 이미지와 master 대상 PR 검증 성공 후 Docker Hub 게시 자동화
-- 기존 EC2 자동 배포, 비공개 Prometheus와 HTTPS `/grafana/` 운영 대시보드
+- 기존 EC2 백엔드 자동 배포와 로컬 Prometheus·Grafana 대시보드
 
 라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
@@ -210,7 +210,7 @@ docker compose --env-file monitoring/.env -f monitoring/compose.yml up -d
 docker compose --env-file monitoring/.env -f monitoring/compose.yml down
 ```
 
-운영 Grafana는 기존 API HTTPS 도메인의 `/grafana/`에서 관리자 로그인으로 접근합니다. Grafana `3000`과 Prometheus `9090`은 EC2 localhost binding을 유지하며 security group에 추가하지 않습니다. 최초 설치와 운영 확인은 [AWS 배포 가이드](deploy/aws/README.md)를 따릅니다.
+Prometheus와 Grafana는 로컬 개발과 CI에서만 사용합니다. 운영 EC2에는 배포하지 않으며 외부 `/actuator/prometheus`, `/grafana`와 `/grafana/` 요청은 `404`로 차단합니다. 운영 확인은 API health, application log와 SSM 진단을 사용하며 자세한 절차는 [AWS 배포 가이드](deploy/aws/README.md)를 따릅니다.
 
 backend endpoint나 DTO 계약이 변경되면 backend를 실행한 상태에서 모바일 TypeScript generated type을 다시 생성하고 변경된 `src/shared/api/generated.ts`를 함께 커밋합니다. 생성 파일을 직접 수정하지 않습니다.
 

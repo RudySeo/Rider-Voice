@@ -123,13 +123,14 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertIn("/actuator/health", self.pr_content)
         self.assertIn("docker run", self.pr_content)
         self.assertIn("Verify monitoring stack", self.pr_content)
-        self.assertIn("monitoring/compose.prod.yml", self.pr_content)
+        self.assertIn("monitoring/compose.yml", self.pr_content)
         self.assertIn("docker compose", self.pr_content)
         self.assertNotIn("--name rider-voice-prometheus-smoke", self.pr_content)
         self.assertNotIn("--name rider-voice-grafana-smoke", self.pr_content)
         self.assertIn("up{job=", self.pr_content)
-        self.assertIn("GRAFANA_ROOT_URL: http://127.0.0.1:3000/grafana/", self.pr_content)
-        self.assertIn("/grafana/api/health", self.pr_content)
+        self.assertIn("GRAFANA_ADMIN_PASSWORD: ci-grafana-password", self.pr_content)
+        self.assertNotIn("GRAFANA_ROOT_URL", self.pr_content)
+        self.assertIn("http://127.0.0.1:3000/api/health", self.pr_content)
 
     def test_publish_runs_for_master_push_or_manual_recovery_without_full_validation(self) -> None:
         self.assertRegex(
@@ -164,11 +165,11 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
             "'Dockerfile'",
             "'.dockerignore'",
             "'deploy/**'",
-            "'monitoring/**'",
             "'.github/workflows/master-publish.yml'",
         ):
             with self.subTest(path=backend_path):
                 self.assertIn(f"- {backend_path}", self.publish_content)
+        self.assertNotIn("- 'monitoring/**'", self.publish_content)
         self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]frontend/")
         self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]mobile/")
         self.assertNotRegex(self.publish_content, r"(?m)^\s*- ['\"]docs/")
