@@ -176,6 +176,7 @@ class AwsDeploymentContractTest(unittest.TestCase):
         sender = SSM_DEPLOY.read_text(encoding="utf-8")
 
         self.assertIn("systemd-run", sender)
+        self.assertIn("systemd-run --no-block", sender)
         self.assertIn("--property=Type=oneshot", sender)
         self.assertIn("REMOTE_STATUS_FILE", sender)
         self.assertIn("REMOTE_LOG_FILE", sender)

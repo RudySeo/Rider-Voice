@@ -35,7 +35,7 @@ readonly REMOTE_SCRIPT="/tmp/rider-voice-deploy-release-${RELEASE_SHA}.sh"
 readonly REMOTE_LOG_FILE="/tmp/rider-voice-release-${RELEASE_RUN_ID}.log"
 readonly REMOTE_STATUS_FILE="/tmp/rider-voice-release-${RELEASE_RUN_ID}.status"
 readonly REMOTE_STATUS_TMP="${REMOTE_STATUS_FILE}.tmp"
-readonly START_COMMAND="rm -f ${REMOTE_SCRIPT} ${REMOTE_LOG_FILE} ${REMOTE_STATUS_FILE} ${REMOTE_STATUS_TMP} && curl --fail --silent --show-error --location ${RELEASE_SCRIPT_URL} --output ${REMOTE_SCRIPT} && chmod 0700 ${REMOTE_SCRIPT} && sudo systemd-run --unit ${UNIT_NAME} --property=Type=oneshot /bin/bash -c 'set +e; /bin/bash ${REMOTE_SCRIPT} ${IMAGE_NAME} ${IMAGE_TAG} ${RELEASE_SHA} > ${REMOTE_LOG_FILE} 2>&1; release_status=\$?; printf \"%s\\n\" \"\$release_status\" > ${REMOTE_STATUS_TMP}; mv -f ${REMOTE_STATUS_TMP} ${REMOTE_STATUS_FILE}; rm -f ${REMOTE_SCRIPT}; exit \"\$release_status\"'"
+readonly START_COMMAND="rm -f ${REMOTE_SCRIPT} ${REMOTE_LOG_FILE} ${REMOTE_STATUS_FILE} ${REMOTE_STATUS_TMP} && curl --fail --silent --show-error --location ${RELEASE_SCRIPT_URL} --output ${REMOTE_SCRIPT} && chmod 0700 ${REMOTE_SCRIPT} && sudo systemd-run --no-block --unit ${UNIT_NAME} --property=Type=oneshot /bin/bash -c 'set +e; /bin/bash ${REMOTE_SCRIPT} ${IMAGE_NAME} ${IMAGE_TAG} ${RELEASE_SHA} > ${REMOTE_LOG_FILE} 2>&1; release_status=\$?; printf \"%s\\n\" \"\$release_status\" > ${REMOTE_STATUS_TMP}; mv -f ${REMOTE_STATUS_TMP} ${REMOTE_STATUS_FILE}; rm -f ${REMOTE_SCRIPT}; exit \"\$release_status\"'"
 
 SSM_OUTPUT=""
 
