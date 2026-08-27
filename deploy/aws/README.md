@@ -235,6 +235,8 @@ GitHub 저장소 `Settings` → `Environments`에서 `production` environment를
 
 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY` secret은 만들지 않는다. master workflow는 Docker Hub 게시가 성공한 뒤에만 OIDC role을 얻어 SSM 배포를 실행한다.
 
+EC2의 Docker image 저장소가 가득 차 SSM의 장기 release 명령까지 불안정해지면 GitHub Actions의 `Production Docker image cleanup`을 `master`에서 수동 실행한다. 이 workflow는 production OIDC role로 짧은 SSM 명령을 보내 어떤 container도 참조하지 않는 image만 정리하고 `/var/lib/containerd`의 남은 용량을 기록한다. container, network와 volume은 삭제하지 않으며 성공한 뒤 실패한 `Backend master publish`의 production job을 다시 실행한다.
+
 ## 9. 완료 확인과 rollback
 
 - Session Manager 접속 성공 후 EC2 security group에서 22/TCP 삭제
