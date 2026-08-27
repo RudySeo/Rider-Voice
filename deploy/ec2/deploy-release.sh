@@ -44,7 +44,7 @@ if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
     exit 1
 fi
 
-for required_command in aws curl docker flock install jq mktemp tar; do
+for required_command in aws curl df docker flock install jq mktemp tar; do
     if ! command -v "${required_command}" >/dev/null 2>&1; then
         echo "Missing required command: ${required_command}" >&2
         exit 1
@@ -156,7 +156,16 @@ compose_installed() {
         "$@"
 }
 
+reclaim_docker_image_space() {
+    echo "Docker disk usage before pruning unreferenced images:"
+    df -h /var/lib/containerd
+    docker image prune --all --force
+    echo "Docker disk usage after pruning unreferenced images:"
+    df -h /var/lib/containerd
+}
+
 compose_source config --quiet
+reclaim_docker_image_space
 compose_source pull
 
 install -m 0755 "${backend_deploy_source}" "${INSTALL_DIR}/deploy.sh.next"
