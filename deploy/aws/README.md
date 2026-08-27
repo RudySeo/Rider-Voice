@@ -140,7 +140,7 @@ sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_E
 
 bootstrap은 Docker와 Compose plugin, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore와 관측 stack의 Compose 자산을 설치한다. 완료 후 현재 검증된 최초 이미지를 배포하고 Grafana secret 파일을 준비한 다음 관측 stack을 시작한다.
 
-이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 SSM Run Command로 실행한다. 이 script가 backend image를 교체한 뒤 monitoring 자산을 갱신하므로 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
+이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 짧은 SSM Run Command로 transient systemd service에 등록한다. GitHub는 별도의 짧은 SSM 명령으로 상태 파일과 exit status를 확인해 장기 image pull과 health 검증을 SSM document worker의 IPC 수명에서 분리한다. 이 script가 backend image를 교체한 뒤 monitoring 자산을 갱신하므로 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
 
 ```bash
 MERGED_COMMIT_SHA="replace-with-40-character-lowercase-commit-sha"
