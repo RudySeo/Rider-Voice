@@ -2,6 +2,9 @@
 
 import json
 import re
+import shlex
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -164,6 +167,39 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("poll_release", sender)
         self.assertIn('executionTimeout: ["60"]', sender)
         self.assertNotIn('executionTimeout: ["900"]', sender)
+
+    def test_ssm_poll_is_posix_and_tolerates_the_systemd_exit_status_file_race(self) -> None:
+        sender = SSM_DEPLOY.read_text(encoding="utf-8")
+        poll_command = sender.split('poll_command="', 1)[1].split('"\n', 1)[0]
+
+        self.assertGreaterEqual(poll_command.count("[ -f ${REMOTE_STATUS_FILE} ]"), 2)
+        self.assertNotIn("[[", poll_command)
+        self.assertIn("readonly MISSING_GRACE_ATTEMPTS=3", sender)
+        self.assertIn("missing_attempts=$((missing_attempts + 1))", sender)
+        self.assertIn(
+            "if (( missing_attempts < MISSING_GRACE_ATTEMPTS )); then",
+            sender,
+        )
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            status_file = Path(temporary_directory) / "release.status"
+            status_file.write_text("0\n", encoding="utf-8")
+            executable_poll = (
+                poll_command.replace("\\$", "$")
+                .replace('\\"', '"')
+                .replace("${REMOTE_STATUS_FILE}", shlex.quote(str(status_file)))
+                .replace("${UNIT_NAME}", "rider-voice-missing-test-unit")
+            )
+            completed = subprocess.run(
+                ["/bin/sh", "-c", executable_poll],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stdout, "COMPLETE 0\n")
+        self.assertEqual(completed.stderr, "")
 
     def test_release_uses_exact_commit_backend_assets_and_decommissions_monitoring(self) -> None:
         release = RELEASE_DEPLOY.read_text(encoding="utf-8")

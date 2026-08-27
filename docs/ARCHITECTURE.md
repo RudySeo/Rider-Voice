@@ -262,7 +262,7 @@ master push
 
 - EC2의 8080과 RDS의 3306은 인터넷에 공개하지 않는다. RDS는 EC2 security group에서만 접근한다.
 - 운영 EC2에는 Prometheus와 Grafana를 실행하지 않고 `/grafana`와 `/grafana/` 요청을 `404`로 처리한다. 운영 metric 이력과 dashboard가 필요해지면 용량과 관측 위치를 새 ADR로 결정한다.
-- GitHub는 release script를 EC2의 transient systemd service로 시작한 뒤 짧은 SSM 명령으로 상태 파일과 종료 코드를 polling한다. release script는 전달받은 40자리 master commit SHA를 검증하고 해당 commit의 backend 배포 script와 Nginx 설정만 사용한다. 첫 전환 release는 기존 monitoring container, named volume과 설치 파일을 제거한 뒤 미사용 image를 정리한다.
+- GitHub는 release script를 EC2의 transient systemd service로 시작한 뒤 짧은 SSM 명령으로 상태 파일과 종료 코드를 polling한다. SSM에 직접 전달하는 조회 명령은 Ubuntu의 `/bin/sh`에서 동작하는 POSIX 문법을 사용한다. 상태 조회는 결과 파일을 확인한 뒤 systemd unit 상태를 읽고, unit이 막 종료된 경계에서는 결과 파일을 다시 확인하며 일시적인 `MISSING` 상태를 제한된 횟수만큼 재시도한다. release script는 전달받은 40자리 master commit SHA를 검증하고 해당 commit의 backend 배포 script와 Nginx 설정만 사용한다. 첫 전환 release는 기존 monitoring container, named volume과 설치 파일을 제거한 뒤 미사용 image를 정리한다.
 - Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
 - 로컬 Prometheus는 개발 PC의 API `/actuator/prometheus`를 15초마다 수집하고 로컬 Grafana는 저장소의 datasource와 dashboard provisioning을 사용한다. 로컬 데이터는 7일과 2GB 중 먼저 도달하는 한도로 Docker volume에 저장한다.
 - Nginx가 외부에서 들어온 `X-Forwarded-For`를 폐기하고 직접 연결한 client의 `$remote_addr`로 덮어쓴다. API는 localhost Nginx만 접근할 수 있고 운영 profile만 forwarded header를 신뢰하므로 검색 호출 제한에 검증된 client IP가 사용된다.

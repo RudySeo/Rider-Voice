@@ -138,7 +138,7 @@ sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_E
 
 bootstrap은 Docker, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore를 설치한다. 완료 후 현재 검증된 최초 backend 이미지를 배포한다. 운영 EC2에는 Prometheus와 Grafana를 설치하지 않는다.
 
-이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 짧은 SSM Run Command로 transient systemd service에 등록한다. GitHub는 별도의 짧은 SSM 명령으로 상태 파일과 exit status를 확인해 image pull과 health 검증을 SSM document worker의 IPC 수명에서 분리한다. 이 script는 backend image와 Nginx 설정만 갱신한다. 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
+이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 짧은 SSM Run Command로 transient systemd service에 등록한다. GitHub는 별도의 짧은 SSM 명령으로 상태 파일과 exit status를 확인해 image pull과 health 검증을 SSM document worker의 IPC 수명에서 분리한다. 이 조회 명령은 Ubuntu의 `/bin/sh`에서 동작하는 POSIX 문법을 사용한다. systemd unit 종료와 상태 파일 확인이 겹치는 순간에는 상태 파일을 다시 확인하고 제한된 횟수만큼 재시도하며, 재시도 후에도 결과가 없을 때만 release 실패로 판정한다. 이 script는 backend image와 Nginx 설정만 갱신한다. 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
 
 ```bash
 MERGED_COMMIT_SHA="replace-with-40-character-lowercase-commit-sha"
