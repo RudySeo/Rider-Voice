@@ -154,6 +154,8 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 
 ## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
 
+> **상태: 일부 대체됨.** ADR-030에 따라 Draft PR 자동 생성과 별도 production image cleanup workflow를 제거한다. PR CI, master 게시·배포와 수동 rollback 결정은 유지한다.
+
 **선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR workflow는 항상 시작하되 변경 경로를 먼저 판별하고, 백엔드 영향 변경에는 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를, `/mobile` 변경에는 pnpm 기반 typecheck·lint·test·Expo 의존성 및 export 검증을 각각 수행한다. 문서만 바뀐 PR은 애플리케이션 검증 job을 건너뛰되 하나의 최종 gate 상태를 남긴다. master push의 이미지 게시와 EC2 배포는 백엔드 영향 경로가 바뀐 경우에만 실행하며, 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. GitHub Actions 장애 등으로 push event가 유실되면 master ref에서만 허용한 수동 실행으로 같은 publish·deploy workflow를 복구한다. mobile은 백엔드 이미지에 포함하지 않고 이번 자동화에서 배포하지 않는다.
 
 Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된 PR의 CI를 별도 승인 없이 시작하기 위한 fine-grained GitHub PAT는 Contents Read와 Pull requests Read/Write만 허용한 Repository secret으로 관리하고, 값이 없으면 기본 `GITHUB_TOKEN`을 사용한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
@@ -263,3 +265,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: SSM agent의 shell script 실행기는 `/bin/sh` 경계이므로 Ubuntu에서 Bash 전용 `[[ ... ]]` 검사가 실패할 수 있다. 또한 release shell은 성공 상태 파일을 기록한 뒤 종료하지만, 별도 SSM 조회가 첫 파일 확인과 systemd 상태 확인 사이의 매우 짧은 전환 구간에 들어가면 성공한 배포를 `MISSING` 실패로 잘못 판정할 수 있기 때문이다.
 
 **감수할 점**: 실제로 상태 파일이 유실된 경우 실패 판정이 몇 초 늦어진다. 재시도 횟수를 제한하고 release log를 출력해 무한 대기나 원인 은폐를 막는다.
+
+## ADR-030: GitHub Actions는 세 개의 핵심 workflow만 유지한다
+
+**선택**: master 대상 변경 영역별 PR CI, backend 영향 master push의 이미지 게시·EC2 배포, 이전 불변 image를 선택하는 수동 production rollback만 유지한다. 작업 브랜치의 Draft PR은 push 후 직접 만들고, 미사용 Docker image 정리는 모든 일반 release가 image pull 전에 수행한다. Draft PR 자동 생성과 별도 production Docker image cleanup workflow는 제거한다.
+
+**선택한 이유**: Draft PR 생성은 개발 편의 기능이고 현재 사용하는 `fix/**`와 `refactor/**` 브랜치를 포괄하지 않는다. 별도 cleanup은 일반 release의 안전한 image 정리와 중복된다. 반면 PR 검증, master 배포와 배포 후 문제를 되돌리는 수동 rollback은 서로 다른 필수 경계다.
+
+**감수할 점**: 브랜치를 push한 뒤 PR을 직접 만들어야 한다. 저장 공간 정리만 별도로 실행하는 버튼은 없어지므로 필요하면 master의 게시·배포 workflow를 수동 재실행한다.

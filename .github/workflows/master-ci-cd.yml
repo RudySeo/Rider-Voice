@@ -55,7 +55,7 @@ jobs:
           cache-provider: basic
 
       - name: Validate workflow contracts
-        run: python3 -m unittest ci.test_feature_pr_workflow ci.test_master_ci_cd_workflow ci.test_ci_change_detection ci.test_flyway_schema_contract ci.test_aws_deployment_contract ci.test_monitoring_contract
+        run: python3 -m unittest ci.test_master_ci_cd_workflow ci.test_ci_change_detection ci.test_flyway_schema_contract ci.test_aws_deployment_contract ci.test_monitoring_contract
 
       - name: Build backend
         run: ./gradlew build --no-daemon

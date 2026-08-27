@@ -258,14 +258,12 @@ pnpm exec expo export --platform android --output-dir /tmp/rider-voice-mobile-an
 
 ## 백엔드 Docker CI/CD
 
-`feat/**`와 `feature/**` 브랜치를 push하면 master 대상 Draft PR만 자동 생성한다. Draft PR을 포함한 master 대상 PR에서는 변경 경로에 따라 backend 또는 mobile 검증을 수행한다. 필수 검증이 성공하고 최신 master 기준으로 확인된 PR만 병합할 수 있으며, backend 영향 변경이 master에 반영될 때만 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시하고 EC2에 배포한다. mobile은 백엔드 이미지와 배포 workflow에서 제외된다.
+작업 브랜치를 push한 뒤 GitHub에서 master 대상 PR을 직접 생성한다. master 대상 PR에서는 변경 경로에 따라 backend 또는 mobile 검증을 수행한다. 필수 검증이 성공하고 최신 master 기준으로 확인된 PR만 병합할 수 있으며, backend 영향 변경이 master에 반영될 때만 Docker Hub에 `latest`와 `sha-<commit>` 태그를 게시하고 EC2에 배포한다. mobile은 백엔드 이미지와 배포 workflow에서 제외된다.
 
 GitHub `docker-hub` Environment에는 다음 값만 등록한다.
 
 - variable `DOCKERHUB_USERNAME`: 이미지가 게시될 Docker Hub ID
 - secret `DOCKERHUB_TOKEN`: Read/Write 권한 Docker Hub PAT
-
-Repository secret `PR_AUTOMATION_TOKEN`에는 이 저장소의 Contents Read와 Pull requests Read/Write 권한만 가진 fine-grained GitHub PAT를 등록한다. 이 token으로 Draft PR을 생성해야 PR 전체 CI가 별도 승인 없이 바로 시작된다. 값이 없으면 기본 `GITHUB_TOKEN`으로 PR을 생성하지만 최초 CI 실행은 GitHub 화면에서 승인이 필요할 수 있다.
 
 실제 DB·카카오 값은 GitHub Actions와 Docker Hub에 저장하지 않는다. CI는 일회용 MySQL 값과 dummy provider 값을 사용하며, 실행 서버와 운영 secret store는 별도 배포 단계에서 결정한다.
 
