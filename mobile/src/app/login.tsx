@@ -22,6 +22,8 @@ export default function LoginScreen() {
     }
     const intent: PendingIntent | undefined = params.next === '/activity'
       ? { kind: 'activity' }
+      : params.next === '/review/search'
+        ? { kind: 'reviewSearch' }
       : params.targetType === 'EXISTING' && Number(params.restaurantId) > 0
         ? { kind: 'existingReview', restaurantId: Number(params.restaurantId), place: params.place ?? '음식점' }
         : params.targetType === 'KAKAO' && params.query && params.kakaoPlaceId
@@ -31,6 +33,7 @@ export default function LoginScreen() {
       setLoading(true);
       const resumed = await auth.login(intent);
       if (resumed?.kind === 'activity') router.replace('/activity');
+      else if (resumed?.kind === 'reviewSearch') router.replace({ pathname: '/search', params: { mode: 'review' } });
       else if (resumed?.kind === 'existingReview') router.replace({ pathname: '/review/new', params: { targetType: 'EXISTING', restaurantId: String(resumed.restaurantId), place: resumed.place } });
       else if (resumed?.kind === 'kakaoReview') router.replace({ pathname: '/review/new', params: { targetType: 'KAKAO', query: resumed.query, kakaoPlaceId: resumed.kakaoPlaceId, place: resumed.place } });
       else router.replace('/activity');

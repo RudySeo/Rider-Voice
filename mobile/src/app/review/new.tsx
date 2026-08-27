@@ -1,7 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -59,9 +58,18 @@ export default function ReviewCreateScreen() {
       : params.targetType === 'KAKAO' && params.query && params.kakaoPlaceId
         ? { type: 'KAKAO' as const, query: params.query, kakaoPlaceId: params.kakaoPlaceId }
         : undefined;
-    if (!editing && !target) throw new Error('작성할 음식점을 다시 선택해주세요.');
-    const body = { ...values, comment: values.comment.trim() || null, restaurantTarget: target, visitMonth: values.visitMonth };
-    return editing ? updateReview(reviewId, body) : createReview(body);
+    const ratings = {
+      packagingStability: values.packagingStability,
+      orderReadiness: values.orderReadiness,
+      handoffAccuracy: values.handoffAccuracy,
+      pickupSpaceCleanliness: values.pickupSpaceCleanliness,
+      staffInteraction: values.staffInteraction,
+      riderRespect: values.riderRespect,
+      comment: values.comment.trim() || null,
+    };
+    if (editing) return updateReview(reviewId, ratings);
+    if (!target) throw new Error('작성할 음식점을 다시 선택해주세요.');
+    return createReview({ ...ratings, restaurantTarget: target, visitMonth: values.visitMonth });
   }, onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['my-reviews'] });
     Alert.alert(editing ? '경험을 수정했어요' : '경험을 등록했어요', '내 활동에서 공개 상태를 확인할 수 있어요.', [{ text: '내 활동 보기', onPress: () => router.replace('/activity') }]);

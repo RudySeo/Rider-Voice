@@ -94,7 +94,7 @@ mobile
 
 네이티브 앱은 OAuth handshake를 개발 빌드의 시스템 브라우저에서 시작하고 성공하면 2분 유효·일회용 무작위 교환 코드만 `ridervoice://auth/callback`에 전달한다. backend에는 코드 원문 대신 SHA-256 hash를 저장하며 사용·만료 코드는 같은 인증 실패로 처리한다. 앱은 코드를 Rider Voice access/refresh token과 교환하고, access token은 메모리, refresh token은 SecureStore에 보관한다. Expo Go와 Expo Web은 공개 mock 미리보기만 지원하며 인증 성공을 흉내 내지 않는다.
 
-앱은 access token을 JavaScript 메모리에만 두며 refresh token만 SecureStore에 저장한다. 앱 시작 시 refresh를 한 번 시도하고, 동시 `401`은 하나의 refresh 요청을 공유한 뒤 원 요청을 한 번만 재시도한다. 로그아웃은 서버 폐기 성공 여부와 관계없이 로컬 token을 지운다. 로그인 전 사용자가 선택한 내 활동·기존 음식점·카카오 장소 작성 의도는 허용 목록 형태로 SecureStore에 임시 저장해 callback 뒤 이어간다.
+앱은 access token을 JavaScript 메모리에만 두며 refresh token만 SecureStore에 저장한다. 앱 시작 시 refresh를 한 번 시도하고, 동시 `401`은 하나의 refresh 요청을 공유한 뒤 원 요청을 한 번만 재시도한다. 로그아웃은 서버 폐기 성공 여부와 관계없이 로컬 token과 화면의 사용자 상태를 지운다. 로그인 전 사용자가 선택한 내 활동·리뷰 대상 검색·기존 음식점·카카오 장소 작성 의도는 허용 목록 형태로 SecureStore에 임시 저장해 callback 뒤 이어가며, 로그인 취소나 실패 시에는 남은 의도를 제거한다.
 
 ## 4. 로그인과 권한
 
