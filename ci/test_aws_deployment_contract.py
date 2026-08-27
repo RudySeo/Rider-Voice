@@ -172,6 +172,18 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("deploy-release.sh", sender)
         self.assertIn("raw.githubusercontent.com/RudySeo/Rider-Voice", sender)
 
+    def test_github_runs_long_release_outside_the_ssm_document_worker(self) -> None:
+        sender = SSM_DEPLOY.read_text(encoding="utf-8")
+
+        self.assertIn("systemd-run", sender)
+        self.assertIn("--property=Type=oneshot", sender)
+        self.assertIn("REMOTE_STATUS_FILE", sender)
+        self.assertIn("REMOTE_LOG_FILE", sender)
+        self.assertIn("start_release", sender)
+        self.assertIn("poll_release", sender)
+        self.assertIn('executionTimeout: ["60"]', sender)
+        self.assertNotIn('executionTimeout: ["900"]', sender)
+
     def test_release_uses_exact_commit_assets_and_preserves_runtime_state(self) -> None:
         release = RELEASE_DEPLOY.read_text(encoding="utf-8")
 
