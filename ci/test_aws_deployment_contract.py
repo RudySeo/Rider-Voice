@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROD_CONFIG = ROOT / "src" / "main" / "resources" / "application-prod.yml"
 PUBLISH_WORKFLOW = ROOT / ".github" / "workflows" / "master-publish.yml"
 ROLLBACK_WORKFLOW = ROOT / ".github" / "workflows" / "production-rollback.yml"
+CLEANUP_WORKFLOW = ROOT / ".github" / "workflows" / "production-docker-cleanup.yml"
 BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY = ROOT / "deploy" / "ec2" / "deploy.sh"
 RELEASE_DEPLOY = ROOT / "deploy" / "ec2" / "deploy-release.sh"
@@ -140,6 +141,26 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("git rev-parse HEAD", rollback)
         self.assertIn("steps.release.outputs.sha", rollback)
         self.assertNotIn("AWS_ACCESS_KEY_ID", rollback)
+
+    def test_manual_disk_cleanup_prunes_only_unreferenced_images_through_ssm(self) -> None:
+        cleanup = CLEANUP_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("workflow_dispatch:", cleanup)
+        self.assertIn("if: github.ref == 'refs/heads/master'", cleanup)
+        self.assertIn("environment: production", cleanup)
+        self.assertIn("group: rider-voice-production-deploy", cleanup)
+        self.assertIn("id-token: write", cleanup)
+        self.assertIn("aws ssm send-command", cleanup)
+        self.assertIn("docker image prune --all --force", cleanup)
+        self.assertIn("df -h /var/lib/containerd", cleanup)
+        self.assertNotIn("docker system prune", cleanup)
+        self.assertNotIn("docker container prune", cleanup)
+        self.assertNotIn("docker volume prune", cleanup)
+        self.assertNotIn("AWS_ACCESS_KEY_ID", cleanup)
+        action_references = re.findall(r"uses:\s*([^\s#]+)", cleanup)
+        self.assertGreaterEqual(len(action_references), 1)
+        for action_reference in action_references:
+            self.assertRegex(action_reference, r"^[^@]+@[0-9a-f]{40}$")
 
     def test_github_only_sends_a_validated_ssm_command(self) -> None:
         sender = SSM_DEPLOY.read_text(encoding="utf-8")
