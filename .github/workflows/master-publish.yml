@@ -17,7 +17,6 @@ on:
       - '.dockerignore'
       - '.env.docker.example'
       - 'deploy/**'
-      - 'monitoring/**'
       - '.github/workflows/master-publish.yml'
 
 permissions:

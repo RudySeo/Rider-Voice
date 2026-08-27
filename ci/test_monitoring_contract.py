@@ -1,4 +1,4 @@
-"""CI contracts for local and single-EC2 Prometheus/Grafana monitoring."""
+"""CI contracts for local-only Prometheus/Grafana monitoring."""
 
 import json
 import re
@@ -11,9 +11,7 @@ BUILD = ROOT / "build.gradle.kts"
 APP_CONFIG = ROOT / "src" / "main" / "resources" / "application.yml"
 SECURITY = ROOT / "src" / "main" / "kotlin" / "com" / "ridervoice" / "api" / "common" / "security" / "SecurityConfig.kt"
 COMPOSE = ROOT / "monitoring" / "compose.yml"
-PRODUCTION_COMPOSE = ROOT / "monitoring" / "compose.prod.yml"
 PROMETHEUS_LOCAL = ROOT / "monitoring" / "prometheus" / "prometheus-local.yml"
-PROMETHEUS_PROD = ROOT / "monitoring" / "prometheus" / "prometheus-prod.yml"
 DATASOURCE = ROOT / "monitoring" / "grafana" / "provisioning" / "datasources" / "prometheus.yml"
 DASHBOARD_PROVIDER = ROOT / "monitoring" / "grafana" / "provisioning" / "dashboards" / "rider-voice.yml"
 DASHBOARD = ROOT / "monitoring" / "grafana" / "dashboards" / "rider-voice-overview.json"
@@ -50,15 +48,12 @@ class MonitoringContractTest(unittest.TestCase):
         self.assertIn("GF_PLUGINS_PREINSTALL_DISABLED=true", compose)
         self.assertIn("GF_PLUGINS_PLUGIN_ADMIN_ENABLED=false", compose)
 
-    def test_prometheus_targets_are_environment_specific(self) -> None:
+    def test_prometheus_targets_the_local_backend(self) -> None:
         local = PROMETHEUS_LOCAL.read_text(encoding="utf-8")
-        prod = PROMETHEUS_PROD.read_text(encoding="utf-8")
 
         self.assertIn("host.docker.internal:8080", local)
-        self.assertIn("rider-voice-api:8080", prod)
-        for config in (local, prod):
-            self.assertIn("scrape_interval: 15s", config)
-            self.assertIn("metrics_path: /actuator/prometheus", config)
+        self.assertIn("scrape_interval: 15s", local)
+        self.assertIn("metrics_path: /actuator/prometheus", local)
 
     def test_grafana_assets_provision_prometheus_and_core_dashboard_panels(self) -> None:
         datasource = DATASOURCE.read_text(encoding="utf-8")
@@ -83,73 +78,41 @@ class MonitoringContractTest(unittest.TestCase):
             with self.subTest(metric=metric):
                 self.assertIn(metric, serialized)
 
-    def test_production_monitoring_is_private_persistent_and_independent(self) -> None:
-        monitoring = PRODUCTION_COMPOSE.read_text(encoding="utf-8")
+    def test_production_has_no_monitoring_stack_and_keeps_metrics_private(self) -> None:
         deploy = DEPLOY_SCRIPT.read_text(encoding="utf-8")
         nginx = NGINX.read_text(encoding="utf-8")
 
-        self.assertIn("rider-voice-observability", monitoring)
-        self.assertIn("rider-voice-observability", deploy)
-        self.assertIn("127.0.0.1:9090:9090", monitoring)
-        self.assertIn("127.0.0.1:3000:3000", monitoring)
-        self.assertIn("rider-voice-prometheus-data", monitoring)
-        self.assertIn("rider-voice-grafana-data", monitoring)
-        self.assertIn("GF_SECURITY_ADMIN_PASSWORD__FILE", monitoring)
-        self.assertIn("/run/secrets/grafana_admin_password", monitoring)
-        self.assertIn("GF_PLUGINS_PREINSTALL_DISABLED=true", monitoring)
-        self.assertIn("--storage.tsdb.retention.time=7d", monitoring)
-        self.assertIn("--storage.tsdb.retention.size=2GB", monitoring)
-        self.assertIn("/api/health", monitoring)
-        self.assertIn("/-/ready", monitoring)
-        self.assertIn("healthcheck:", monitoring)
-        self.assertIn("external: true", monitoring)
+        self.assertNotIn("rider-voice-observability", deploy)
+        self.assertFalse((ROOT / "monitoring" / "compose.prod.yml").exists())
+        self.assertFalse((ROOT / "monitoring" / "prometheus" / "prometheus-prod.yml").exists())
         self.assertFalse((ROOT / "deploy" / "ec2" / "monitoring.sh").exists())
         self.assertRegex(
             nginx,
             r"location\s+=\s+/actuator/prometheus\s*\{\s*return\s+404;\s*\}",
         )
 
-    def test_grafana_is_exposed_only_through_the_https_subpath(self) -> None:
-        monitoring = PRODUCTION_COMPOSE.read_text(encoding="utf-8")
+    def test_production_grafana_paths_are_blocked(self) -> None:
         nginx = NGINX.read_text(encoding="utf-8")
         bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
 
-        self.assertIn("GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:?set GRAFANA_ROOT_URL}", monitoring)
-        self.assertIn("GF_SERVER_SERVE_FROM_SUB_PATH=true", monitoring)
-        self.assertIn("GF_SECURITY_COOKIE_SECURE=true", monitoring)
-        self.assertIn("GF_SECURITY_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION=false", monitoring)
-        self.assertIn("GF_SECURITY_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS=5", monitoring)
-        self.assertIn("127.0.0.1:3000:3000", monitoring)
         self.assertRegex(
             nginx,
-            r"location\s+=\s+/grafana\s*\{\s*return\s+301\s+/grafana/;\s*\}",
+            r"location\s+=\s+/grafana\s*\{\s*return\s+404;\s*\}",
         )
-        self.assertRegex(nginx, r"location\s+\^~\s+/grafana/\s*\{")
-        self.assertIn("proxy_pass http://127.0.0.1:3000", nginx)
-        self.assertIn("map $http_upgrade $grafana_connection_upgrade", nginx)
-        self.assertIn("proxy_set_header Upgrade $http_upgrade", nginx)
-        self.assertIn("proxy_set_header Connection $grafana_connection_upgrade", nginx)
-        self.assertIn('GRAFANA_ROOT_URL="https://${DOMAIN}/grafana/"', bootstrap)
-        self.assertIn("MONITORING_ENV_FILE", bootstrap)
-        self.assertIn('chmod 0600 "${MONITORING_ENV_FILE}"', bootstrap)
+        self.assertRegex(nginx, r"location\s+\^~\s+/grafana/\s*\{\s*return\s+404;\s*\}")
+        self.assertNotIn("proxy_pass http://127.0.0.1:3000", nginx)
+        self.assertNotIn("grafana", bootstrap.lower())
 
-    def test_release_updates_monitoring_without_replacing_secrets_or_volumes(self) -> None:
+    def test_release_decommissions_production_monitoring(self) -> None:
         release = RELEASE_SCRIPT.read_text(encoding="utf-8")
-        asset_block = re.search(r"MONITORING_ASSETS=\((.*?)\n\)", release, re.DOTALL)
 
-        self.assertIsNotNone(asset_block)
-        self.assertIn("compose.prod.yml", release)
-        self.assertIn("prometheus-prod.yml", release)
-        self.assertIn("rider-voice-overview.json", release)
-        self.assertIn("docker compose", release)
-        self.assertIn("--detach --wait", release)
-        self.assertIn("/-/ready", release)
-        self.assertIn("/grafana/api/health", release)
-        self.assertIn('up{job="rider-voice-api"}', release)
-        self.assertIn("restore_monitoring", release)
-        self.assertNotIn(".env", asset_block.group(1))
-        self.assertNotIn("secrets/", asset_block.group(1))
-        self.assertNotIn("docker volume rm", release)
+        self.assertIn("docker rm --force", release)
+        self.assertIn("docker volume rm", release)
+        self.assertIn("rider-voice-prometheus-data", release)
+        self.assertIn("rider-voice-grafana-data", release)
+        self.assertIn("MONITORING_INSTALL_DIR", release)
+        self.assertNotIn("compose.prod.yml", release)
+        self.assertNotIn("GRAFANA_ADMIN_PASSWORD", release)
 
 
 if __name__ == "__main__":

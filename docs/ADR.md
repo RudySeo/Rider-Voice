@@ -247,3 +247,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 기존 CD는 `monitoring/**` 변경에도 실행되지만 설치된 `/opt/rider-voice/monitoring`을 갱신하지 않아 저장소와 운영 구성이 달라질 수 있었다. backend image와 배포 script·monitoring 구성을 하나의 master commit으로 묶으면 어떤 운영 자산이 배포됐는지 추적하고 한 번의 release로 검증할 수 있다. image pull과 monitoring health 확인이 SSM document worker의 단일 장기 IPC 수명에 묶이지 않아도 GitHub가 최종 성공·실패를 확인할 수 있다.
 
 **감수할 점**: monitoring container 교체 중 짧은 관측 공백이 생길 수 있다. 미사용 image cache는 다음 rollback 후보로 별도 보존하지 않지만 현재 실행 중인 API와 monitoring container의 image는 Docker 참조로 유지된다. 구성과 image는 복원하지만 named volume 내부에서 새 버전이 수행한 데이터 migration은 자동으로 되돌리지 않으므로 minor version 호환성과 고정 image digest를 CI에서 먼저 검증한다. 모바일 앱스토어 배포는 이 release에 포함하지 않는다.
+
+## ADR-028: 운영 모니터링을 제거하고 로컬 개발 환경에서만 실행한다
+
+**선택**: ADR-021, ADR-022와 ADR-027의 운영 monitoring 결정을 대체한다. 현재 단일 EC2에는 API container만 배포하고 Prometheus와 Grafana는 개발자가 필요할 때 로컬 Docker Compose로만 실행한다. `/actuator/prometheus`는 로컬 수집과 CI 검증을 위해 유지하지만 운영 Nginx는 외부 접근을 계속 `404`로 차단한다. 운영 `/grafana/` 경로, container, image, named volume, 설치 파일과 SSM Grafana 비밀번호는 제거한다. backend release는 정확한 master commit의 배포 script와 Nginx 설정만 적용하고 API health check와 이전 image rollback을 유지한다.
+
+**선택한 이유**: 6.7GB인 현재 EC2 root filesystem은 API와 운영 monitoring image를 함께 보관하기에 부족하고 Grafana layer 추출이 backend 배포까지 실패시켰다. 초기 사이드 프로젝트에서는 지속적인 운영 dashboard보다 안정적인 API 배포와 낮은 고정 비용이 우선이며, 같은 metric과 dashboard를 로컬·CI에서 검증할 수 있다.
+
+**감수할 점**: 운영 metric 이력, dashboard와 외부 장애 감지는 제공하지 않는다. 운영 문제는 API health, application log와 SSM 진단으로 확인한다. 실제 사용자 규모나 운영 필요성이 생기면 EBS 용량, 별도 host 또는 관리형 관측 서비스와 알림 정책을 새 ADR로 결정한 뒤 운영 monitoring을 다시 도입한다.

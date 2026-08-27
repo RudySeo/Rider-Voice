@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 readonly CONTAINER_NAME="rider-voice-api"
-readonly OBSERVABILITY_NETWORK="rider-voice-observability"
 readonly DEPLOY_AWS_REGION="ap-northeast-2"
 readonly PARAMETER_PATH="/rider-voice/prod"
 readonly ENV_DIR="/run/rider-voice"
@@ -124,14 +123,10 @@ chmod 600 "${ENV_FILE}"
 
 start_container() {
     local image_ref="$1"
-    if ! docker network inspect "${OBSERVABILITY_NETWORK}" >/dev/null 2>&1; then
-        docker network create "${OBSERVABILITY_NETWORK}" >/dev/null
-    fi
     docker run --detach \
         --name "${CONTAINER_NAME}" \
         --restart unless-stopped \
         --init \
-        --network "${OBSERVABILITY_NETWORK}" \
         --publish 127.0.0.1:8080:8080 \
         --env-file "${ENV_FILE}" \
         --env SPRING_PROFILES_ACTIVE=prod \

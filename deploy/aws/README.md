@@ -1,6 +1,6 @@
 # Rider Voice AWS 백엔드 배포 가이드
 
-이 문서는 서울 리전(`ap-northeast-2`)의 기존 Ubuntu x86_64 EC2 한 대에 backend, 비공개 Prometheus와 HTTPS 로그인으로 접근하는 Grafana 관측 stack을 배포하는 절차다. frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ는 사용하지 않는다. AWS Budget은 알림일 뿐 리소스나 지출을 자동으로 중지하지 않는다.
+이 문서는 서울 리전(`ap-northeast-2`)의 기존 Ubuntu x86_64 EC2 한 대에 backend를 배포하는 절차다. 운영 Prometheus와 Grafana, frontend, ALB, ECS, Route 53, NAT Gateway와 Multi-AZ는 사용하지 않는다. AWS Budget은 알림일 뿐 리소스나 지출을 자동으로 중지하지 않는다.
 
 ## 준비할 값
 
@@ -32,10 +32,10 @@ Elastic IP를 포함한 public IPv4 주소는 EC2에 연결되어 있거나 EC2�
 | 포트 | 소스 | 용도 |
 | --- | --- | --- |
 | 80/TCP | `0.0.0.0/0` | Let's Encrypt HTTP-01 및 HTTPS 이동 |
-| 443/TCP | `0.0.0.0/0` | 공개 HTTPS API와 `/grafana/` |
+| 443/TCP | `0.0.0.0/0` | 공개 HTTPS API |
 | 22/TCP | 현재 관리자 공인 IP `/32` | 최초 bootstrap만 사용하고 SSM 검증 후 삭제 |
 
-3000, 8080과 9090은 inbound에 추가하지 않는다. EC2 outbound는 Docker Hub, AWS API, Let's Encrypt와 패키지 저장소에 HTTPS로 연결할 수 있어야 한다.
+8080은 inbound에 추가하지 않는다. EC2 outbound는 Docker Hub, AWS API, Let's Encrypt와 패키지 저장소에 HTTPS로 연결할 수 있어야 한다.
 
 ## 3. EC2 instance role과 SSM
 
@@ -115,7 +115,6 @@ RDS master 계정은 애플리케이션과 SSM `/rider-voice/prod/` 경로에 �
 | `/rider-voice/prod/KAKAO_CLIENT_SECRET` | SecureString | 값이 있을 때만 생성 |
 | `/rider-voice/prod/KAKAO_LOCAL_REST_API_KEY` | SecureString | Kakao Local REST API key |
 | `/rider-voice/prod/KAKAO_REDIRECT_URI` | String | `https://<DOMAIN>/api/v1/auth/oauth2/callback/kakao` |
-| `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD` | SecureString | Grafana 전용 강한 관리자 비밀번호 |
 
 `DB_URL`은 다음 형식을 사용한다.
 
@@ -133,14 +132,13 @@ Kakao developer console의 redirect URI에는 backend callback URL을 정확히 
 
 ```bash
 scp -r deploy/ec2 ubuntu@<ELASTIC_IP>:/tmp/rider-voice-ec2
-scp -r monitoring ubuntu@<ELASTIC_IP>:/tmp/monitoring
 ssh ubuntu@<ELASTIC_IP>
 sudo /tmp/rider-voice-ec2/bootstrap.sh <EIP-WITH-DASHES>.sslip.io <CERTIFICATE_EMAIL>
 ```
 
-bootstrap은 Docker와 Compose plugin, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore와 관측 stack의 Compose 자산을 설치한다. 완료 후 현재 검증된 최초 이미지를 배포하고 Grafana secret 파일을 준비한 다음 관측 stack을 시작한다.
+bootstrap은 Docker, Nginx, Certbot, AWS CLI, MySQL client와 SSM agent를 준비하고 MySQL 연결에만 사용하는 RDS CA truststore를 설치한다. 완료 후 현재 검증된 최초 backend 이미지를 배포한다. 운영 EC2에는 Prometheus와 Grafana를 설치하지 않는다.
 
-이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 짧은 SSM Run Command로 transient systemd service에 등록한다. GitHub는 별도의 짧은 SSM 명령으로 상태 파일과 exit status를 확인해 장기 image pull과 health 검증을 SSM document worker의 IPC 수명에서 분리한다. 이 script가 backend image를 교체한 뒤 monitoring 자산을 갱신하므로 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
+이미 bootstrap이 끝난 EC2의 일반 release에서는 GitHub Actions가 병합된 정확한 commit SHA의 release script를 짧은 SSM Run Command로 transient systemd service에 등록한다. GitHub는 별도의 짧은 SSM 명령으로 상태 파일과 exit status를 확인해 image pull과 health 검증을 SSM document worker의 IPC 수명에서 분리한다. 이 script는 backend image와 Nginx 설정만 갱신한다. 아래 수동 bootstrap 절차는 최초 설치 또는 자동 복구가 불가능한 경우에만 사용한다. `<MERGED_COMMIT_SHA>`는 GitHub master의 40자리 commit SHA로 바꾸고, 현재 Nginx의 domain과 기존 Let's Encrypt 등록 email을 그대로 사용한다.
 
 ```bash
 MERGED_COMMIT_SHA="replace-with-40-character-lowercase-commit-sha"
@@ -159,7 +157,6 @@ tar --extract --gzip \
   --directory "${ASSET_ROOT}/source" \
   --strip-components=1
 cp -a "${ASSET_ROOT}/source/deploy/ec2" "${ASSET_ROOT}/rider-voice-ec2"
-cp -a "${ASSET_ROOT}/source/monitoring" "${ASSET_ROOT}/monitoring"
 sudo "${ASSET_ROOT}/rider-voice-ec2/bootstrap.sh" \
   "203-0-113-10.sslip.io" \
   "admin@example.com"
@@ -167,51 +164,25 @@ sudo "${ASSET_ROOT}/rider-voice-ec2/bootstrap.sh" \
 
 ```bash
 sudo /opt/rider-voice/deploy.sh <DOCKERHUB_USERNAME>/rider-voice-api sha-81eb17b7a492
-sudo sh -ceu '
-  umask 077
-  grafana_admin_password="$(aws ssm get-parameter \
-    --region ap-northeast-2 \
-    --name /rider-voice/prod/GRAFANA_ADMIN_PASSWORD \
-    --with-decryption \
-    --query Parameter.Value \
-    --output text)"
-  test -n "${grafana_admin_password}"
-  printf "%s" "${grafana_admin_password}" \
-    > /opt/rider-voice/monitoring/secrets/grafana_admin_password
-  test -s /opt/rider-voice/monitoring/secrets/grafana_admin_password
-  unset grafana_admin_password
-'
-sudo docker compose \
-  --env-file /opt/rider-voice/monitoring/.env \
-  -f /opt/rider-voice/monitoring/compose.prod.yml \
-  up --detach --wait --pull always
 curl --fail https://<EIP-WITH-DASHES>.sslip.io/actuator/health
 sudo /snap/bin/certbot renew --dry-run
 ```
 
-Docker의 3000, 8080과 9090 binding이 `127.0.0.1`인지 확인하고 외부에서 `http://<DOMAIN>`이 HTTPS로 이동하는지 확인한다. 외부 `https://<DOMAIN>/actuator/prometheus` 요청은 `404`여야 한다.
+Docker API의 8080 binding이 `127.0.0.1`인지 확인하고 외부에서 `http://<DOMAIN>`이 HTTPS로 이동하는지 확인한다. 외부 `https://<DOMAIN>/actuator/prometheus`, `/grafana`와 `/grafana/` 요청은 `404`여야 한다.
 
-자동 release는 monitoring image를 받기 전에 실행 중이거나 중지된 container가 참조하지 않는 Docker image를 정리한다. 실행 중인 API와 monitoring image, container, network, volume은 삭제하지 않는다. `/opt/rider-voice/monitoring/.env`, `secrets/grafana_admin_password`와 두 named volume도 유지한다. 기존 EC2에 두 runtime 파일이 아직 없으면 `/rider-voice/prod/KAKAO_REDIRECT_URI`의 검증된 HTTPS origin으로 `.env`를 만들고 `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD`를 복호화해 root 전용 secret 파일을 최초 한 번 생성한다. 새 monitoring 구성이 정상화되지 않으면 직전 Compose·Prometheus·Grafana provisioning 파일을 복원하고 workflow를 실패시킨다. API image health 실패는 기존과 같이 직전 image로 자동 복구한다.
+자동 release는 기존 운영 monitoring container와 named volume, `/opt/rider-voice/monitoring`을 제거하고 미사용 Docker image를 정리한다. API container와 현재 rollback image는 참조 상태로 보존한다. 정확한 master commit의 Nginx 설정을 검증한 뒤 `/grafana` 경로를 `404`로 전환하고 새 backend image를 배포한다. API image health 실패는 기존과 같이 직전 image로 자동 복구한다.
 
-## 7. Prometheus와 Grafana 접속
+## 7. 로컬 Prometheus와 Grafana
 
-운영 Compose는 Prometheus와 Grafana만 관리한다. API는 health check와 rollback을 유지하기 위해 기존 `deploy.sh`가 관리한다. Prometheus는 `rider-voice-observability` Docker network에서 `rider-voice-api:8080/actuator/prometheus`를 수집한다. Grafana datasource와 Rider Voice dashboard는 자동으로 provisioning되며 Prometheus는 7일 또는 2GB 중 먼저 도달하는 시점까지 metric을 보관한다.
-
-Grafana container의 `3000` 포트는 localhost binding을 유지하며 Nginx가 기존 TLS 도메인의 `/grafana/`만 reverse proxy한다. browser에서 `https://<DOMAIN>/grafana/`에 접속하고 사용자 `admin`과 SSM `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD`에 저장한 비밀번호로 로그인한다. 익명 접속과 회원가입은 비활성화되어 있고 HTTPS secure cookie와 로그인 시도 제한을 적용한다.
-
-Prometheus UI와 원본 metric은 인터넷에 공개하지 않는다. Prometheus UI가 필요할 때만 관리자 PC의 AWS CLI와 Session Manager plugin으로 local port에 연결한다. 접속하는 IAM principal에는 대상 instance의 `ssm:StartSession`과 session 종료 권한을 최소 범위로 부여한다. GitHub deploy role에는 이 권한을 추가하지 않는다.
+Prometheus와 Grafana는 개발 PC에서 필요할 때만 실행한다. 로컬 Spring API를 `localhost:8080`에서 먼저 실행하고 저장소 루트에서 다음 명령을 사용한다.
 
 ```bash
-aws ssm start-session \
-  --region ap-northeast-2 \
-  --target <EC2_INSTANCE_ID> \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["9090"],"localPortNumber":["9090"]}'
+cp monitoring/.env.example monitoring/.env
+# monitoring/.env의 GRAFANA_ADMIN_PASSWORD를 로컬 전용 값으로 변경
+docker compose --env-file monitoring/.env -f monitoring/compose.yml up --detach
 ```
 
-session이 열린 동안 browser에서 `http://localhost:9090`으로 Prometheus UI에 접속한다. port forwarding session 내용은 기록되지 않으므로 운영 접근 권한은 최소 인원에게만 부여한다.
-
-Grafana container는 root 전용 파일을 Compose secret으로 mount하고 `GF_SECURITY_ADMIN_PASSWORD__FILE`로 읽는다. 관리자 비밀번호는 최초 database 생성 때만 적용된다. 비밀번호를 회전할 때는 SSM 값을 바꾸고 secret 파일을 다시 내려받은 뒤 EC2에서 Grafana CLI로 기존 database의 관리자 비밀번호도 함께 변경하고 container를 재기동한다.
+Grafana는 `http://localhost:3000`, Prometheus는 `http://localhost:9090`에서 확인한다. 종료할 때는 `down`으로 local volume을 보존하고 데이터를 의도적으로 초기화할 때만 `down --volumes`를 사용한다. 운영 문제는 공개 health endpoint, application log와 SSM 진단으로 확인한다.
 
 ## 8. GitHub OIDC deploy role
 
@@ -235,7 +206,7 @@ GitHub 저장소 `Settings` → `Environments`에서 `production` environment를
 
 `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY` secret은 만들지 않는다. master workflow는 Docker Hub 게시가 성공한 뒤에만 OIDC role을 얻어 SSM 배포를 실행한다.
 
-EC2의 Docker image 저장소가 가득 차 SSM의 장기 release 명령까지 불안정해지면 GitHub Actions의 `Production Docker image cleanup`을 `master`에서 수동 실행한다. 이 workflow는 production OIDC role로 짧은 SSM 명령을 보내 어떤 container도 참조하지 않는 image만 정리하고 `/var/lib/containerd`의 남은 용량을 기록한다. container, network와 volume은 삭제하지 않으며 성공한 뒤 실패한 `Backend master publish`의 production job을 다시 실행한다.
+EC2의 Docker image 저장소가 가득 차면 GitHub Actions의 `Production Docker image cleanup`을 `master`에서 수동 실행한다. 이 workflow는 production OIDC role로 짧은 SSM 명령을 보내 어떤 container도 참조하지 않는 image만 정리하고 `/var/lib/containerd`의 남은 용량을 기록한다. API container, network와 volume은 삭제하지 않는다.
 
 ## 9. 완료 확인과 rollback
 
@@ -244,12 +215,13 @@ EC2의 Docker image 저장소가 가득 차 SSM의 장기 release 명령까지 �
 - `docker inspect rider-voice-api`에서 image가 병합 commit의 `sha-<12자리>`인지 확인
 - `curl https://<DOMAIN>/actuator/health`가 `UP`인지 확인
 - 외부 `curl https://<DOMAIN>/actuator/prometheus`가 `404`인지 확인
-- `curl http://127.0.0.1:9090/-/ready`와 `curl http://127.0.0.1:3000/grafana/api/health`가 성공하는지 확인
-- browser에서 `https://<DOMAIN>/grafana/` 로그인과 dashboard 표시를 확인
-- Prometheus query `up{job="rider-voice-api"}`가 `1`이고 Grafana dashboard가 데이터를 표시하는지 확인
+- 외부 `curl https://<DOMAIN>/grafana`와 `/grafana/`가 `404`인지 확인
+- `docker ps -a`와 `docker volume ls`에 Rider Voice 운영 Prometheus·Grafana 자원이 없는지 확인
 - GitHub Actions 로그와 EC2 Docker 로그에 password와 token이 없는지 확인
 - EC2 재부팅 후 Nginx와 container가 자동 시작하는지 확인
 
+전환 release가 성공한 뒤 AWS Console의 `Systems Manager` → `Parameter Store`에서 더 이상 사용하지 않는 `/rider-voice/prod/GRAFANA_ADMIN_PASSWORD`를 삭제한다. GitHub deploy role과 EC2 instance role에는 parameter 삭제 권한을 추가하지 않는다.
+
 자동 배포 실패 시 EC2 script는 직전 image를 다시 시작하고 GitHub job은 실패로 남긴다. 수동 rollback은 GitHub Actions의 `Backend production rollback`에서 이전 `sha-<12자리>`를 입력한다. Flyway migration은 자동으로 되돌리지 않으므로 컬럼 삭제나 이름 변경은 호환 가능한 두 번의 배포로 나눈다.
 
-배포 asset이 변경되면 새 버전의 `deploy/ec2`와 `monitoring` 디렉터리를 EC2로 복사하고 bootstrap을 다시 실행해 `/opt/rider-voice/deploy.sh`, Nginx와 관측 Compose 설정을 갱신한다. 이후 `docker compose --env-file /opt/rider-voice/monitoring/.env -f /opt/rider-voice/monitoring/compose.prod.yml up --detach --wait --pull always`를 다시 실행한다. API와 관측 stack은 같은 EC2에 있으므로 instance 장애 시 둘 다 중단된다. 외부 장애 감지가 필요해지면 별도 host나 관리형 관측 서비스를 결정한다.
+배포 asset이 변경되면 새 버전의 `deploy/ec2` 디렉터리를 EC2로 복사하고 bootstrap을 다시 실행해 `/opt/rider-voice/deploy.sh`와 Nginx 설정을 갱신한다. 운영 monitoring이 필요해지면 EC2 disk 용량, 별도 host 또는 관리형 관측 서비스를 먼저 결정하고 ADR을 추가한다.

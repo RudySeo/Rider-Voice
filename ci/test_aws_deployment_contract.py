@@ -14,7 +14,6 @@ CLEANUP_WORKFLOW = ROOT / ".github" / "workflows" / "production-docker-cleanup.y
 BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
 DEPLOY = ROOT / "deploy" / "ec2" / "deploy.sh"
 RELEASE_DEPLOY = ROOT / "deploy" / "ec2" / "deploy-release.sh"
-MONITORING_COMPOSE = ROOT / "monitoring" / "compose.prod.yml"
 NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
 SSM_DEPLOY = ROOT / "deploy" / "github" / "send-ssm-deploy.sh"
 AWS_GUIDE = ROOT / "deploy" / "aws" / "README.md"
@@ -42,11 +41,9 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("rds-truststore.p12", bootstrap)
         self.assertIn("nginx -t", bootstrap)
         self.assertIn("amazon-ssm-agent", bootstrap)
-        self.assertIn("docker-compose-plugin", bootstrap)
-        self.assertIn("compose.prod.yml", bootstrap)
         self.assertNotIn("monitoring.sh", bootstrap)
-        self.assertIn("prometheus-prod.yml", bootstrap)
-        self.assertIn("rider-voice-overview.json", bootstrap)
+        self.assertNotIn("compose.prod.yml", bootstrap)
+        self.assertNotIn("MONITORING_INSTALL_DIR", bootstrap)
 
     def test_deploy_uses_ssm_env_an_immutable_image_and_health_rollback(self) -> None:
         deploy = DEPLOY.read_text(encoding="utf-8")
@@ -57,39 +54,22 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("chmod 600", deploy)
         self.assertRegex(deploy, r"sha-\[0-9a-f\].*12")
         self.assertIn("127.0.0.1:8080:8080", deploy)
-        self.assertIn("rider-voice-observability", deploy)
+        self.assertNotIn("rider-voice-observability", deploy)
         self.assertIn("rds-truststore.p12", deploy)
         self.assertIn("/actuator/health", deploy)
         self.assertIn("rollback", deploy.lower())
         self.assertNotRegex(deploy, r"(?m)^\s*(source|\.)\s+.*api\.env")
 
-    def test_monitoring_compose_uses_private_ports_secret_and_persistent_volumes(self) -> None:
-        monitoring = MONITORING_COMPOSE.read_text(encoding="utf-8")
-
-        self.assertIn("GF_SECURITY_ADMIN_PASSWORD__FILE", monitoring)
-        self.assertIn("/run/secrets/grafana_admin_password", monitoring)
-        self.assertIn("127.0.0.1:3000:3000", monitoring)
-        self.assertIn("127.0.0.1:9090:9090", monitoring)
-        self.assertIn("rider-voice-prometheus-data", monitoring)
-        self.assertIn("rider-voice-grafana-data", monitoring)
-        self.assertIn("rider-voice-observability", monitoring)
-        self.assertIn("external: true", monitoring)
-        self.assertIn("no-new-privileges:true", monitoring)
-        self.assertIn("healthcheck:", monitoring)
-        self.assertNotIn("latest", monitoring)
-
-    def test_grafana_uses_the_existing_https_domain_without_public_container_ports(self) -> None:
-        monitoring = MONITORING_COMPOSE.read_text(encoding="utf-8")
+    def test_production_monitoring_assets_are_absent_and_public_paths_are_blocked(self) -> None:
         nginx = NGINX.read_text(encoding="utf-8")
         bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
 
-        self.assertIn("GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:?set GRAFANA_ROOT_URL}", monitoring)
-        self.assertIn("GF_SERVER_SERVE_FROM_SUB_PATH=true", monitoring)
-        self.assertIn("GF_SECURITY_COOKIE_SECURE=true", monitoring)
-        self.assertIn('location ^~ /grafana/', nginx)
-        self.assertIn("proxy_pass http://127.0.0.1:3000", nginx)
-        self.assertIn("GRAFANA_ROOT_URL", bootstrap)
-        self.assertIn("https://${DOMAIN}/grafana/", bootstrap)
+        self.assertFalse((ROOT / "monitoring" / "compose.prod.yml").exists())
+        self.assertFalse((ROOT / "monitoring" / "prometheus" / "prometheus-prod.yml").exists())
+        self.assertRegex(nginx, r"location\s+=\s+/grafana\s*\{\s*return\s+404;\s*\}")
+        self.assertRegex(nginx, r"location\s+\^~\s+/grafana/\s*\{\s*return\s+404;\s*\}")
+        self.assertNotIn("proxy_pass http://127.0.0.1:3000", nginx)
+        self.assertNotIn("GRAFANA_ROOT_URL", bootstrap)
 
     def test_master_publish_deploys_with_oidc_only_after_image_publish(self) -> None:
         workflow = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
@@ -185,44 +165,43 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn('executionTimeout: ["60"]', sender)
         self.assertNotIn('executionTimeout: ["900"]', sender)
 
-    def test_release_uses_exact_commit_assets_and_preserves_runtime_state(self) -> None:
+    def test_release_uses_exact_commit_backend_assets_and_decommissions_monitoring(self) -> None:
         release = RELEASE_DEPLOY.read_text(encoding="utf-8")
 
         self.assertIn("Rider-Voice/archive/${RELEASE_SHA}.tar.gz", release)
         self.assertIn("deploy/ec2/deploy.sh", release)
-        self.assertIn('MONITORING_ENV_FILE="${MONITORING_INSTALL_DIR}/.env"', release)
-        self.assertIn('GRAFANA_SECRET_FILE="${MONITORING_INSTALL_DIR}/secrets/grafana_admin_password"', release)
-        self.assertIn("restore_monitoring", release)
+        self.assertIn("deploy/ec2/nginx.conf.template", release)
+        self.assertIn("rider-voice-prometheus", release)
+        self.assertIn("rider-voice-grafana", release)
+        self.assertIn("rider-voice-prometheus-data", release)
+        self.assertIn("rider-voice-grafana-data", release)
+        self.assertIn('MONITORING_INSTALL_DIR="${INSTALL_DIR}/monitoring"', release)
+        self.assertIn("docker volume rm", release)
+        self.assertNotIn("docker compose", release)
+        self.assertNotIn("GRAFANA_ADMIN_PASSWORD", release)
         self.assertIn("flock --nonblock", release)
-        self.assertNotIn("docker volume rm", release)
-
-    def test_release_initializes_missing_monitoring_runtime_from_ssm(self) -> None:
-        release = RELEASE_DEPLOY.read_text(encoding="utf-8")
-
-        self.assertIn("initialize_monitoring_runtime", release)
         self.assertIn("KAKAO_REDIRECT_URI", release)
-        self.assertIn("GRAFANA_ADMIN_PASSWORD", release)
         self.assertIn("aws ssm get-parameter", release)
-        self.assertIn('install -m 0600', release)
-        self.assertIn("had_previous_monitoring", release)
-        self.assertNotIn('echo "${grafana_password}"', release)
 
-    def test_release_reclaims_only_unreferenced_images_before_monitoring_pull(self) -> None:
+    def test_release_reclaims_unreferenced_images_before_backend_deploy(self) -> None:
         release = RELEASE_DEPLOY.read_text(encoding="utf-8")
 
         prune = "docker image prune --all --force"
-        pull = "compose_source pull"
+        deploy = '"${INSTALL_DIR}/deploy.sh" "${IMAGE_NAME}" "${IMAGE_TAG}"'
         self.assertIn(prune, release)
-        self.assertLess(release.index(prune), release.index(pull))
+        self.assertIn(deploy, release)
+        self.assertLess(release.index(prune), release.index(deploy))
         self.assertNotIn("docker system prune", release)
         self.assertNotIn("docker container prune", release)
         self.assertNotIn("docker volume prune", release)
 
     def test_console_guide_covers_the_required_security_and_cost_boundaries(self) -> None:
         guide = AWS_GUIDE.read_text(encoding="utf-8")
+        ssm_section = guide.split("## 5. SSM Parameter Store", 1)[1].split("## 6.", 1)[0]
         self.assertNotIn("monitoring.sh", guide)
-        self.assertIn("compose.prod.yml", guide)
-        self.assertIn("GF_SECURITY_ADMIN_PASSWORD__FILE", guide)
+        self.assertNotIn("compose.prod.yml", guide)
+        self.assertNotIn("GRAFANA_ADMIN_PASSWORD", ssm_section)
+        self.assertIn("GRAFANA_ADMIN_PASSWORD`를 삭제", guide)
         for required in (
             "db.t4g.micro",
             "MySQL 8.4.10",
@@ -237,10 +216,8 @@ class AwsDeploymentContractTest(unittest.TestCase):
             "repo:RudySeo@78248966/Rider-Voice@1308728176:environment:production",
             "80%",
             "100%",
-            "GRAFANA_ADMIN_PASSWORD",
-            "AWS-StartPortForwardingSession",
-            "3000",
-            "9090",
+            "application log",
+            "/grafana/",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, guide)
