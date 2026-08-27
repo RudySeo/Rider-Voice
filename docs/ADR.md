@@ -242,8 +242,8 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-027: 같은 master commit의 백엔드와 모니터링 자산을 함께 배포한다
 
-**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며, 기존 EC2에 두 runtime 파일이 아직 없으면 SSM의 카카오 redirect URI와 Grafana 비밀번호로 root 전용 파일을 최초 한 번 생성한다. Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
+**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring image pull 전에는 실행 중이거나 중지된 container가 참조하지 않는 Docker image만 정리하며 container, network와 volume은 삭제하지 않는다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며, 기존 EC2에 두 runtime 파일이 아직 없으면 SSM의 카카오 redirect URI와 Grafana 비밀번호로 root 전용 파일을 최초 한 번 생성한다. Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
 
 **선택한 이유**: 기존 CD는 `monitoring/**` 변경에도 실행되지만 설치된 `/opt/rider-voice/monitoring`을 갱신하지 않아 저장소와 운영 구성이 달라질 수 있었다. backend image와 배포 script·monitoring 구성을 하나의 master commit으로 묶으면 어떤 운영 자산이 배포됐는지 추적하고 한 번의 release로 검증할 수 있다.
 
-**감수할 점**: monitoring container 교체 중 짧은 관측 공백이 생길 수 있다. 구성과 image는 복원하지만 named volume 내부에서 새 버전이 수행한 데이터 migration은 자동으로 되돌리지 않으므로 minor version 호환성과 고정 image digest를 CI에서 먼저 검증한다. 모바일 앱스토어 배포는 이 release에 포함하지 않는다.
+**감수할 점**: monitoring container 교체 중 짧은 관측 공백이 생길 수 있다. 미사용 image cache는 다음 rollback 후보로 별도 보존하지 않지만 현재 실행 중인 API와 monitoring container의 image는 Docker 참조로 유지된다. 구성과 image는 복원하지만 named volume 내부에서 새 버전이 수행한 데이터 migration은 자동으로 되돌리지 않으므로 minor version 호환성과 고정 image digest를 CI에서 먼저 검증한다. 모바일 앱스토어 배포는 이 release에 포함하지 않는다.

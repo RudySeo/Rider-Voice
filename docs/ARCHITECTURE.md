@@ -270,7 +270,7 @@ master push
 - Grafana 3000과 Prometheus 9090은 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. Grafana만 기존 HTTPS 도메인의 `/grafana/`에서 Nginx reverse proxy로 제공하며 Prometheus UI는 SSM port forwarding으로만 접근한다.
 - API, Prometheus와 Grafana는 `rider-voice-observability` Docker network를 공유한다. Prometheus는 container DNS로 API의 `/actuator/prometheus`를 15초마다 수집한다.
 - Prometheus와 Grafana는 운영 전용 Docker Compose가 관리한다. API는 새 image health check와 자동 rollback을 유지하기 위해 별도 배포 script가 관리한다.
-- release script는 GitHub가 전달한 40자리 master commit SHA를 검증하고 해당 commit의 배포 자산만 사용한다. monitoring 갱신은 기존 `.env`, Grafana secret과 named volume을 보존하며, health check 실패 시 직전 Compose·provisioning 자산을 복원한다.
+- release script는 GitHub가 전달한 40자리 master commit SHA를 검증하고 해당 commit의 배포 자산만 사용한다. monitoring image pull 전에 어떤 container도 참조하지 않는 Docker image만 정리하고 container, network와 volume은 보존한다. monitoring 갱신은 기존 `.env`, Grafana secret과 named volume을 보존하며, health check 실패 시 직전 Compose·provisioning 자산을 복원한다.
 - Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
 - Prometheus 데이터는 7일과 2GB 중 먼저 도달하는 한도로 보관하고 Grafana 데이터와 함께 Docker volume에 저장한다.
 - Grafana anonymous access와 사용자 가입은 비활성화하고 HTTPS secure cookie와 로그인 시도 제한을 적용한다. 초기 관리자 비밀번호는 SSM SecureString을 EC2 root 전용 파일로 내려받고 Compose secret으로 mount한다.

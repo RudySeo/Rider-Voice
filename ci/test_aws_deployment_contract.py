@@ -173,6 +173,17 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("had_previous_monitoring", release)
         self.assertNotIn('echo "${grafana_password}"', release)
 
+    def test_release_reclaims_only_unreferenced_images_before_monitoring_pull(self) -> None:
+        release = RELEASE_DEPLOY.read_text(encoding="utf-8")
+
+        prune = "docker image prune --all --force"
+        pull = "compose_source pull"
+        self.assertIn(prune, release)
+        self.assertLess(release.index(prune), release.index(pull))
+        self.assertNotIn("docker system prune", release)
+        self.assertNotIn("docker container prune", release)
+        self.assertNotIn("docker volume prune", release)
+
     def test_console_guide_covers_the_required_security_and_cost_boundaries(self) -> None:
         guide = AWS_GUIDE.read_text(encoding="utf-8")
         self.assertNotIn("monitoring.sh", guide)
