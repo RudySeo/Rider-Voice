@@ -35,6 +35,7 @@ readonly REMOTE_SCRIPT="/tmp/rider-voice-deploy-release-${RELEASE_SHA}.sh"
 readonly REMOTE_LOG_FILE="/tmp/rider-voice-release-${RELEASE_RUN_ID}.log"
 readonly REMOTE_STATUS_FILE="/tmp/rider-voice-release-${RELEASE_RUN_ID}.status"
 readonly REMOTE_STATUS_TMP="${REMOTE_STATUS_FILE}.tmp"
+readonly MISSING_GRACE_ATTEMPTS=3
 readonly START_COMMAND="rm -f ${REMOTE_SCRIPT} ${REMOTE_LOG_FILE} ${REMOTE_STATUS_FILE} ${REMOTE_STATUS_TMP} && curl --fail --silent --show-error --location ${RELEASE_SCRIPT_URL} --output ${REMOTE_SCRIPT} && chmod 0700 ${REMOTE_SCRIPT} && sudo systemd-run --no-block --unit ${UNIT_NAME} --property=Type=oneshot /bin/bash -c 'set +e; /bin/bash ${REMOTE_SCRIPT} ${IMAGE_NAME} ${IMAGE_TAG} ${RELEASE_SHA} > ${REMOTE_LOG_FILE} 2>&1; release_status=\$?; printf \"%s\\n\" \"\$release_status\" > ${REMOTE_STATUS_TMP}; mv -f ${REMOTE_STATUS_TMP} ${REMOTE_STATUS_FILE}; rm -f ${REMOTE_SCRIPT}; exit \"\$release_status\"'"
 
 SSM_OUTPUT=""
@@ -116,13 +117,15 @@ poll_release() {
     local poll_command
     local release_state
     local release_status
+    local missing_attempts=0
 
-    poll_command="if [[ -f ${REMOTE_STATUS_FILE} ]]; then printf 'COMPLETE '; cat ${REMOTE_STATUS_FILE}; else unit_state=\$(systemctl is-active ${UNIT_NAME} 2>/dev/null || true); case \"\${unit_state}\" in active|activating|deactivating) echo RUNNING ;; *) echo MISSING ;; esac; fi"
+    poll_command="if [ -f ${REMOTE_STATUS_FILE} ]; then printf 'COMPLETE '; cat ${REMOTE_STATUS_FILE}; else unit_state=\$(systemctl is-active ${UNIT_NAME} 2>/dev/null || true); case \"\${unit_state}\" in active|activating|deactivating) echo RUNNING ;; *) if [ -f ${REMOTE_STATUS_FILE} ]; then printf 'COMPLETE '; cat ${REMOTE_STATUS_FILE}; else echo MISSING; fi ;; esac; fi"
     for attempt in $(seq 1 150); do
         run_ssm_command "${poll_command}" "Check Rider Voice ${IMAGE_TAG}"
         release_state="$(tr -d '\r\n' <<< "${SSM_OUTPUT}")"
         case "${release_state}" in
             RUNNING)
+                missing_attempts=0
                 sleep 5
                 ;;
             COMPLETE\ *)
@@ -135,8 +138,13 @@ poll_release() {
                 return 1
                 ;;
             MISSING)
+                missing_attempts=$((missing_attempts + 1))
+                if (( missing_attempts < MISSING_GRACE_ATTEMPTS )); then
+                    sleep 2
+                    continue
+                fi
                 print_release_log
-                echo "Rider Voice systemd release unit disappeared before writing status." >&2
+                echo "Rider Voice systemd release unit disappeared before writing status after ${MISSING_GRACE_ATTEMPTS} checks." >&2
                 return 1
                 ;;
             *)

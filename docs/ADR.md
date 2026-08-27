@@ -255,3 +255,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 6.7GB인 현재 EC2 root filesystem은 API와 운영 monitoring image를 함께 보관하기에 부족하고 Grafana layer 추출이 backend 배포까지 실패시켰다. 초기 사이드 프로젝트에서는 지속적인 운영 dashboard보다 안정적인 API 배포와 낮은 고정 비용이 우선이며, 같은 metric과 dashboard를 로컬·CI에서 검증할 수 있다.
 
 **감수할 점**: 운영 metric 이력, dashboard와 외부 장애 감지는 제공하지 않는다. 운영 문제는 API health, application log와 SSM 진단으로 확인한다. 실제 사용자 규모나 운영 필요성이 생기면 EBS 용량, 별도 host 또는 관리형 관측 서비스와 알림 정책을 새 ADR로 결정한 뒤 운영 monitoring을 다시 도입한다.
+
+## ADR-029: SSM 상태 조회는 POSIX shell과 비동기 종료 경계를 함께 처리한다
+
+**선택**: `AWS-RunShellScript`에 직접 전달하는 짧은 상태 조회 명령은 Bash 전용 조건식 대신 POSIX shell 문법을 사용한다. 상태 파일을 먼저 확인하고 transient systemd unit이 종료된 것으로 보이면 같은 명령 안에서 상태 파일을 한 번 더 확인한다. 그래도 `MISSING`이면 GitHub runner가 제한된 횟수만큼 다시 조회한 뒤에만 실제 상태 유실로 판정한다. 명시적인 release exit status와 전체 polling 제한 시간은 기존대로 유지한다.
+
+**선택한 이유**: SSM agent의 shell script 실행기는 `/bin/sh` 경계이므로 Ubuntu에서 Bash 전용 `[[ ... ]]` 검사가 실패할 수 있다. 또한 release shell은 성공 상태 파일을 기록한 뒤 종료하지만, 별도 SSM 조회가 첫 파일 확인과 systemd 상태 확인 사이의 매우 짧은 전환 구간에 들어가면 성공한 배포를 `MISSING` 실패로 잘못 판정할 수 있기 때문이다.
+
+**감수할 점**: 실제로 상태 파일이 유실된 경우 실패 판정이 몇 초 늦어진다. 재시도 횟수를 제한하고 release log를 출력해 무한 대기나 원인 은폐를 막는다.
