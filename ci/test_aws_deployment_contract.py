@@ -162,6 +162,17 @@ class AwsDeploymentContractTest(unittest.TestCase):
         self.assertIn("flock --nonblock", release)
         self.assertNotIn("docker volume rm", release)
 
+    def test_release_initializes_missing_monitoring_runtime_from_ssm(self) -> None:
+        release = RELEASE_DEPLOY.read_text(encoding="utf-8")
+
+        self.assertIn("initialize_monitoring_runtime", release)
+        self.assertIn("KAKAO_REDIRECT_URI", release)
+        self.assertIn("GRAFANA_ADMIN_PASSWORD", release)
+        self.assertIn("aws ssm get-parameter", release)
+        self.assertIn('install -m 0600', release)
+        self.assertIn("had_previous_monitoring", release)
+        self.assertNotIn('echo "${grafana_password}"', release)
+
     def test_console_guide_covers_the_required_security_and_cost_boundaries(self) -> None:
         guide = AWS_GUIDE.read_text(encoding="utf-8")
         self.assertNotIn("monitoring.sh", guide)

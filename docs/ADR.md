@@ -154,13 +154,13 @@ access token은 JavaScript 메모리에 보관하고 refresh token은 backend가
 
 ## ADR-017: 검증된 백엔드 이미지를 Docker Hub에 전달한다
 
-**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR workflow는 항상 시작하되 변경 경로를 먼저 판별하고, 백엔드 영향 변경에는 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를, `/mobile` 변경에는 pnpm 기반 typecheck·lint·test·Expo 의존성 및 export 검증을 각각 수행한다. 문서만 바뀐 PR은 애플리케이션 검증 job을 건너뛰되 하나의 최종 gate 상태를 남긴다. master push의 이미지 게시와 EC2 배포는 백엔드 영향 경로가 바뀐 경우에만 실행하며, 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. mobile은 백엔드 이미지에 포함하지 않고 이번 자동화에서 배포하지 않는다.
+**선택**: 백엔드 API를 JDK 25 멀티 스테이지 Docker 이미지로 패키징한다. `feat/**`와 `feature/**` push는 master 대상 Draft PR만 자동 생성한다. master 대상 PR workflow는 항상 시작하되 변경 경로를 먼저 판별하고, 백엔드 영향 변경에는 backend build, MySQL 8.4.10 통합 테스트와 컨테이너 health check를, `/mobile` 변경에는 pnpm 기반 typecheck·lint·test·Expo 의존성 및 export 검증을 각각 수행한다. 문서만 바뀐 PR은 애플리케이션 검증 job을 건너뛰되 하나의 최종 gate 상태를 남긴다. master push의 이미지 게시와 EC2 배포는 백엔드 영향 경로가 바뀐 경우에만 실행하며, 전체 검증을 반복하지 않고 `linux/amd64` 이미지를 공개 Docker Hub 저장소에 `latest`와 commit SHA 태그로 게시한다. GitHub Actions 장애 등으로 push event가 유실되면 master ref에서만 허용한 수동 실행으로 같은 publish·deploy workflow를 복구한다. mobile은 백엔드 이미지에 포함하지 않고 이번 자동화에서 배포하지 않는다.
 
 Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된 PR의 CI를 별도 승인 없이 시작하기 위한 fine-grained GitHub PAT는 Contents Read와 Pull requests Read/Write만 허용한 Repository secret으로 관리하고, 값이 없으면 기본 `GITHUB_TOKEN`을 사용한다. 실제 DB·카카오 값은 build argument, Dockerfile, 이미지와 Docker Hub에 저장하지 않는다. CI의 통합·기동 검증은 일회용 MySQL 계정과 dummy provider 값을 사용한다.
 
 **선택한 이유**: PR의 merge ref로 master와 결합된 결과를 변경 영역별로 검증해 테스트하지 않은 백엔드 이미지가 registry에 게시되는 것을 막고, 서로 독립적인 backend·mobile 검증의 실행 시간과 실패 범위를 줄이기 위해서다. PR workflow 자체는 경로 필터로 생략하지 않아 branch protection의 필수 상태가 대기 상태로 남지 않게 하고, master에서는 백엔드 영향 변경만 게시·배포해 모바일 또는 문서 변경이 불필요한 서버 배포를 일으키지 않게 한다. commit별 불변 태그로 어떤 코드가 이미지가 되었는지 추적하면서 비밀값과 빌드 산출물도 분리한다.
 
-**감수할 점**: master 직접 push를 차단하고 변경 영역별 job을 모으는 최종 `PR CI gate` 상태 검사를 필수화해야 이 정책이 안전하다. 경로 분류 규칙에 백엔드 영향 파일이 누락되면 검증이나 배포가 생략될 수 있으므로 workflow와 분류기 변경은 모든 영역 검증을 실행하고 계약 테스트로 경계를 고정한다. PR은 최신 master 기준 검증을 통과해야 하며, 보호 규칙 우회가 발생하면 게시 전에 전체 검증을 반복하지 않는 위험이 생긴다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. mobile app store build·배포는 별도 운영 결정으로 남긴다.
+**감수할 점**: master 직접 push를 차단하고 변경 영역별 job을 모으는 최종 `PR CI gate` 상태 검사를 필수화해야 이 정책이 안전하다. 경로 분류 규칙에 백엔드 영향 파일이 누락되면 검증이나 배포가 생략될 수 있으므로 workflow와 분류기 변경은 모든 영역 검증을 실행하고 계약 테스트로 경계를 고정한다. PR은 최신 master 기준 검증을 통과해야 하며, 보호 규칙 우회가 발생하면 게시 전에 전체 검증을 반복하지 않는 위험이 생긴다. 수동 실행은 누락된 master 배포 복구에만 사용하고 feature ref를 게시하지 않도록 workflow에서 제한한다. 고정한 MySQL 8.4.10의 minor 업그레이드는 별도 결정과 전체 회귀가 필요하다. mobile app store build·배포는 별도 운영 결정으로 남긴다.
 
 ## ADR-018: 운영 DB 기준을 RDS MySQL 8.4 LTS로 맞춘다
 
@@ -242,7 +242,7 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-027: 같은 master commit의 백엔드와 모니터링 자산을 함께 배포한다
 
-**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며 Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
+**선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며, 기존 EC2에 두 runtime 파일이 아직 없으면 SSM의 카카오 redirect URI와 Grafana 비밀번호로 root 전용 파일을 최초 한 번 생성한다. Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
 
 **선택한 이유**: 기존 CD는 `monitoring/**` 변경에도 실행되지만 설치된 `/opt/rider-voice/monitoring`을 갱신하지 않아 저장소와 운영 구성이 달라질 수 있었다. backend image와 배포 script·monitoring 구성을 하나의 master commit으로 묶으면 어떤 운영 자산이 배포됐는지 추적하고 한 번의 release로 검증할 수 있다.
 
