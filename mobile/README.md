@@ -34,7 +34,7 @@ pnpm start
 
 검색 결과에 원하는 배달 브랜드가 없으면 직접 등록을 선택합니다. 로그인 후 주소를 검색하고 브랜드명, 선택적인 상세 위치와 플랫폼을 입력한 다음 첫 리뷰를 작성합니다. 앱은 선택한 주소가 기존 픽업 장소인지 확인해 알맞은 review target을 서버에 전달합니다.
 
-실행 후 터미널에서 `i`를 누르면 iOS Simulator, `a`를 누르면 Android Emulator가 열립니다. Expo Go는 API가 설정된 공개 조회와 UI 확인에만 사용하고 실제 카카오 로그인은 개발 빌드로 확인합니다.
+실행 후 터미널에서 `i`를 누르면 iOS Simulator, `a`를 누르면 Android Emulator가 열립니다. Expo Go는 API가 설정된 공개 조회와 UI 확인에만 사용하고 실제 카카오 로그인은 개발 빌드로 확인합니다. 웹은 카카오 로그인과 SecureStore 세션을 지원하지 않습니다.
 
 ## 백엔드 연결
 
@@ -80,6 +80,14 @@ pnpm android:device
 ```
 
 첫 실행은 Xcode 또는 Android Studio를 사용해 개발 빌드를 생성합니다. 생성되는 `/ios`, `/android` 폴더는 Git에 포함하지 않습니다.
+
+개발 빌드가 이미 설치되어 있다면 선택한 프로필의 Metro를 다음 명령으로 다시 연결합니다. 터미널의 `w`는 로그인 확인 대상이 아닙니다.
+
+```bash
+pnpm ios:aws
+# 또는
+pnpm android:aws
+```
 
 실제 기기 로그인에서는 AWS 프로필과 같은 HTTPS 주소를 앱과 백엔드에 적용합니다.
 
