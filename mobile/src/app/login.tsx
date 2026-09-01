@@ -8,9 +8,10 @@ import { PrimaryButton } from '@/shared/components/PrimaryButton';
 import { Screen } from '@/shared/components/Screen';
 import { colors, radius, spacing } from '@/shared/theme';
 import { useAuth } from '@/shared/auth/AuthProvider';
+import { authAvailabilityMessage } from '@/shared/auth/authRuntime';
 import {
+  destinationAfterLogin,
   pendingIntentFromLoginParams,
-  resumedDestination,
   type LoginParams,
 } from '@/shared/auth/loginContinuation';
 
@@ -21,15 +22,19 @@ export default function LoginScreen() {
   const purpose = params.place ? `${params.place}의 경험을 작성하려면` : '리뷰 작성과 내 활동을 이용하려면';
 
   const startLogin = async () => {
-    if (!auth.available) {
-      Alert.alert('개발 빌드가 필요해요', 'Expo Go와 Web은 공개 조회 미리보기만 지원해요. 실제 로그인은 iOS·Android 개발 빌드에서 이용해주세요.');
+    if (auth.availability !== 'READY') {
+      Alert.alert(
+        auth.availability === 'EXPO_GO_UNSUPPORTED' ? '개발 빌드가 필요해요' : 'API 주소를 설정해주세요',
+        authAvailabilityMessage(auth.availability),
+      );
       return;
     }
     const intent = pendingIntentFromLoginParams(params);
     try {
       setLoading(true);
       const resumed = await auth.login(intent);
-      router.replace(resumedDestination(resumed) as Href);
+      const destination = destinationAfterLogin(resumed);
+      if (destination) router.replace(destination as Href);
     } catch (error) {
       Alert.alert('로그인하지 못했어요', error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.');
     } finally { setLoading(false); }

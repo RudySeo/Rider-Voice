@@ -132,7 +132,7 @@ Rider Voice는 음식점의 배달 준비와 픽업 환경에 대한 리뷰를 �
 - React 웹 frontend와 refresh cookie 기반 브라우저 로그인 API
 - 라이더 신분이나 실제 방문 인증
 - 사용자 위치 권한, 거리 표시와 가까운 순 정렬
-- Expo Go와 Expo Web에서의 실제 로그인·리뷰 변경. 이 환경은 공개 조회 mock 미리보기에만 사용
+- Expo Go와 Expo Web에서의 실제 로그인·리뷰 변경. Expo Go는 API가 설정된 공개 조회와 UI 확인에만 사용
 - 모바일 앱 스토어 배포와 관리자 화면 배포
 - Redis, Kafka, Elasticsearch 같은 추가 인프라
 - 전체 애플리케이션용 Docker Compose, ALB, ECS, Route 53, NAT Gateway와 다중 API 인스턴스

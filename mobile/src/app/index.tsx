@@ -51,11 +51,10 @@ export default function HomeScreen() {
           <AppText variant="section">검색하면 이런 정보를 볼 수 있어요</AppText>
           <View style={styles.list}>
             {discoveryItems.map((item) => (
-              <Pressable key={item.title} onPress={() => router.push({ pathname: '/search', params: { query: '강남 김밥' } })} style={({ pressed }) => [styles.infoRow, pressed && styles.pressed]}>
+              <View key={item.title} style={styles.infoRow}>
                 <View style={[styles.infoIcon, { backgroundColor: item.background }]}><MaterialCommunityIcons color={colors.text} name={item.icon} size={22} /></View>
                 <View style={styles.infoCopy}><AppText variant="label">{item.title}</AppText><AppText color={colors.muted} variant="caption">{item.description}</AppText></View>
-                <MaterialCommunityIcons color={colors.jade} name="chevron-right" size={22} />
-              </Pressable>
+              </View>
             ))}
           </View>
           <View style={styles.experienceNote}><MaterialCommunityIcons color={colors.jade} name="information-outline" size={17} /><AppText color={colors.muted} variant="caption">이용자가 남긴 매장 운영 경험</AppText></View>

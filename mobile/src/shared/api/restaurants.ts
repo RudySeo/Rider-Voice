@@ -1,14 +1,10 @@
 import { requestJson, usesMockApi } from '@/shared/api/client';
-import { mockPublicReviews, mockRestaurantDetail, mockSearchResponse } from '@/shared/api/mockData';
+import { mockPublicReviews, mockRestaurantDetail } from '@/shared/api/mockData';
 import { PublicReview, RestaurantDetail, RestaurantSearchCandidate, RestaurantSearchResponse } from '@/shared/api/types';
 
 const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
 
 export async function searchRestaurants(query: string): Promise<RestaurantSearchResponse> {
-  if (usesMockApi) {
-    await wait(260);
-    return mockSearchResponse;
-  }
   return requestJson(`/api/v1/restaurants/search?query=${encodeURIComponent(query)}`);
 }
 

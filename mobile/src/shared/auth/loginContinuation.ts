@@ -10,6 +10,10 @@ export type LoginParams = {
   manualQuery?: string;
 };
 
+export type LoginResult =
+  | { status: 'authenticated'; intent: PendingIntent | null }
+  | { status: 'cancelled' };
+
 export function pendingIntentFromLoginParams(params: LoginParams): PendingIntent | undefined {
   if (params.next === '/activity') return { kind: 'activity' };
   if (params.next === '/review/manual-target') {
@@ -63,4 +67,9 @@ export function resumedDestination(intent: PendingIntent | null) {
     };
   }
   return '/activity' as const;
+}
+
+export function destinationAfterLogin(result: LoginResult) {
+  if (result.status === 'cancelled') return null;
+  return resumedDestination(result.intent);
 }

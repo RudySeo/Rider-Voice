@@ -7,7 +7,7 @@ export const usesMockApi = !apiBaseUrl;
 
 export async function requestJson<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   if (!apiBaseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
+    throw new ApiError('API 주소가 설정되지 않았어요.', 0, 'API_BASE_URL_MISSING');
   }
 
   const token = getAccessToken();

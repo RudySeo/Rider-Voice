@@ -12,14 +12,20 @@ import { RestaurantRow } from '@/shared/components/RestaurantRow';
 import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { manualRegistrationDestination, reviewDestination } from '@/shared/navigation/reviewNavigation';
+import { routeSearchQuery } from '@/shared/navigation/searchQuery';
 import { colors, radius, spacing } from '@/shared/theme';
 
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ query?: string }>();
-  const initial = typeof params.query === 'string' ? params.query : '';
+  const routeQuery = routeSearchQuery(params.query);
+
+  return <SearchResults initialQuery={routeQuery} key={routeQuery} />;
+}
+
+function SearchResults({ initialQuery }: { initialQuery: string }) {
   const auth = useAuth();
-  const [draft, setDraft] = useState(initial);
-  const [submitted, setSubmitted] = useState(initial);
+  const [draft, setDraft] = useState(initialQuery);
+  const [submitted, setSubmitted] = useState(initialQuery);
 
   const validQuery = submitted.trim().length >= 2;
   const search = useQuery({ queryKey: ['restaurants', 'search', submitted], queryFn: () => searchRestaurants(submitted), enabled: validQuery });
@@ -40,7 +46,7 @@ export default function SearchScreen() {
         ) : search.isPending ? (
           <View style={styles.state}><ActivityIndicator color={colors.jade} /><AppText color={colors.muted}>음식점을 찾고 있어요</AppText></View>
         ) : search.isError ? (
-          <View style={styles.state}><AppText variant="label">검색 결과를 불러오지 못했어요</AppText><Pressable onPress={() => search.refetch()}><AppText color={colors.jade} weight="700">다시 시도</AppText></Pressable></View>
+          <View style={styles.state}><AppText variant="label">검색 결과를 불러오지 못했어요</AppText><AppText color={colors.muted}>{search.error instanceof Error ? search.error.message : 'API 서버 연결을 확인해주세요.'}</AppText><Pressable onPress={() => search.refetch()}><AppText color={colors.jade} weight="700">다시 시도</AppText></Pressable></View>
         ) : (
           <>
             {search.data?.externalSearchStatus === 'UNAVAILABLE' && <View style={styles.warning}><MaterialCommunityIcons color={colors.skyStrong} name="information-outline" size={20} /><AppText color={colors.skyStrong} variant="caption">카카오 장소 검색을 잠시 사용할 수 없어 등록된 음식점만 보여드려요.</AppText></View>}

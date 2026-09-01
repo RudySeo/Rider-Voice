@@ -285,3 +285,11 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: Draft PR 생성은 개발 편의 기능이고 현재 사용하는 `fix/**`와 `refactor/**` 브랜치를 포괄하지 않는다. 별도 cleanup은 일반 release의 안전한 image 정리와 중복된다. 반면 PR 검증, master 배포와 배포 후 문제를 되돌리는 수동 rollback은 서로 다른 필수 경계다.
 
 **감수할 점**: 브랜치를 push한 뒤 PR을 직접 만들어야 한다. 저장 공간 정리만 별도로 실행하는 버튼은 없어지므로 필요하면 master의 게시·배포 workflow를 수동 재실행한다.
+
+## ADR-031: 모바일 공개 검색은 실제 API 응답만 사용한다
+
+**선택**: 모바일 음식점 검색은 `EXPO_PUBLIC_API_BASE_URL`로 지정한 Spring Boot API만 호출하고, 주소가 없거나 연결에 실패해도 고정 mock 검색 결과로 대체하지 않는다. Expo Go는 API가 설정된 공개 조회와 UI 확인에 사용할 수 있지만 custom scheme OAuth는 네이티브 개발 빌드에서만 실행한다.
+
+**선택한 이유**: 사용자 입력과 무관한 고정 후보가 실제 검색 결과처럼 보이는 문제를 없애고, 검색 query와 서버 응답의 데이터 흐름을 개발·운영 환경에서 동일하게 유지하기 위해서다.
+
+**감수할 점**: 백엔드를 실행하지 않았거나 기기에서 접근 가능한 API 주소를 설정하지 않으면 검색 결과를 미리 볼 수 없다. 실제 기기 OAuth는 HTTPS 개발 주소와 카카오 개발자 콘솔에 등록된 정확한 backend callback URI가 필요하다.

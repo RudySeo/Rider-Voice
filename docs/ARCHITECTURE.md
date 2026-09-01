@@ -90,13 +90,13 @@ mobile
 └── assets       # 앱에 포함하는 폰트와 정적 자산
 ```
 
-모바일 앱도 DB나 카카오 API를 직접 호출하지 않고 Spring Boot `/api/v1`만 호출한다. 공개 검색은 서버가 반환한 내부 음식점과 카카오 결과를 `리뷰 있음`, `등록됨·리뷰 없음`, `카카오 장소`로 구분하고 사용자 좌표, 거리와 가까운 순을 요청하거나 추정하지 않는다. 선택 대상과 원 검색어를 리뷰 작성까지 보존한다. 모바일 API 타입은 OpenAPI에서 생성하며 생성 파일을 직접 수정하지 않는다.
+모바일 앱도 DB나 카카오 API를 직접 호출하지 않고 Spring Boot `/api/v1`만 호출한다. 공개 검색은 mock fallback 없이 설정된 API 서버가 반환한 내부 음식점과 카카오 결과를 `리뷰 있음`, `등록됨·리뷰 없음`, `카카오 장소`로 구분하고 사용자 좌표, 거리와 가까운 순을 요청하거나 추정하지 않는다. API 주소가 없거나 연결할 수 없으면 고정 결과로 대체하지 않고 설정·연결 오류를 표시한다. 선택 대상과 원 검색어를 리뷰 작성까지 보존한다. 모바일 API 타입은 OpenAPI에서 생성하며 생성 파일을 직접 수정하지 않는다.
 
 카카오에 없는 브랜드의 첫 리뷰는 로그인 뒤 전용 수동 등록 화면에서 준비한다. 앱은 주소 검색 결과의 `existingPickupLocationId` 유무에 따라 기존 픽업 장소에 브랜드를 추가할지 새 픽업 장소를 만들지 결정한다. 브랜드명, 선택적인 상세 위치와 플랫폼은 아직 저장하지 않고 리뷰 생성 요청의 restaurant target으로 전달한다. 서버가 주소를 다시 검증한 뒤 음식점과 첫 리뷰를 같은 트랜잭션에서 저장한다.
 
 로그인 전 작성 의도는 정해진 종류만 SecureStore에 임시 저장한다. 앱은 저장값을 런타임에서 allow-list로 확인하고 로그인 성공, 실패 또는 취소 뒤 항상 제거한다. 이미 로그인한 사용자는 로그인 화면을 다시 거치지 않고 리뷰 작성 또는 수동 등록 화면으로 이동한다.
 
-네이티브 앱은 OAuth handshake를 개발 빌드의 시스템 브라우저에서 시작하고 성공하면 2분 유효·일회용 무작위 교환 코드만 `ridervoice://auth/callback`에 전달한다. backend에는 코드 원문 대신 SHA-256 hash를 저장하며 사용·만료 코드는 같은 인증 실패로 처리한다. 앱은 코드를 Rider Voice access/refresh token과 교환하고, access token은 메모리, refresh token은 SecureStore에 보관한다. Expo Go와 Expo Web은 공개 mock 미리보기만 지원하며 인증 성공을 흉내 내지 않는다.
+네이티브 앱은 OAuth handshake를 개발 빌드의 시스템 브라우저에서 시작하고 성공하면 2분 유효·일회용 무작위 교환 코드만 `ridervoice://auth/callback`에 전달한다. backend에는 코드 원문 대신 SHA-256 hash를 저장하며 사용·만료 코드는 같은 인증 실패로 처리한다. 앱은 코드를 Rider Voice access/refresh token과 교환하고, access token은 메모리, refresh token은 SecureStore에 보관한다. Expo Go는 API가 설정된 공개 조회와 UI 확인만 지원하며 인증 성공을 흉내 내지 않는다.
 
 앱은 access token을 JavaScript 메모리에만 두며 refresh token만 SecureStore에 저장한다. 앱 시작 시 refresh를 한 번 시도하고, 동시 `401`은 하나의 refresh 요청을 공유한 뒤 원 요청을 한 번만 재시도한다. 로그아웃은 서버 폐기 성공 여부와 관계없이 로컬 token을 지운다. 로그인 전 사용자가 선택한 내 활동·기존 음식점·카카오 장소 작성 의도는 허용 목록 형태로 SecureStore에 임시 저장해 callback 뒤 이어간다.
 
