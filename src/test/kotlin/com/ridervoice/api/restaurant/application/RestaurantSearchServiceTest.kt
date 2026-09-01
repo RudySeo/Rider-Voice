@@ -6,9 +6,12 @@ import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.restaurant.application.model.ExternalAddressCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalRestaurantCandidate
 import com.ridervoice.api.restaurant.application.model.ExternalSearchStatus
+import com.ridervoice.api.restaurant.application.model.AggregationStatus
 import com.ridervoice.api.restaurant.application.model.ProviderFailureReason
 import com.ridervoice.api.restaurant.application.model.ProviderSearchResult
+import com.ridervoice.api.restaurant.application.model.RestaurantBrandSummary
 import com.ridervoice.api.restaurant.application.model.RestaurantCandidateType
+import com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.port.`in`.ExistingRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.`in`.KakaoRestaurantTargetCommand
@@ -22,6 +25,8 @@ import com.ridervoice.api.restaurant.application.port.out.PickupLocationReposito
 import com.ridervoice.api.restaurant.application.port.out.PublicKakaoKeywordSearchPort
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
+import com.ridervoice.api.restaurant.application.port.out.RestaurantSearchLinkQuery
+import com.ridervoice.api.restaurant.application.port.out.RestaurantSearchReviewSummaryProvider
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
@@ -56,11 +61,19 @@ class RestaurantSearchServiceTest {
                 ),
             )
         }
+        val summaries = RecordingReviewSummaryProvider(
+            mapOf(
+                1L to RestaurantBrandSummary(AggregationStatus.COLLECTING, 3),
+                2L to RestaurantBrandSummary(AggregationStatus.PUBLISHED, 5),
+            ),
+        )
         val service = RestaurantSearchService(
             repositories,
             PickupRepository(repositories),
             keywordSearch,
             addressSearch(),
+            repositories,
+            summaries,
         )
 
         val result = service.search(SearchRestaurantsCommand("  강남   분식  "))
@@ -74,10 +87,16 @@ class RestaurantSearchServiceTest {
         assertThat(result.candidates.map { it.restaurantId }).containsExactly(1L, 2L, null)
         assertThat(result.candidates.map { it.kakaoPlaceId })
             .containsExactly("kakao-1", "kakao-2", "kakao-3")
-        assertThat(result.candidates).allSatisfy { candidate ->
-            assertThat(candidate.aggregationStatus.name).isEqualTo("NO_REVIEWS")
-            assertThat(candidate.contributorCount).isZero()
-        }
+        assertThat(result.candidates.map { it.aggregationStatus }).containsExactly(
+            AggregationStatus.COLLECTING,
+            AggregationStatus.PUBLISHED,
+            AggregationStatus.NO_REVIEWS,
+        )
+        assertThat(result.candidates.map { it.contributorCount }).containsExactly(3, 5, 0)
+        assertThat(repositories.requestedKakaoPlaceIds).containsExactly(
+            setOf("kakao-1", "kakao-2", "kakao-3"),
+        )
+        assertThat(summaries.requestedRestaurantIds).containsExactly(setOf(1L, 2L))
     }
 
     @Test
@@ -90,6 +109,10 @@ class RestaurantSearchServiceTest {
                 ProviderSearchResult.Unavailable(ProviderFailureReason.TIMEOUT)
             },
             addressSearch(),
+            repositories,
+            RecordingReviewSummaryProvider(
+                mapOf(1L to RestaurantBrandSummary(AggregationStatus.COLLECTING, 4)),
+            ),
         )
 
         val result = service.search(SearchRestaurantsCommand("내부"))
@@ -98,6 +121,8 @@ class RestaurantSearchServiceTest {
         val candidate = result.candidates.single()
         assertThat(candidate.candidateType).isEqualTo(RestaurantCandidateType.INTERNAL)
         assertThat(candidate.restaurantId).isEqualTo(1L)
+        assertThat(candidate.aggregationStatus).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(candidate.contributorCount).isEqualTo(4)
     }
 
     @Test
@@ -116,6 +141,8 @@ class RestaurantSearchServiceTest {
                 )
             },
             addressSearch(),
+            repositories,
+            RecordingReviewSummaryProvider(),
         )
 
         assertThat(service.search(SearchRestaurantsCommand("폐업 브랜드")).candidates).isEmpty()
@@ -134,6 +161,8 @@ class RestaurantSearchServiceTest {
                     listOf(externalAddress("서울 강남구 테헤란로 1")),
                 ),
             ),
+            repositories,
+            RecordingReviewSummaryProvider(),
         )
 
         val result = service.search(SearchAddressesCommand(7L, "  서울 강남구  테헤란로 1 "))
@@ -358,16 +387,29 @@ class RestaurantSearchServiceTest {
     private fun stored(id: Long, kakaoPlaceId: String?, name: String, address: String) =
         StoredRestaurantSearchCandidate(id, kakaoPlaceId, name, address)
 
+    private class RecordingReviewSummaryProvider(
+        private val summaries: Map<Long, RestaurantBrandSummary> = emptyMap(),
+    ) : RestaurantSearchReviewSummaryProvider {
+        val requestedRestaurantIds = mutableListOf<Set<Long>>()
+
+        override fun findByRestaurantIds(restaurantIds: Set<Long>): Map<Long, RestaurantBrandSummary> {
+            requestedRestaurantIds += restaurantIds
+            return summaries.filterKeys { it in restaurantIds }
+        }
+    }
+
     private class InMemoryRepositories(
         private val searchResults: List<StoredRestaurantSearchCandidate> = emptyList(),
         val pickupLocations: MutableList<PickupLocation> = mutableListOf(),
         val restaurants: MutableList<Restaurant> = mutableListOf(),
         val platforms: MutableList<RestaurantPlatform> = mutableListOf(),
     ) : RestaurantRepository,
+        RestaurantSearchLinkQuery,
         RestaurantPlatformRepository {
 
         var restaurantSaveAttempts: Int = 0
         var restaurantSaveFailure: (() -> DataIntegrityViolationException)? = null
+        val requestedKakaoPlaceIds = mutableListOf<Set<String>>()
         private var nextId = 100L
 
         fun findPickupById(pickupLocationId: Long): PickupLocation? =
@@ -383,6 +425,23 @@ class RestaurantSearchServiceTest {
 
         override fun searchActive(query: String, limit: Int): List<StoredRestaurantSearchCandidate> =
             searchResults.take(limit)
+
+        override fun findByKakaoPlaceIds(
+            kakaoPlaceIds: Set<String>,
+        ): Map<String, StoredLinkedRestaurantSearchCandidate> {
+            requestedKakaoPlaceIds += kakaoPlaceIds
+            return restaurants
+                .filter { it.kakaoPlaceId in kakaoPlaceIds }
+                .associate { restaurant ->
+                    restaurant.kakaoPlaceId!! to StoredLinkedRestaurantSearchCandidate(
+                        restaurantId = restaurant.id,
+                        kakaoPlaceId = restaurant.kakaoPlaceId!!,
+                        name = restaurant.brandName,
+                        address = restaurant.pickupLocation.standardAddress,
+                        status = restaurant.status,
+                    )
+                }
+        }
 
         override fun findById(restaurantId: Long): Restaurant? = restaurants.find { it.id == restaurantId }
 

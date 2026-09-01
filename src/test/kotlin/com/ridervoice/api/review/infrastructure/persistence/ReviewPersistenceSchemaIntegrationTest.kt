@@ -8,6 +8,7 @@ import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
 import com.ridervoice.api.restaurant.domain.Restaurant
 import com.ridervoice.api.review.application.port.out.ReviewRepository
+import com.ridervoice.api.review.application.port.out.AggregateReviewQuery
 import com.ridervoice.api.review.domain.Review
 import com.ridervoice.api.review.domain.ReviewRating
 import com.ridervoice.api.review.domain.ReviewRatings
@@ -32,6 +33,7 @@ class ReviewPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
     @Autowired private lateinit var pickupLocations: PickupLocationRepository
     @Autowired private lateinit var restaurants: RestaurantRepository
     @Autowired private lateinit var reviews: ReviewRepository
+    @Autowired private lateinit var aggregateReviews: AggregateReviewQuery
     @Autowired private lateinit var entityManager: EntityManager
 
     @Test
@@ -60,6 +62,38 @@ class ReviewPersistenceSchemaIntegrationTest : MySqlIntegrationTest() {
         assertThat(reviews.findOwnedActiveForUpdate(user.id, first.id)).isNull()
         assertThat(uniqueConstraintColumns("reviews"))
             .containsExactlyInAnyOrder("author_user_id", "restaurant_id", "current_slot")
+    }
+
+    @Test
+    fun `batch aggregate query counts distinct active authors by restaurant`() {
+        val location = pickupLocations.save(
+            PickupLocation(
+                standardAddress = "서울 강남구 배치 집계로 1",
+                detailAddress = null,
+                latitude = BigDecimal("37.5"),
+                longitude = BigDecimal("127.0"),
+                source = PickupLocationSource.KAKAO,
+            ),
+        )
+        val publishedRestaurant = restaurants.save(Restaurant("공개 브랜드", location))
+        val collectingRestaurant = restaurants.save(Restaurant("수집 브랜드", location))
+        val noReviewRestaurant = restaurants.save(Restaurant("리뷰 없음 브랜드", location))
+        val authors = (1..5).map { users.saveUser(User()) }
+
+        authors.forEach { author -> reviews.save(review(author, publishedRestaurant)) }
+        authors.take(4).forEach { author -> reviews.save(review(author, collectingRestaurant)) }
+        reviews.save(review(authors.last(), collectingRestaurant).also(Review::exclude))
+        entityManager.flush()
+        entityManager.clear()
+
+        val counts = aggregateReviews.countDistinctCurrentActiveAuthorsByRestaurantIds(
+            setOf(publishedRestaurant.id, collectingRestaurant.id, noReviewRestaurant.id),
+        )
+
+        assertThat(counts).containsExactlyInAnyOrderEntriesOf(
+            mapOf(publishedRestaurant.id to 5, collectingRestaurant.id to 4),
+        )
+        assertThat(counts).doesNotContainKey(noReviewRestaurant.id)
     }
 
     private fun uniqueConstraintColumns(tableName: String): List<String> = entityManager

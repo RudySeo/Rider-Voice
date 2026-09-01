@@ -11,12 +11,13 @@ import java.time.Instant
 class AggregateReviewQueryContractsTest {
 
     @Test
-    fun `aggregate query exposes separate brand and pickup location lookups`() {
+    fun `aggregate query exposes batch brand summaries and detailed report lookups`() {
         assertThat(AggregateReviewQuery::class.java.isInterface).isTrue()
         assertThat(AggregateReviewQuery::class.java.declaredMethods.map { it.name })
             .containsExactlyInAnyOrder(
                 "findCurrentActiveByRestaurantId",
                 "findLatestCurrentActiveByPickupLocationId",
+                "countDistinctCurrentActiveAuthorsByRestaurantIds",
             )
     }
 

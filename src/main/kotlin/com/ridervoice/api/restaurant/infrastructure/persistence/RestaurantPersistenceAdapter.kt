@@ -1,11 +1,13 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
+import com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.port.out.RestaurantDetailQuery
 import com.ridervoice.api.restaurant.application.port.out.PickupLocationRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantPlatformRepository
 import com.ridervoice.api.restaurant.application.port.out.RestaurantRepository
+import com.ridervoice.api.restaurant.application.port.out.RestaurantSearchLinkQuery
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
@@ -33,7 +35,7 @@ internal class PickupLocationPersistenceAdapter(
 @Component
 internal class RestaurantPersistenceAdapter(
     private val restaurants: SpringDataRestaurantRepository,
-) : RestaurantRepository, RestaurantDetailQuery {
+) : RestaurantRepository, RestaurantDetailQuery, RestaurantSearchLinkQuery {
 
     override fun searchActive(query: String, limit: Int): List<StoredRestaurantSearchCandidate> =
         restaurants.searchActive(
@@ -41,6 +43,16 @@ internal class RestaurantPersistenceAdapter(
             status = RestaurantStatus.ACTIVE,
             pageable = PageRequest.of(0, limit),
         )
+
+    override fun findByKakaoPlaceIds(
+        kakaoPlaceIds: Set<String>,
+    ): Map<String, StoredLinkedRestaurantSearchCandidate> {
+        require(kakaoPlaceIds.all { it.isNotBlank() }) { "Kakao place IDs must not be blank" }
+        if (kakaoPlaceIds.isEmpty()) return emptyMap()
+
+        return restaurants.findSearchCandidatesByKakaoPlaceIds(kakaoPlaceIds.mapTo(linkedSetOf(), String::trim))
+            .associateBy(StoredLinkedRestaurantSearchCandidate::kakaoPlaceId)
+    }
 
     override fun findSearchCandidateById(restaurantId: Long): StoredRestaurantSearchCandidate? =
         restaurants.findSearchCandidateById(restaurantId, RestaurantStatus.ACTIVE).orElse(null)

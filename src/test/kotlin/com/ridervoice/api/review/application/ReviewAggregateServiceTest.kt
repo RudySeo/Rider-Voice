@@ -13,6 +13,37 @@ import java.time.Instant
 class ReviewAggregateServiceTest {
 
     @Test
+    fun `brand summaries map zero one four and five contributors without loading metrics`() {
+        val query = FakeAggregateReviewQuery(
+            brandInputs = emptyList(),
+            locationInputs = emptyList(),
+            brandContributorCounts = mapOf(10L to 1, 20L to 4, 30L to 5),
+        )
+        val service = ReviewAggregateService(query)
+
+        val summaries = service.getBrandSummaries(setOf(9L, 10L, 20L, 30L))
+
+        assertThat(summaries.getValue(9L).status).isEqualTo(AggregationStatus.NO_REVIEWS)
+        assertThat(summaries.getValue(9L).contributorCount).isZero()
+        assertThat(summaries.getValue(10L).status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(summaries.getValue(10L).contributorCount).isEqualTo(1)
+        assertThat(summaries.getValue(20L).status).isEqualTo(AggregationStatus.COLLECTING)
+        assertThat(summaries.getValue(20L).contributorCount).isEqualTo(4)
+        assertThat(summaries.getValue(30L).status).isEqualTo(AggregationStatus.PUBLISHED)
+        assertThat(summaries.getValue(30L).contributorCount).isEqualTo(5)
+        assertThat(query.requestedRestaurantIds).containsExactly(setOf(9L, 10L, 20L, 30L))
+    }
+
+    @Test
+    fun `empty brand summary request avoids persistence query`() {
+        val query = FakeAggregateReviewQuery(emptyList(), emptyList())
+        val service = ReviewAggregateService(query)
+
+        assertThat(service.getBrandSummaries(emptySet())).isEmpty()
+        assertThat(query.requestedRestaurantIds).isEmpty()
+    }
+
+    @Test
     fun `deleted and excluded current reviews omitted by the query produce no reviews`() {
         val service = service(brandInputs = emptyList(), locationInputs = emptyList())
 
@@ -255,9 +286,19 @@ class ReviewAggregateServiceTest {
     private class FakeAggregateReviewQuery(
         private val brandInputs: List<AggregateReviewInput>,
         private val locationInputs: List<AggregateReviewInput>,
+        private val brandContributorCounts: Map<Long, Int> = emptyMap(),
     ) : AggregateReviewQuery {
+        val requestedRestaurantIds = mutableListOf<Set<Long>>()
+
         override fun findCurrentActiveByRestaurantId(restaurantId: Long) = brandInputs
 
         override fun findLatestCurrentActiveByPickupLocationId(pickupLocationId: Long) = locationInputs
+
+        override fun countDistinctCurrentActiveAuthorsByRestaurantIds(
+            restaurantIds: Set<Long>,
+        ): Map<Long, Int> {
+            requestedRestaurantIds += restaurantIds
+            return brandContributorCounts.filterKeys { it in restaurantIds }
+        }
     }
 }

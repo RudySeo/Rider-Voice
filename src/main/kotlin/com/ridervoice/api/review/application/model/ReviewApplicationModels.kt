@@ -187,6 +187,28 @@ data class BrandAggregateResult(
     }
 }
 
+data class BrandAggregateSummaryResult(
+    val restaurantId: Long,
+    val status: AggregationStatus,
+    val contributorCount: Int,
+) {
+    init {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+        require(contributorCount >= 0) { "Contributor count must not be negative" }
+        when (status) {
+            AggregationStatus.NO_REVIEWS -> require(contributorCount == 0) {
+                "NO_REVIEWS requires zero contributors"
+            }
+            AggregationStatus.COLLECTING -> require(contributorCount in 1..4) {
+                "COLLECTING requires one to four contributors"
+            }
+            AggregationStatus.PUBLISHED -> require(contributorCount >= 5) {
+                "PUBLISHED requires at least five contributors"
+            }
+        }
+    }
+}
+
 data class PickupLocationAggregateResult(
     val status: AggregationStatus,
     val contributorCount: Int,

@@ -26,6 +26,20 @@ internal class AggregateReviewQueryPersistenceAdapter(
     private val reviews: SpringDataReviewRepository,
 ) : AggregateReviewQuery {
 
+    override fun countDistinctCurrentActiveAuthorsByRestaurantIds(
+        restaurantIds: Set<Long>,
+    ): Map<Long, Int> {
+        require(restaurantIds.all { it > 0 }) { "Restaurant IDs must be positive" }
+        if (restaurantIds.isEmpty()) return emptyMap()
+
+        return reviews.countDistinctCurrentActiveAuthorsByRestaurantIds(
+            restaurantIds,
+            ReviewVisibilityStatus.ACTIVE,
+        ).associate { row ->
+            row.restaurantId to Math.toIntExact(row.contributorCount)
+        }
+    }
+
     override fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput> {
         require(restaurantId > 0) { "Restaurant ID must be positive" }
         return latestByAuthor(

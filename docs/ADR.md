@@ -66,6 +66,8 @@ access token은 15분 동안 유효하고 앱 메모리에만 둔다. refresh to
 
 클라이언트가 보낸 장소 ID나 주소를 그대로 믿지 않고, 서버가 같은 검색을 다시 실행해 선택한 결과가 맞는지 확인한다.
 
+모바일은 로그인 뒤 전용 수동 등록 화면에서 주소를 선택하고 브랜드 정보를 입력한다. 선택한 주소에 기존 픽업 장소 ID가 있으면 장소를 재사용하고, 없으면 새 장소를 만든다. 입력 내용은 별도 음식점 생성 API로 저장하지 않고 첫 리뷰의 restaurant target으로 전달한다.
+
 **선택한 이유**: 아직 사용하지 않는 음식점을 미리 저장하지 않으면서 카카오에 없는 브랜드도 리뷰할 수 있게 하기 위해서다.
 
 **감수할 점**: 첫 리뷰 작성 중 외부 API를 다시 호출해야 한다. 주소와 이름 표기가 다르면 의미상 같은 음식점이 서로 다른 기본 키로 등록될 수 있다.
@@ -85,6 +87,8 @@ access token은 15분 동안 유효하고 앱 메모리에만 둔다. refresh to
 장소 결과에서는 같은 작성자가 여러 브랜드에 리뷰해도 가장 최근의 유효한 리뷰 하나만 사용한다. `NOT_OBSERVED`는 개수에는 포함하지만 평가 비율에서는 제외한다.
 
 **선택한 이유**: 한 작성자의 반복 리뷰가 결과에 미치는 영향을 줄이고 항목별 관찰 정보를 그대로 보여주기 위해서다.
+
+검색 목록에서는 음식점 ID 집합의 유효 작성자 수를 한 번에 조회하고, 상세 화면에서는 요청한 브랜드와 픽업 장소의 리뷰를 조회해 계산한다. 별도 집계 테이블이나 비동기 집계 작업은 두지 않는다.
 
 **감수할 점**: 5개 계정은 방문 인증이나 조작 방지를 보장하지 않는다. 초기에는 조회할 때 계산하므로 데이터가 크게 늘면 집계 방식을 다시 검토해야 한다.
 
@@ -192,6 +196,8 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-021: 기존 EC2에 Prometheus와 Grafana를 함께 실행한다
 
+> **상태: 폐기됨.** ADR-028에 따라 운영 EC2에서는 Prometheus와 Grafana를 실행하지 않는다. 아래 내용은 당시 선택의 기록이다.
+
 **선택**: Spring Boot Actuator와 Micrometer Prometheus registry로 `/actuator/prometheus`를 제공하고, 기존 단일 EC2의 전용 Docker network에서 Prometheus가 15초마다 API를 수집한다. Prometheus와 Grafana는 운영 전용 Docker Compose가 선언적으로 관리하고 API container의 health rollback 배포는 기존 배포 script가 담당한다. Grafana는 Prometheus datasource와 Rider Voice 기본 dashboard를 provisioning한다. 두 UI는 EC2 localhost에만 bind하고 SSM port forwarding으로 접근한다. 로컬에서는 Spring과 MySQL을 기존 프로세스로 유지하고 Prometheus와 Grafana만 Docker Compose로 실행한다. Prometheus 보관 한도는 7일과 2GB이며 두 서비스의 데이터는 Docker volume에 유지한다.
 
 **선택한 이유**: 현재 단일 API 인스턴스의 HTTP 오류율과 지연, JVM, process와 DB connection pool 상태를 기존 EC2와 SSM 경계 안에서 낮은 구성 비용으로 확인하기 위해서다. 공개 domain이나 monitoring ingress를 추가하지 않고 로컬과 운영에서 같은 dashboard를 검증할 수 있다.
@@ -199,6 +205,8 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **감수할 점**: EC2가 중단되면 API와 관측 stack이 함께 중단되어 외부 장애 감지나 고가용성 알림을 제공하지 못한다. 초기 범위에는 Alertmanager, 로그·trace, node exporter와 cAdvisor를 포함하지 않는다. 외부 감지 또는 장기 보관이 필요해지면 별도 host나 관리형 서비스를 새 ADR로 결정한다.
 
 ## ADR-022: Grafana만 기존 HTTPS 도메인에서 로그인 접근을 허용한다
+
+> **상태: 폐기됨.** ADR-028에 따라 운영 `/grafana/` 경로와 Grafana container를 제거했다. 아래 내용은 당시 선택의 기록이다.
 
 **선택**: ADR-021의 UI 접근 결정 중 Grafana 부분을 변경한다. Grafana container의 `3000` 포트는 계속 EC2 localhost에만 bind하고 security group ingress를 추가하지 않는다. 대신 기존 Nginx와 TLS 도메인의 `/grafana/` 하위 경로를 Grafana로 reverse proxy한다. Grafana는 하위 경로를 canonical root URL로 사용하고 secure cookie, 익명 접속·회원가입 차단과 로그인 시도 제한을 적용한다. Prometheus `9090`과 `/actuator/prometheus`는 계속 비공개로 유지한다.
 
@@ -208,7 +216,9 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-023: Expo 기반 React Native 모바일 앱을 별도로 개발한다
 
-**선택**: 기존 Spring Boot API를 유지하고 `/mobile`에 Expo SDK 57, React Native 0.86과 TypeScript 기반 iOS·Android 앱을 둔다. Expo Router로 화면을 구성하고 TanStack Query로 서버 상태를 관리한다. 앱은 Spring Boot `/api/v1`만 호출하며 카카오와 DB를 직접 호출하지 않는다. 현재 검색 계약에는 위치 좌표가 없으므로 사용자 위치 권한, 거리 표시와 가까운 순 정렬은 포함하지 않는다.
+**선택**: 기존 Spring Boot API를 유지하고 `/mobile`에 Node 24, Expo SDK 57, React Native 0.86과 TypeScript 기반 iOS·Android 앱을 둔다. Expo Router로 화면을 구성하고 TanStack Query로 서버 상태를 관리한다. 앱은 Spring Boot `/api/v1`만 호출하며 카카오와 DB를 직접 호출하지 않는다. 현재 검색 계약에는 위치 좌표가 없으므로 사용자 위치 권한, 거리 표시와 가까운 순 정렬은 포함하지 않는다.
+
+앱은 기존 음식점, 카카오 장소, 기존 픽업 장소의 새 브랜드와 검증된 새 주소의 브랜드라는 네 가지 첫 리뷰 대상을 지원한다. 카카오에 없는 브랜드는 로그인 뒤 주소와 브랜드 정보를 준비하는 전용 화면을 거쳐 리뷰 작성 화면으로 이동한다.
 
 현재 브라우저용 OAuth의 refresh cookie를 모바일에 그대로 의존하지 않는다. 모바일 인증은 ADR-024의 일회용 교환 코드와 앱 딥링크 계약을 사용한다.
 
@@ -243,6 +253,8 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **감수할 점**: 브라우저에서 모바일 화면을 미리 볼 수 없으며 Xcode iOS Simulator, Android Emulator 또는 실제 기기가 필요하다. Expo Go에서는 화면 확인만 가능하고 실제 카카오 로그인은 네이티브 개발 빌드에서 확인한다.
 
 ## ADR-027: 같은 master commit의 백엔드와 모니터링 자산을 함께 배포한다
+
+> **상태: 일부 폐기됨.** ADR-028에 따라 운영 monitoring 배포는 제거했다. 같은 master commit의 backend 배포 script와 Nginx 설정을 사용하는 원칙만 유지한다.
 
 **선택**: backend 영향 변경으로 master publish가 실행되면 Docker Hub의 불변 backend image와 함께 정확한 40자리 master commit SHA를 EC2에 전달한다. GitHub의 짧은 SSM 명령은 release script를 transient systemd service로 시작하고, 별도의 짧은 SSM 상태 조회로 완료와 exit status를 추적한다. EC2는 해당 commit의 release script와 monitoring 자산만 내려받아 API를 먼저 health check하고 Prometheus·Grafana Compose를 갱신한다. monitoring image pull 전에는 실행 중이거나 중지된 container가 참조하지 않는 Docker image만 정리하며 container, network와 volume은 삭제하지 않는다. monitoring의 `.env`, Grafana secret과 named volume은 덮어쓰지 않으며, 기존 EC2에 두 runtime 파일이 아직 없으면 SSM의 카카오 redirect URI와 Grafana 비밀번호로 root 전용 파일을 최초 한 번 생성한다. Prometheus readiness, Grafana health와 API target 수집이 실패하면 직전 Compose·provisioning 자산을 복원한다.
 

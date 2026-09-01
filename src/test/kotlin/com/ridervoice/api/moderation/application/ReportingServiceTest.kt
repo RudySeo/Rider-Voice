@@ -257,6 +257,10 @@ class ReportingServiceTest {
         val unaffected = (1L..4L).map { authorId -> aggregateInput(authorId, authorId) }
         val aggregateService = ReviewAggregateService(
             object : AggregateReviewQuery {
+                override fun countDistinctCurrentActiveAuthorsByRestaurantIds(
+                    restaurantIds: Set<Long>,
+                ): Map<Long, Int> = emptyMap()
+
                 override fun findCurrentActiveByRestaurantId(restaurantId: Long) =
                     unaffected + fixture.targets.currentAggregateInputs()
 

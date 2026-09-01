@@ -1,7 +1,8 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
-import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
+import com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate
+import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.PickupLocationSource
@@ -52,6 +53,13 @@ class RestaurantPersistenceAdapterTest {
             name = restaurant.brandName,
             address = location.standardAddress,
         )
+        val linkedCandidate = StoredLinkedRestaurantSearchCandidate(
+            restaurantId = restaurant.id,
+            kakaoPlaceId = "kakao-3",
+            name = restaurant.brandName,
+            address = location.standardAddress,
+            status = RestaurantStatus.ACTIVE,
+        )
         val detail = StoredRestaurantDetail(
             restaurantId = restaurant.id,
             name = restaurant.brandName,
@@ -71,6 +79,10 @@ class RestaurantPersistenceAdapterTest {
                     assertThat(arguments[2]).isInstanceOf(Pageable::class.java)
                     assertThat((arguments[2] as Pageable).pageSize).isEqualTo(7)
                     listOf(candidate)
+                }
+                "findSearchCandidatesByKakaoPlaceIds" -> {
+                    assertThat(arguments.single()).isEqualTo(setOf("kakao-3"))
+                    listOf(linkedCandidate)
                 }
                 "findByIdAndStatus" -> {
                     assertThat(arguments[0]).isEqualTo(restaurant.id)
@@ -95,6 +107,8 @@ class RestaurantPersistenceAdapterTest {
         val adapter = RestaurantPersistenceAdapter(restaurants)
 
         assertThat(adapter.searchActive("  ＧＯＯＤ　Food  ", 7)).containsExactly(candidate)
+        assertThat(adapter.findByKakaoPlaceIds(setOf(" kakao-3 ")))
+            .containsExactlyEntriesOf(mapOf("kakao-3" to linkedCandidate))
         assertThat(adapter.findActiveById(restaurant.id)).isSameAs(restaurant)
         assertThat(adapter.findByKakaoPlaceId(" kakao-3 ")).isSameAs(restaurant)
         assertThat(adapter.findDetail(restaurant.id)).isEqualTo(detail)
@@ -105,6 +119,7 @@ class RestaurantPersistenceAdapterTest {
         assertThat(adapter.save(restaurant)).isSameAs(restaurant)
         assertThat(calls).containsExactly(
             "searchActive",
+            "findSearchCandidatesByKakaoPlaceIds",
             "findByIdAndStatus",
             "findByKakaoPlaceId",
             "findDetailById",
@@ -112,6 +127,16 @@ class RestaurantPersistenceAdapterTest {
             "findByPickupLocationIdAndBrandName",
             "saveAndFlush",
         )
+    }
+
+    @Test
+    fun `empty Kakao place batch avoids repository access`() {
+        val repositories = fakeRepository(SpringDataRestaurantRepository::class.java) { method, _ ->
+            unexpected(method)
+        }
+        val adapter = RestaurantPersistenceAdapter(repositories)
+
+        assertThat(adapter.findByKakaoPlaceIds(emptySet())).isEmpty()
     }
 
     @Test

@@ -1,7 +1,9 @@
 package com.ridervoice.api.restaurant.application.port.out
 
 import com.ridervoice.api.restaurant.application.model.RestaurantBrandReportResult
+import com.ridervoice.api.restaurant.application.model.RestaurantBrandSummary
 import com.ridervoice.api.restaurant.application.model.RestaurantPickupLocationReportResult
+import com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.DeliveryPlatform
@@ -29,6 +31,12 @@ interface RestaurantRepository {
     fun save(restaurant: Restaurant): Restaurant
 }
 
+fun interface RestaurantSearchLinkQuery {
+    fun findByKakaoPlaceIds(
+        kakaoPlaceIds: Set<String>,
+    ): Map<String, StoredLinkedRestaurantSearchCandidate>
+}
+
 fun interface RestaurantDetailQuery {
     fun findDetail(restaurantId: Long): StoredRestaurantDetail?
 }
@@ -37,6 +45,10 @@ interface RestaurantReportProvider {
     fun getBrandReport(restaurantId: Long): RestaurantBrandReportResult
 
     fun getPickupLocationReport(pickupLocationId: Long): RestaurantPickupLocationReportResult
+}
+
+fun interface RestaurantSearchReviewSummaryProvider {
+    fun findByRestaurantIds(restaurantIds: Set<Long>): Map<Long, RestaurantBrandSummary>
 }
 
 interface RestaurantPlatformRepository {
