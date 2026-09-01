@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 import { apiBaseUrl, apiConfiguration, ApiError } from '@/shared/api/clientConfig';
 import type { MobileSession, User } from '@/shared/api/types';
@@ -10,7 +11,11 @@ let accessToken: string | null = null;
 let currentUser: User | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
-export const nativeAuthAvailability = resolveAuthAvailability(Constants.appOwnership, apiBaseUrl);
+export const nativeAuthAvailability = resolveAuthAvailability(
+  Platform.OS,
+  Constants.appOwnership,
+  apiBaseUrl,
+);
 export const nativeAuthAvailable = nativeAuthAvailability === 'READY';
 export const getAccessToken = () => accessToken;
 export const getCurrentUser = () => currentUser;
