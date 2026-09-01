@@ -13,8 +13,9 @@ import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 import { ApiError, usesMockApi } from '@/shared/api/client';
-import { createReview, getMyReview, updateReview, type CreateReviewBody, type UpdateReviewBody } from '@/shared/api/reviews';
-import { reviewTargetFromRouteParams, type ReviewTarget, type ReviewTargetRouteParams } from '@/shared/api/reviewTargets';
+import { buildCreateReviewRequest, buildUpdateReviewRequest } from '@/shared/api/reviewRequestMapping';
+import { createReview, getMyReview, updateReview } from '@/shared/api/reviews';
+import { reviewTargetFromRouteParams, type ReviewTargetRouteParams } from '@/shared/api/reviewTargets';
 import { useAuth } from '@/shared/auth/AuthProvider';
 import { queryClient } from '@/shared/queryClient';
 
@@ -40,17 +41,6 @@ type FormValues = Record<(typeof questions)[number]['key'], RatingValue | undefi
 const reviewSchema = z.object({
   packagingStability: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), orderReadiness: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), handoffAccuracy: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), pickupSpaceCleanliness: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), staffInteraction: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), riderRespect: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), comment: z.string().trim().max(200), visitMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
 });
-
-type ValidReviewValues = z.infer<typeof reviewSchema>;
-
-export function buildCreateReviewRequest(values: ValidReviewValues, restaurantTarget: ReviewTarget): CreateReviewBody {
-  return { ...values, comment: values.comment.trim() || null, restaurantTarget };
-}
-
-export function buildUpdateReviewRequest(values: ValidReviewValues): UpdateReviewBody {
-  const { visitMonth: _visitMonth, ...ratingsAndComment } = values;
-  return { ...ratingsAndComment, comment: values.comment.trim() || null };
-}
 
 export default function ReviewCreateScreen() {
   const params = useLocalSearchParams<ReviewTargetRouteParams & { place?: string; reviewId?: string }>();

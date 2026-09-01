@@ -181,7 +181,7 @@ docker run --rm --env-file .env.docker.local -p 8080:8080 rider-voice-api:local
 
 Mac이나 Windows에서 호스트 MySQL에 연결할 때는 `DB_URL`의 host로 `host.docker.internal`을 사용한다. Linux에서는 실행 환경에 맞는 host 또는 Docker network 주소를 사용한다. 실제 DB·카카오 secret은 Dockerfile, build argument와 이미지에 넣지 않는다.
 
-모바일 앱은 `/mobile`에서 실행합니다. Expo Go와 Expo Web은 공개 mock 미리보기에만 사용하고 실제 OAuth와 리뷰 변경은 `com.ridervoice.app` 개발 빌드에서 확인합니다.
+모바일 앱은 `/mobile`에서 실행합니다. 공개 검색도 설정된 Spring Boot API를 사용하며 고정 mock 결과로 대체하지 않습니다. Expo Go는 API가 설정된 공개 조회와 UI 확인에만 사용하고 실제 OAuth와 리뷰 변경은 `com.ridervoice.app` 개발 빌드에서 확인합니다.
 
 ```bash
 cd mobile

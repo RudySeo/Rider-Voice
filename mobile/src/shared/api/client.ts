@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-import { ApiError, apiBaseUrl } from '@/shared/api/clientConfig';
+import { ApiError, apiBaseUrl, apiConfiguration } from '@/shared/api/clientConfig';
 import { getAccessToken, refreshMobileSession } from '@/shared/auth/session';
 
 export { ApiError, apiBaseUrl } from '@/shared/api/clientConfig';
@@ -7,7 +6,12 @@ export const usesMockApi = !apiBaseUrl;
 
 export async function requestJson<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   if (!apiBaseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
+    const failure = 'errorMessage' in apiConfiguration ? apiConfiguration : undefined;
+    throw new ApiError(
+      failure?.errorMessage ?? 'API 주소가 설정되지 않았어요.',
+      0,
+      failure?.errorCode ?? 'API_BASE_URL_MISSING',
+    );
   }
 
   const token = getAccessToken();
@@ -30,9 +34,4 @@ export async function requestJson<T>(path: string, init?: RequestInit, retried =
 
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
-}
-
-export function localApiBaseUrlHint() {
-  if (Platform.OS === 'android') return 'http://10.0.2.2:8080';
-  return 'http://localhost:8080';
 }

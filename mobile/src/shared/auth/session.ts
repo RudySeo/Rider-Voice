@@ -1,23 +1,37 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-import { apiBaseUrl, ApiError } from '@/shared/api/clientConfig';
+import { apiBaseUrl, apiConfiguration, ApiError } from '@/shared/api/clientConfig';
 import type { MobileSession, User } from '@/shared/api/types';
+import { resolveAuthAvailability } from '@/shared/auth/authRuntime';
 
 const REFRESH_KEY = 'rider-voice.refresh-token';
 let accessToken: string | null = null;
 let currentUser: User | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
-export const nativeAuthAvailable = Constants.appOwnership !== 'expo' && Boolean(apiBaseUrl);
+export const nativeAuthAvailability = resolveAuthAvailability(Constants.appOwnership, apiBaseUrl);
+export const nativeAuthAvailable = nativeAuthAvailability === 'READY';
 export const getAccessToken = () => accessToken;
 export const getCurrentUser = () => currentUser;
 
 async function postSession(path: string, body: object): Promise<MobileSession> {
-  if (!apiBaseUrl) throw new ApiError('API 주소가 설정되지 않았어요.', 0);
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
+  if (!apiBaseUrl) {
+    const failure = 'errorMessage' in apiConfiguration ? apiConfiguration : undefined;
+    throw new ApiError(
+      failure?.errorMessage ?? 'API 주소가 설정되지 않았어요.',
+      0,
+      failure?.errorCode ?? 'API_BASE_URL_MISSING',
+    );
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError('API 서버에 연결할 수 없어요. 주소와 서버 실행 상태를 확인해주세요.', 0, 'API_UNREACHABLE');
+  }
   const payload = await response.json().catch(() => null) as (MobileSession & { detail?: string; code?: string }) | null;
   if (!response.ok || !payload) throw new ApiError(payload?.detail ?? '로그인을 처리하지 못했어요.', response.status, payload?.code);
   return payload;
