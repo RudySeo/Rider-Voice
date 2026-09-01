@@ -1,4 +1,4 @@
-import { pendingIntentFromLoginParams, resumedDestination } from '@/app/login';
+import { pendingIntentFromLoginParams, resumedDestination } from '@/shared/auth/loginContinuation';
 
 describe('login continuation', () => {
   it('keeps a manual registration query across Kakao login', () => {

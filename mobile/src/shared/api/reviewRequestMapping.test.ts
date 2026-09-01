@@ -1,4 +1,4 @@
-import { buildCreateReviewRequest, buildUpdateReviewRequest } from '@/app/review/new';
+import { buildCreateReviewRequest, buildUpdateReviewRequest } from '@/shared/api/reviewRequestMapping';
 
 const values = {
   packagingStability: 'GOOD' as const,
