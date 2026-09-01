@@ -2,6 +2,33 @@
 
 이 문서는 Rider Voice MVP를 만들면서 선택한 중요한 제품·기술 결정과 그 이유를 기록한다. 세부 구현 구조는 `ARCHITECTURE.md`, API 형식은 실행 중인 OpenAPI, 테이블 관계는 `ERD.md`에서 확인한다.
 
+## 먼저 읽기
+
+ADR은 Architecture Decision Record의 약자로, 제품이나 시스템에서 **무엇을 선택했고 왜 그렇게 결정했는지** 남기는 기록입니다. 현재 기능 목록만 알고 싶다면 [PRD.md](PRD.md)를 먼저 읽고, 특정 선택의 배경이 궁금할 때 이 문서를 확인하면 됩니다.
+
+각 결정의 항목은 다음처럼 읽습니다.
+
+| 항목 | 의미 |
+| --- | --- |
+| 선택 | 실제로 적용하기로 한 방법입니다. |
+| 선택한 이유 | 다른 방법 대신 이 방법을 고른 목적입니다. |
+| 감수할 점 | 선택 때문에 생기는 제약과 후속 과제입니다. |
+| 상태 | 현재 사용하는 결정인지, 다른 결정으로 바뀌었는지 알려줍니다. |
+
+상태가 따로 적혀 있지 않은 결정은 현재 유효합니다. `일부 대체됨`은 핵심 방향은 남아 있지만 일부 구현이 바뀌었다는 뜻이고, `폐기됨`은 과거 기록일 뿐 현재 동작이 아니라는 뜻입니다.
+
+### 주제별 빠른 찾기
+
+| 주제 | 관련 결정 | 비개발자를 위한 요약 |
+| --- | --- | --- |
+| 제품과 신뢰 | ADR-006~011, ADR-014~015 | 픽업 장소와 브랜드, 공개 기준, 신고와 미인증 원칙 |
+| 서버와 데이터 | ADR-001~003, ADR-012~013, ADR-018~019 | 서버 책임, MySQL, 캐시, 설정과 DB 변경 방식 |
+| 로그인과 보안 | ADR-004~005, ADR-024 | 카카오 로그인, Rider Voice token과 모바일 callback |
+| 모바일 앱 | ADR-016, ADR-023, ADR-025~026, ADR-031~032 | 웹 prototype 폐기, Expo 앱과 API 환경 선택 |
+| 배포와 운영 | ADR-017, ADR-020~022, ADR-027~030 | 이미지 게시, EC2 배포, 모니터링과 CI 정리 |
+
+서비스 운영에 직접 영향을 주는 핵심 결정은 ADR-006부터 ADR-015입니다. 배포 담당자는 ADR-017 이후의 운영 결정을 함께 확인해야 합니다.
+
 각 결정은 다음 형식으로 정리한다.
 
 - **선택**: 무엇을 하기로 했는가
@@ -230,7 +257,7 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 **선택**: iOS bundle identifier와 Android application id를 `com.ridervoice.app`, callback을 `ridervoice://auth/callback`으로 고정한다. 네이티브 개발 빌드는 시스템 브라우저에서 기존 Spring Security OAuth2 Client 흐름을 시작한다. 성공 callback은 256-bit 무작위 코드를 생성하고 backend에는 SHA-256 hash, 사용자, 2분 만료 시각과 사용 시각만 저장한다. 딥링크에는 이 일회용 코드만 전달하며 `/api/v1/auth/mobile/exchange`가 아직 사용되지 않은 코드를 한 번 소비하면서 15분 access token과 30일 refresh token을 발급한다. provider 실패에는 고정된 `error=oauth_failed`만 전달한다.
 
-앱은 access token을 메모리에만 두고 refresh token을 SecureStore에 저장한다. refresh는 매번 token을 회전하며 로그아웃은 server session을 폐기하고 로컬 token을 항상 제거한다. Expo Go는 고정 custom scheme을 신뢰할 수 있는 실제 인증 환경으로 취급하지 않고 공개 mock 조회만 제공한다.
+앱은 access token을 메모리에만 두고 refresh token을 SecureStore에 저장한다. refresh는 매번 token을 회전하며 로그아웃은 server session을 폐기하고 로컬 token을 항상 제거한다. Expo Go는 고정 custom scheme을 신뢰할 수 있는 실제 인증 환경으로 취급하지 않고, 접근 가능한 API가 설정된 공개 조회와 UI 확인에만 사용한다. API 연결에 실패해도 고정 mock 결과로 대체하지 않는다.
 
 **선택한 이유**: 서비스 token과 provider 오류를 URL·브라우저 기록에 노출하지 않으면서 네이티브 앱이 브라우저와 같은 계정 식별 흐름을 재사용하고, 탈취된 단기 코드의 재사용 가능성을 제한하기 위해서다.
 
