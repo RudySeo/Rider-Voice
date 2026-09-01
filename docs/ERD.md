@@ -165,3 +165,12 @@ erDiagram
 | 운영 | `review_reports` | 리뷰 신고와 처리 결과 | `(reporter_user_id, review_id)` |
 | 운영 | `restaurant_info_reports` | 음식점 정보 신고와 처리 결과 | `(reporter_user_id, restaurant_id)` |
 | 운영 | `moderation_audits` | 관리자 변경 전후 감사 기록 | - |
+
+## 4. 검색·집계에서 사용하는 현재 데이터 규칙
+
+- 검색 목록의 브랜드별 작성자 수는 `reviews.restaurant_id`를 음식점 ID 집합으로 묶어 한 번에 조회한다.
+- 집계에는 `visibility_status=ACTIVE`, `current_slot`이 존재하고 `deleted_at`이 없는 현재 리뷰만 포함한다.
+- 브랜드 집계는 작성자를 중복 제거한다. 픽업 장소 집계는 같은 작성자의 여러 브랜드 리뷰 중 생성 시각과 ID가 가장 최근인 리뷰 하나만 사용한다.
+- 삭제 또는 전체 제외된 리뷰 행은 이력과 90일·24시간 제한 계산을 위해 남지만 공개 검색과 집계에서는 제외한다.
+- 수동 등록은 기존 `pickup_locations`를 재사용하거나 새 행을 만든 뒤 `restaurants`를 연결한다. 음식점과 첫 리뷰는 같은 트랜잭션에서 저장하며 별도 임시 등록 테이블은 사용하지 않는다.
+- 이번 검색 배치 조회 변경은 테이블이나 제약을 추가하지 않으므로 Flyway migration이 필요하지 않다.

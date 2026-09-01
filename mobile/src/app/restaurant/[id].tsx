@@ -13,9 +13,12 @@ import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { TrustBanner } from '@/shared/components/TrustBanner';
 import { colors, spacing } from '@/shared/theme';
 import type { AggregateMetric, RatingValue } from '@/shared/api/types';
+import { useAuth } from '@/shared/auth/AuthProvider';
+import { reviewDestination } from '@/shared/navigation/reviewNavigation';
 
 export default function RestaurantDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
+  const auth = useAuth();
   const restaurantId = Number(params.id);
   const validId = Number.isInteger(restaurantId) && restaurantId > 0;
   const detail = useQuery({ queryKey: ['restaurant', restaurantId], queryFn: () => getRestaurant(restaurantId), enabled: validId });
@@ -43,7 +46,7 @@ export default function RestaurantDetailScreen() {
         <View style={styles.resultsHeading}><AppText variant="section">항목별 결과</AppText><AppText color={colors.muted} variant="caption">작성자 5명부터 공개</AppText></View>
         <MetricSection contributorCount={restaurant.brandReport.contributorCount} metrics={restaurant.brandReport.metrics ? [['포장 안정성', restaurant.brandReport.metrics.packagingStability], ['주문 준비 상태', restaurant.brandReport.metrics.orderReadiness], ['전달 정확성', restaurant.brandReport.metrics.handoffAccuracy]] : null} title="배달 준비 · 브랜드" />
         <MetricSection contributorCount={restaurant.pickupLocationReport.contributorCount} metrics={restaurant.pickupLocationReport.metrics ? [['픽업 공간 청결', restaurant.pickupLocationReport.metrics.pickupSpaceCleanliness], ['직원 응대', restaurant.pickupLocationReport.metrics.staffInteraction], ['라이더 존중', restaurant.pickupLocationReport.metrics.riderRespect]] : null} title="픽업 환경 · 장소" />
-        <View style={styles.write}><Pressable onPress={() => router.push({ pathname: '/login', params: { next: '/review/new', targetType: 'EXISTING', restaurantId: String(restaurant.restaurantId), place: restaurant.name } })}><AppText color={colors.jade} weight="700">이 음식점 경험 작성하기</AppText></Pressable></View>
+        <View style={styles.write}><Pressable onPress={() => router.push(reviewDestination(Boolean(auth.user), { targetType: 'EXISTING', restaurantId: String(restaurant.restaurantId), place: restaurant.name }))}><AppText color={colors.jade} weight="700">이 음식점 경험 작성하기</AppText></Pressable></View>
         <View style={styles.experienceHeading}><AppText variant="section">개별 경험</AppText><AppText color={colors.jade} variant="caption" weight="700">전체 보기</AppText></View>
         {reviews.isError ? <Pressable onPress={() => reviews.refetch()}><AppText color={colors.jade}>개별 경험 다시 불러오기</AppText></Pressable> : (reviews.data ?? []).map((review) => (
           <View key={review.reviewId} style={styles.review}><AppText color={colors.text}>{review.comment ?? '자유 의견이 없는 리뷰예요.'}</AppText><AppText color={colors.muted} variant="caption">{review.visitMonth} 방문 · 공개 리뷰 {review.authorActivity.publicReviewCount}개</AppText><AppText color={colors.muted} variant="caption">포장 {ratingLabel(review.ratings.packagingStability)} · 준비 {ratingLabel(review.ratings.orderReadiness)} · 청결 {ratingLabel(review.ratings.pickupSpaceCleanliness)}</AppText><AppText color={colors.skyStrong} variant="caption">{review.verificationNotice}</AppText></View>

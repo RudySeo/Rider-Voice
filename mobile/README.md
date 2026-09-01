@@ -8,6 +8,7 @@ Rider Voice의 React Native 앱입니다. Expo SDK 57과 Expo Router를 사용�
 - Rider Voice 리뷰가 있는 음식점과 카카오 검색 장소 구분
 - 음식점 상세, 항목별 헬멧 점수, 공개 경험 확인
 - 카카오 로그인 안내 화면
+- 카카오에 없는 브랜드의 주소 검색과 수동 등록
 - 6단계 구조화 리뷰 작성과 선택 의견 입력
 - 내 활동과 리뷰 공개 상태 확인
 - 공식 배포본 LINE Seed Sans KR 서체 번들
@@ -18,16 +19,20 @@ Rider Voice의 React Native 앱입니다. Expo SDK 57과 Expo Router를 사용�
 
 ## 실행 환경
 
-- Node.js 22 이상
+- Node.js 24 (`nvm use`로 `mobile/.nvmrc` 적용)
 - pnpm 11 이상
 - iOS Simulator, Android Emulator 또는 실제 기기
 
 ## 시작하기
 
 ```bash
+nvm use
+corepack enable
 pnpm install
 pnpm start
 ```
+
+검색 결과에 원하는 배달 브랜드가 없으면 직접 등록을 선택합니다. 로그인 후 주소를 검색하고 브랜드명, 선택적인 상세 위치와 플랫폼을 입력한 다음 첫 리뷰를 작성합니다. 앱은 선택한 주소가 기존 픽업 장소인지 확인해 알맞은 review target을 서버에 전달합니다.
 
 실행 후 터미널에서 `i`를 누르면 iOS Simulator, `a`를 누르면 Android Emulator가 열립니다. Expo Go는 목 데이터 화면 확인에만 사용하고 실제 카카오 로그인은 개발 빌드로 확인합니다.
 

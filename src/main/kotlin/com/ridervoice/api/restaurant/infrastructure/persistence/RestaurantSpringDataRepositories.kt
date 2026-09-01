@@ -1,6 +1,7 @@
 package com.ridervoice.api.restaurant.infrastructure.persistence
 
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantDetail
+import com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.application.model.StoredRestaurantSearchCandidate
 import com.ridervoice.api.restaurant.domain.PickupLocation
 import com.ridervoice.api.restaurant.domain.Restaurant
@@ -17,6 +18,24 @@ internal interface SpringDataPickupLocationRepository : JpaRepository<PickupLoca
 }
 
 internal interface SpringDataRestaurantRepository : JpaRepository<Restaurant, Long> {
+
+    @Query(
+        """
+        select new com.ridervoice.api.restaurant.application.model.StoredLinkedRestaurantSearchCandidate(
+            restaurant.id,
+            restaurant.kakaoPlaceId,
+            restaurant.brandName,
+            pickupLocation.standardAddress,
+            restaurant.status
+        )
+        from Restaurant restaurant
+        join restaurant.pickupLocation pickupLocation
+        where restaurant.kakaoPlaceId in :kakaoPlaceIds
+        """,
+    )
+    fun findSearchCandidatesByKakaoPlaceIds(
+        @Param("kakaoPlaceIds") kakaoPlaceIds: Set<String>,
+    ): List<StoredLinkedRestaurantSearchCandidate>
 
     @Query(
         """

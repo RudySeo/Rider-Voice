@@ -1,15 +1,15 @@
 import { requestJson, usesMockApi } from '@/shared/api/client';
-import type { MyReview, MyReviewListResponse, RatingValue, ReviewRatings } from '@/shared/api/types';
+import type { components } from '@/shared/api/generated';
+import type { MyReview, MyReviewListResponse, RatingValue } from '@/shared/api/types';
 
-export type ReviewTarget = { type: 'EXISTING'; restaurantId: number } | { type: 'KAKAO'; query: string; kakaoPlaceId: string };
-export type ReviewWriteBody = ReviewRatings & { restaurantTarget?: ReviewTarget; visitMonth?: string; comment: string | null };
+export type CreateReviewBody = components['schemas']['CreateReviewRequest'];
+export type UpdateReviewBody = components['schemas']['UpdateReviewRequest'];
 
 function requireRealApi() { if (usesMockApi) throw new Error('공개 미리보기에서는 리뷰를 변경할 수 없어요.'); }
-export function createReview(body: ReviewWriteBody): Promise<MyReview> { requireRealApi(); return requestJson('/api/v1/reviews', { method: 'POST', body: JSON.stringify(body) }); }
-export function updateReview(reviewId: number, body: ReviewWriteBody): Promise<MyReview> {
+export function createReview(body: CreateReviewBody): Promise<MyReview> { requireRealApi(); return requestJson('/api/v1/reviews', { method: 'POST', body: JSON.stringify(body) }); }
+export function updateReview(reviewId: number, body: UpdateReviewBody): Promise<MyReview> {
   requireRealApi();
-  const { restaurantTarget: _target, visitMonth: _month, ...update } = body;
-  return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'PATCH', body: JSON.stringify(update) });
+  return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 export function deleteReview(reviewId: number): Promise<void> { requireRealApi(); return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'DELETE' }); }
 export function getMyReview(reviewId: number): Promise<MyReview> { requireRealApi(); return requestJson(`/api/v1/reviews/${reviewId}`); }

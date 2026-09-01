@@ -1,20 +1,23 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { ReactNode, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { groupSearchResults, searchRestaurants } from '@/shared/api/restaurants';
+import { useAuth } from '@/shared/auth/AuthProvider';
 import { AppText } from '@/shared/components/AppText';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { RestaurantRow } from '@/shared/components/RestaurantRow';
 import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
+import { manualRegistrationDestination, reviewDestination } from '@/shared/navigation/reviewNavigation';
 import { colors, radius, spacing } from '@/shared/theme';
 
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ query?: string }>();
   const initial = typeof params.query === 'string' ? params.query : '';
+  const auth = useAuth();
   const [draft, setDraft] = useState(initial);
   const [submitted, setSubmitted] = useState(initial);
 
@@ -45,12 +48,17 @@ export default function SearchScreen() {
               {groups.reviewed.map((candidate) => <RestaurantRow key={`${candidate.candidateType}-${candidate.restaurantId}`} candidate={candidate} onPress={() => router.push(`/restaurant/${candidate.restaurantId}`)} />)}
             </ResultSection>
             <ResultSection count={groups.registered.length} description="Rider Voice에 등록됐지만 아직 리뷰가 없어요." title="등록된 음식점">
-              {groups.registered.map((candidate) => <RestaurantRow key={`registered-${candidate.restaurantId}`} candidate={candidate} onPress={() => router.push({ pathname: '/login', params: { next: '/review/new', targetType: 'EXISTING', restaurantId: String(candidate.restaurantId), place: candidate.name } })} />)}
+              {groups.registered.map((candidate) => <RestaurantRow key={`registered-${candidate.restaurantId}`} candidate={candidate} onPress={() => router.push(reviewDestination(Boolean(auth.user), { targetType: 'EXISTING', restaurantId: String(candidate.restaurantId), place: candidate.name }))} />)}
             </ResultSection>
             <ResultSection count={groups.kakao.length} description="선택한 장소는 서버가 같은 검색으로 다시 확인해요." title="카카오에서 찾은 장소">
-              {groups.kakao.map((candidate) => <RestaurantRow key={`kakao-${candidate.kakaoPlaceId}`} candidate={candidate} onPress={() => router.push({ pathname: '/login', params: { next: '/review/new', targetType: 'KAKAO', query: submitted, kakaoPlaceId: candidate.kakaoPlaceId ?? '', place: candidate.name } })} />)}
+              {groups.kakao.map((candidate) => <RestaurantRow key={`kakao-${candidate.kakaoPlaceId}`} candidate={candidate} onPress={() => router.push(reviewDestination(Boolean(auth.user), { targetType: 'KAKAO', query: submitted, kakaoPlaceId: candidate.kakaoPlaceId ?? '', place: candidate.name }))} />)}
             </ResultSection>
             {groups.reviewed.length + groups.registered.length + groups.kakao.length === 0 && <View style={styles.state}><AppText variant="label">검색 결과가 없어요</AppText><AppText color={colors.muted}>음식점 이름이나 주소를 다시 확인해주세요.</AppText></View>}
+            <Pressable onPress={() => router.push(manualRegistrationDestination(Boolean(auth.user), submitted) as Href)} style={({ pressed }) => [styles.manual, pressed && styles.pressed]}>
+              <View style={styles.manualIcon}><MaterialCommunityIcons color={colors.jade} name="store-plus-outline" size={22} /></View>
+              <View style={styles.sectionCopy}><AppText variant="label">찾는 배달 브랜드가 없나요?</AppText><AppText color={colors.muted} variant="caption">주소를 검증한 뒤 리뷰와 함께 직접 등록할 수 있어요.</AppText></View>
+              <MaterialCommunityIcons color={colors.muted} name="chevron-right" size={22} />
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -77,4 +85,6 @@ const styles = StyleSheet.create({
   badge: { minWidth: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.resultSoft, alignItems: 'center', justifyContent: 'center' },
   state: { minHeight: 200, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   warning: { backgroundColor: colors.skySoft, borderRadius: radius.md, padding: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  manual: { marginTop: spacing.lg, minHeight: 78, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  manualIcon: { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.jadeSoft, alignItems: 'center', justifyContent: 'center' },
 });

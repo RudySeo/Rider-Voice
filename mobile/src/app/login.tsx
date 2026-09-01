@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 
@@ -7,10 +7,33 @@ import { AppText } from '@/shared/components/AppText';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 import { Screen } from '@/shared/components/Screen';
 import { colors, radius, spacing } from '@/shared/theme';
-import { PendingIntent, useAuth } from '@/shared/auth/AuthProvider';
+import { useAuth } from '@/shared/auth/AuthProvider';
+import type { PendingIntent } from '@/shared/auth/pendingIntent';
+
+type LoginParams = { next?: string; place?: string; targetType?: string; restaurantId?: string; query?: string; kakaoPlaceId?: string; manualQuery?: string };
+
+export function pendingIntentFromLoginParams(params: LoginParams): PendingIntent | undefined {
+  if (params.next === '/activity') return { kind: 'activity' };
+  if (params.next === '/review/manual-target') return { kind: 'manualReview', query: params.manualQuery?.trim() ?? '' };
+  if (params.targetType === 'EXISTING' && Number(params.restaurantId) > 0) {
+    return { kind: 'existingReview', restaurantId: Number(params.restaurantId), place: params.place ?? '음식점' };
+  }
+  if (params.targetType === 'KAKAO' && params.query && params.kakaoPlaceId) {
+    return { kind: 'kakaoReview', query: params.query, kakaoPlaceId: params.kakaoPlaceId, place: params.place ?? '음식점' };
+  }
+  return undefined;
+}
+
+export function resumedDestination(intent: PendingIntent | null) {
+  if (intent?.kind === 'activity') return '/activity' as const;
+  if (intent?.kind === 'existingReview') return { pathname: '/review/new' as const, params: { targetType: 'EXISTING', restaurantId: String(intent.restaurantId), place: intent.place } };
+  if (intent?.kind === 'kakaoReview') return { pathname: '/review/new' as const, params: { targetType: 'KAKAO', query: intent.query, kakaoPlaceId: intent.kakaoPlaceId, place: intent.place } };
+  if (intent?.kind === 'manualReview') return { pathname: '/review/manual-target' as const, params: { query: intent.query } };
+  return '/activity' as const;
+}
 
 export default function LoginScreen() {
-  const params = useLocalSearchParams<{ next?: string; place?: string; targetType?: string; restaurantId?: string; query?: string; kakaoPlaceId?: string }>();
+  const params = useLocalSearchParams<LoginParams>();
   const auth = useAuth();
   const [loading, setLoading] = useState(false);
   const purpose = params.place ? `${params.place}의 경험을 작성하려면` : '리뷰 작성과 내 활동을 이용하려면';
@@ -20,20 +43,11 @@ export default function LoginScreen() {
       Alert.alert('개발 빌드가 필요해요', 'Expo Go와 Web은 공개 조회 미리보기만 지원해요. 실제 로그인은 iOS·Android 개발 빌드에서 이용해주세요.');
       return;
     }
-    const intent: PendingIntent | undefined = params.next === '/activity'
-      ? { kind: 'activity' }
-      : params.targetType === 'EXISTING' && Number(params.restaurantId) > 0
-        ? { kind: 'existingReview', restaurantId: Number(params.restaurantId), place: params.place ?? '음식점' }
-        : params.targetType === 'KAKAO' && params.query && params.kakaoPlaceId
-          ? { kind: 'kakaoReview', query: params.query, kakaoPlaceId: params.kakaoPlaceId, place: params.place ?? '음식점' }
-          : undefined;
+    const intent = pendingIntentFromLoginParams(params);
     try {
       setLoading(true);
       const resumed = await auth.login(intent);
-      if (resumed?.kind === 'activity') router.replace('/activity');
-      else if (resumed?.kind === 'existingReview') router.replace({ pathname: '/review/new', params: { targetType: 'EXISTING', restaurantId: String(resumed.restaurantId), place: resumed.place } });
-      else if (resumed?.kind === 'kakaoReview') router.replace({ pathname: '/review/new', params: { targetType: 'KAKAO', query: resumed.query, kakaoPlaceId: resumed.kakaoPlaceId, place: resumed.place } });
-      else router.replace('/activity');
+      router.replace(resumedDestination(resumed) as Href);
     } catch (error) {
       Alert.alert('로그인하지 못했어요', error instanceof Error ? error.message : '잠시 후 다시 시도해주세요.');
     } finally { setLoading(false); }

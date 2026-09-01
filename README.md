@@ -45,7 +45,7 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - Expo Router, TanStack Query, React Hook Form과 Zod
 - Jest, React Native Testing Library와 Expo SecureStore
 
-초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시하고 기존 단일 EC2에 배포합니다. 운영 메트릭은 같은 EC2의 Prometheus와 Grafana 컨테이너가 수집·표시합니다. Redis, Kafka, Elasticsearch, 전체 애플리케이션용 Docker Compose, Testcontainers와 ECS는 현재 범위가 아닙니다.
+초기에는 단일 API 서버와 MySQL을 사용합니다. 백엔드 API는 Docker 이미지로 패키징해 master 대상 PR에서 검증한 뒤, 병합된 commit을 Docker Hub에 게시하고 기존 단일 EC2에 배포합니다. Prometheus와 Grafana는 로컬 개발과 CI 검증에서만 사용하며 운영 EC2에는 실행하지 않습니다. Redis, Kafka, Elasticsearch, 전체 애플리케이션용 Docker Compose, Testcontainers와 ECS는 현재 범위가 아닙니다.
 
 ## 현재 구현 상태
 
@@ -185,10 +185,13 @@ Mac이나 Windows에서 호스트 MySQL에 연결할 때는 `DB_URL`의 host로 
 
 ```bash
 cd mobile
+nvm use
 corepack enable
 pnpm install --frozen-lockfile
 pnpm start
 ```
+
+카카오에 없는 브랜드는 검색 화면의 직접 등록 진입점에서 로그인한 뒤 주소를 검색하고 브랜드 정보를 입력합니다. 기존 픽업 장소가 확인되면 장소를 재사용하고, 새 주소라면 픽업 장소와 브랜드를 첫 리뷰와 함께 생성합니다.
 
 ## 로컬 모니터링
 

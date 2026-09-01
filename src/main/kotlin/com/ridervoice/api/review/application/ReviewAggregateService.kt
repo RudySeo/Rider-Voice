@@ -5,6 +5,7 @@ import com.ridervoice.api.review.application.model.AggregateMetricResult
 import com.ridervoice.api.review.application.model.AggregateReviewInput
 import com.ridervoice.api.review.application.model.BrandAggregateMetrics
 import com.ridervoice.api.review.application.model.BrandAggregateResult
+import com.ridervoice.api.review.application.model.BrandAggregateSummaryResult
 import com.ridervoice.api.review.application.model.PickupLocationAggregateMetrics
 import com.ridervoice.api.review.application.model.PickupLocationAggregateResult
 import com.ridervoice.api.review.application.port.`in`.ReviewAggregateUseCase
@@ -18,6 +19,24 @@ import java.math.RoundingMode
 internal class ReviewAggregateService(
     private val aggregateReviews: AggregateReviewQuery,
 ) : ReviewAggregateUseCase {
+
+    override fun getBrandSummaries(
+        restaurantIds: Set<Long>,
+    ): Map<Long, BrandAggregateSummaryResult> {
+        require(restaurantIds.all { it > 0 }) { "Restaurant IDs must be positive" }
+        if (restaurantIds.isEmpty()) return emptyMap()
+
+        val contributorCounts = aggregateReviews
+            .countDistinctCurrentActiveAuthorsByRestaurantIds(restaurantIds)
+        return restaurantIds.associateWith { restaurantId ->
+            val contributorCount = contributorCounts[restaurantId] ?: 0
+            BrandAggregateSummaryResult(
+                restaurantId = restaurantId,
+                status = aggregationStatus(contributorCount),
+                contributorCount = contributorCount,
+            )
+        }
+    }
 
     override fun getBrandReport(restaurantId: Long): BrandAggregateResult {
         require(restaurantId > 0) { "Restaurant ID must be positive" }

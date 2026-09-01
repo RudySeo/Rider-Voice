@@ -1,8 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { z } from 'zod';
@@ -14,7 +13,8 @@ import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, radius, spacing } from '@/shared/theme';
 import { ApiError, usesMockApi } from '@/shared/api/client';
-import { createReview, getMyReview, updateReview } from '@/shared/api/reviews';
+import { createReview, getMyReview, updateReview, type CreateReviewBody, type UpdateReviewBody } from '@/shared/api/reviews';
+import { reviewTargetFromRouteParams, type ReviewTarget, type ReviewTargetRouteParams } from '@/shared/api/reviewTargets';
 import { useAuth } from '@/shared/auth/AuthProvider';
 import { queryClient } from '@/shared/queryClient';
 
@@ -41,8 +41,19 @@ const reviewSchema = z.object({
   packagingStability: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), orderReadiness: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), handoffAccuracy: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), pickupSpaceCleanliness: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), staffInteraction: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), riderRespect: z.enum(['VERY_GOOD', 'GOOD', 'NEEDS_IMPROVEMENT', 'MAJOR_IMPROVEMENT', 'NOT_OBSERVED']), comment: z.string().trim().max(200), visitMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
 });
 
+type ValidReviewValues = z.infer<typeof reviewSchema>;
+
+export function buildCreateReviewRequest(values: ValidReviewValues, restaurantTarget: ReviewTarget): CreateReviewBody {
+  return { ...values, comment: values.comment.trim() || null, restaurantTarget };
+}
+
+export function buildUpdateReviewRequest(values: ValidReviewValues): UpdateReviewBody {
+  const { visitMonth: _visitMonth, ...ratingsAndComment } = values;
+  return { ...ratingsAndComment, comment: values.comment.trim() || null };
+}
+
 export default function ReviewCreateScreen() {
-  const params = useLocalSearchParams<{ place?: string; targetType?: string; restaurantId?: string; query?: string; kakaoPlaceId?: string; reviewId?: string }>();
+  const params = useLocalSearchParams<ReviewTargetRouteParams & { place?: string; reviewId?: string }>();
   const auth = useAuth();
   const reviewId = Number(params.reviewId);
   const editing = Number.isInteger(reviewId) && reviewId > 0;
@@ -54,14 +65,11 @@ export default function ReviewCreateScreen() {
     if (existing.data) reset({ ...existing.data.ratings, comment: existing.data.comment ?? '', visitMonth: existing.data.visitMonth });
   }, [existing.data, reset]);
   const save = useMutation({ mutationFn: async (values: z.infer<typeof reviewSchema>) => {
-    const target = params.targetType === 'EXISTING' && Number(params.restaurantId) > 0
-      ? { type: 'EXISTING' as const, restaurantId: Number(params.restaurantId) }
-      : params.targetType === 'KAKAO' && params.query && params.kakaoPlaceId
-        ? { type: 'KAKAO' as const, query: params.query, kakaoPlaceId: params.kakaoPlaceId }
-        : undefined;
+    const target = reviewTargetFromRouteParams(params);
     if (!editing && !target) throw new Error('작성할 음식점을 다시 선택해주세요.');
-    const body = { ...values, comment: values.comment.trim() || null, restaurantTarget: target, visitMonth: values.visitMonth };
-    return editing ? updateReview(reviewId, body) : createReview(body);
+    return editing
+      ? updateReview(reviewId, buildUpdateReviewRequest(values))
+      : createReview(buildCreateReviewRequest(values, target!));
   }, onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ['my-reviews'] });
     Alert.alert(editing ? '경험을 수정했어요' : '경험을 등록했어요', '내 활동에서 공개 상태를 확인할 수 있어요.', [{ text: '내 활동 보기', onPress: () => router.replace('/activity') }]);

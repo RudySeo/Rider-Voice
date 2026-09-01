@@ -12,6 +12,38 @@ import java.time.Instant
 class AggregateReviewQueryAdapterTest {
 
     @Test
+    fun `batch contributor query returns counts by restaurant in one repository call`() {
+        var callCount = 0
+        val repository = fakeRepository { method, arguments ->
+            when (method.name) {
+                "countDistinctCurrentActiveAuthorsByRestaurantIds" -> {
+                    callCount++
+                    assertThat(arguments[0]).isEqualTo(setOf(10L, 20L))
+                    assertThat(arguments[1]).isEqualTo(ReviewVisibilityStatus.ACTIVE)
+                    listOf(
+                        TestRestaurantContributorCountProjection(10L, 4L),
+                        TestRestaurantContributorCountProjection(20L, 5L),
+                    )
+                }
+                else -> unexpected(method)
+            }
+        }
+        val adapter = AggregateReviewQueryPersistenceAdapter(repository)
+
+        assertThat(adapter.countDistinctCurrentActiveAuthorsByRestaurantIds(setOf(10L, 20L)))
+            .containsExactlyEntriesOf(linkedMapOf(10L to 4, 20L to 5))
+        assertThat(callCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `empty batch contributor query does not invoke repository`() {
+        val repository = fakeRepository { method, _ -> unexpected(method) }
+        val adapter = AggregateReviewQueryPersistenceAdapter(repository)
+
+        assertThat(adapter.countDistinctCurrentActiveAuthorsByRestaurantIds(emptySet())).isEmpty()
+    }
+
+    @Test
     fun `brand and location queries retain the latest current active review per author deterministically`() {
         val older = projection(40L, 7L, "2026-07-25T03:00:00Z")
         val sameTimeHigherId = projection(41L, 7L, "2026-07-25T03:00:00Z")
@@ -51,6 +83,14 @@ class AggregateReviewQueryAdapterTest {
         assertThat(locationQuery).contains("review.restaurant.pickupLocation.id = :pickupLocationId")
         assertThat(locationQuery).contains("review.currentSlot is not null")
         assertThat(locationQuery).contains("review.deletedAt is null")
+
+        val summaryQuery = queryText("countDistinctCurrentActiveAuthorsByRestaurantIds")
+        assertThat(summaryQuery).contains("review.restaurant.id in :restaurantIds")
+        assertThat(summaryQuery).contains("count(distinct review.author.id)")
+        assertThat(summaryQuery).contains("review.visibilityStatus = :visibilityStatus")
+        assertThat(summaryQuery).contains("review.currentSlot is not null")
+        assertThat(summaryQuery).contains("review.deletedAt is null")
+        assertThat(summaryQuery).contains("group by review.restaurant.id")
     }
 
     private fun queryText(methodName: String): String =
@@ -96,4 +136,9 @@ class AggregateReviewQueryAdapterTest {
         override val staffInteraction: ReviewRating = ReviewRating.NOT_OBSERVED,
         override val riderRespect: ReviewRating = ReviewRating.GOOD,
     ) : AggregateReviewProjection
+
+    private data class TestRestaurantContributorCountProjection(
+        override val restaurantId: Long,
+        override val contributorCount: Long,
+    ) : RestaurantContributorCountProjection
 }

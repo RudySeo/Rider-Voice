@@ -13,6 +13,8 @@ import com.ridervoice.api.review.domain.VisitMonth
 import java.time.Instant
 
 interface AggregateReviewQuery {
+    fun countDistinctCurrentActiveAuthorsByRestaurantIds(restaurantIds: Set<Long>): Map<Long, Int>
+
     fun findCurrentActiveByRestaurantId(restaurantId: Long): List<AggregateReviewInput>
 
     fun findLatestCurrentActiveByPickupLocationId(pickupLocationId: Long): List<AggregateReviewInput>

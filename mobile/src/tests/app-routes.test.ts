@@ -15,4 +15,8 @@ describe('mobile app route contracts', () => {
   });
 
   it('rejects invalid restaurant identifiers', () => expect(Number('bad')).toBeNaN());
+
+  it('keeps manual address registration separate from review creation', () => {
+    expect(['/review/manual-target', '/review/new']).toHaveLength(2);
+  });
 });

@@ -246,6 +246,28 @@ internal interface SpringDataReviewRepository : JpaRepository<Review, Long> {
         @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
     ): List<AggregateReviewProjection>
 
+    @Query(
+        """
+        select review.restaurant.id as restaurantId,
+               count(distinct review.author.id) as contributorCount
+        from Review review
+        where review.restaurant.id in :restaurantIds
+          and review.visibilityStatus = :visibilityStatus
+          and review.currentSlot is not null
+          and review.deletedAt is null
+        group by review.restaurant.id
+        """,
+    )
+    fun countDistinctCurrentActiveAuthorsByRestaurantIds(
+        @Param("restaurantIds") restaurantIds: Set<Long>,
+        @Param("visibilityStatus") visibilityStatus: ReviewVisibilityStatus,
+    ): List<RestaurantContributorCountProjection>
+
+}
+
+internal interface RestaurantContributorCountProjection {
+    val restaurantId: Long
+    val contributorCount: Long
 }
 
 internal interface AggregateReviewProjection {

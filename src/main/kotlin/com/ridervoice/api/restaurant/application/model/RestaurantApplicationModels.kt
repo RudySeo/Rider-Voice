@@ -1,7 +1,7 @@
 package com.ridervoice.api.restaurant.application.model
 
-import java.math.BigDecimal
 import com.ridervoice.api.restaurant.domain.RestaurantStatus
+import java.math.BigDecimal
 
 enum class ExternalSearchStatus {
     AVAILABLE,
@@ -34,6 +34,26 @@ data class RestaurantSearchCandidate(
     val contributorCount: Int,
 )
 
+data class RestaurantBrandSummary(
+    val status: AggregationStatus,
+    val contributorCount: Int,
+) {
+    init {
+        require(contributorCount >= 0) { "Contributor count must not be negative" }
+        when (status) {
+            AggregationStatus.NO_REVIEWS -> require(contributorCount == 0) {
+                "NO_REVIEWS requires zero contributors"
+            }
+            AggregationStatus.COLLECTING -> require(contributorCount in 1..4) {
+                "COLLECTING requires one to four contributors"
+            }
+            AggregationStatus.PUBLISHED -> require(contributorCount >= 5) {
+                "PUBLISHED requires at least five contributors"
+            }
+        }
+    }
+}
+
 data class AddressSearchResult(
     val query: String,
     val candidates: List<AddressSearchCandidate>,
@@ -53,6 +73,19 @@ data class StoredRestaurantSearchCandidate(
     val name: String,
     val address: String,
 )
+
+data class StoredLinkedRestaurantSearchCandidate(
+    val restaurantId: Long,
+    val kakaoPlaceId: String,
+    val name: String,
+    val address: String,
+    val status: RestaurantStatus,
+) {
+    init {
+        require(restaurantId > 0) { "Restaurant ID must be positive" }
+        require(kakaoPlaceId.isNotBlank()) { "Kakao place ID must not be blank" }
+    }
+}
 
 data class StoredRestaurantDetail(
     val restaurantId: Long,
