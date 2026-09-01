@@ -288,8 +288,18 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 ## ADR-031: 모바일 공개 검색은 실제 API 응답만 사용한다
 
+**상태**: API 주소 선택 방식은 ADR-032로 대체했다.
+
 **선택**: 모바일 음식점 검색은 `EXPO_PUBLIC_API_BASE_URL`로 지정한 Spring Boot API만 호출하고, 주소가 없거나 연결에 실패해도 고정 mock 검색 결과로 대체하지 않는다. Expo Go는 API가 설정된 공개 조회와 UI 확인에 사용할 수 있지만 custom scheme OAuth는 네이티브 개발 빌드에서만 실행한다.
 
 **선택한 이유**: 사용자 입력과 무관한 고정 후보가 실제 검색 결과처럼 보이는 문제를 없애고, 검색 query와 서버 응답의 데이터 흐름을 개발·운영 환경에서 동일하게 유지하기 위해서다.
 
 **감수할 점**: 백엔드를 실행하지 않았거나 기기에서 접근 가능한 API 주소를 설정하지 않으면 검색 결과를 미리 볼 수 없다. 실제 기기 OAuth는 HTTPS 개발 주소와 카카오 개발자 콘솔에 등록된 정확한 backend callback URI가 필요하다.
+
+## ADR-032: 모바일 API 환경은 명시적인 local과 aws 프로필로 선택한다
+
+**선택**: Expo의 `EXPO_PUBLIC_*` 정적 인라인 방식을 유지하되 `NODE_ENV`로 환경 파일을 전환하지 않는다. 실행 명령이 `EXPO_PUBLIC_API_PROFILE`을 `local` 또는 `aws`로 지정하고, 기본 실행은 `local`을 사용한다. local은 iOS Simulator의 `localhost`, Android Emulator의 `10.0.2.2`, 실제 기기의 Metro private LAN host를 순서에 맞게 사용하며 `EXPO_PUBLIC_LOCAL_API_BASE_URL`로 재정의할 수 있다. aws는 `.env.local`의 `EXPO_PUBLIC_AWS_API_BASE_URL` HTTPS origin이 필수다.
+
+**선택한 이유**: 로컬 개발과 배포 API 선택을 단일 URL 파일의 수동 교체나 Expo가 별도로 사용하는 `NODE_ENV`에 의존하지 않고 실행 명령에서 명확하게 드러내며, 검색과 OAuth가 항상 같은 server origin을 사용하게 하기 위해서다.
+
+**감수할 점**: 프로필을 바꿀 때 실행 중인 Metro를 종료하고 해당 프로필 명령으로 다시 시작해야 한다. Expo tunnel처럼 private LAN host를 얻을 수 없는 실제 기기 local 실행은 명시적인 local override가 필요하다.

@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-import { apiBaseUrl, ApiError } from '@/shared/api/clientConfig';
+import { apiBaseUrl, apiConfiguration, ApiError } from '@/shared/api/clientConfig';
 import type { MobileSession, User } from '@/shared/api/types';
 import { resolveAuthAvailability } from '@/shared/auth/authRuntime';
 
@@ -16,7 +16,14 @@ export const getAccessToken = () => accessToken;
 export const getCurrentUser = () => currentUser;
 
 async function postSession(path: string, body: object): Promise<MobileSession> {
-  if (!apiBaseUrl) throw new ApiError('API 주소가 설정되지 않았어요.', 0);
+  if (!apiBaseUrl) {
+    const failure = 'errorMessage' in apiConfiguration ? apiConfiguration : undefined;
+    throw new ApiError(
+      failure?.errorMessage ?? 'API 주소가 설정되지 않았어요.',
+      0,
+      failure?.errorCode ?? 'API_BASE_URL_MISSING',
+    );
+  }
   let response: Response;
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {

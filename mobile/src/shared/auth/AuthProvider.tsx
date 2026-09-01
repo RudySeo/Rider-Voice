@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
 
-import { apiBaseUrl } from '@/shared/api/clientConfig';
+import { apiBaseUrl, apiConfiguration } from '@/shared/api/clientConfig';
 import type { User } from '@/shared/api/types';
 import { authAvailabilityMessage, type AuthAvailability } from '@/shared/auth/authRuntime';
 import type { LoginResult } from '@/shared/auth/loginContinuation';
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     user, restoring, availability: nativeAuthAvailability,
     login: async (intent) => {
       if (nativeAuthAvailability !== 'READY' || !apiBaseUrl) {
+        if ('errorMessage' in apiConfiguration) throw new Error(apiConfiguration.errorMessage);
         throw new Error(authAvailabilityMessage(nativeAuthAvailability));
       }
       await SecureStore.deleteItemAsync(INTENT_KEY);
