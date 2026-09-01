@@ -81,12 +81,10 @@ pnpm android:device
 
 첫 실행은 Xcode 또는 Android Studio를 사용해 개발 빌드를 생성합니다. 생성되는 `/ios`, `/android` 폴더는 Git에 포함하지 않습니다.
 
-개발 빌드가 이미 설치되어 있다면 선택한 프로필의 Metro를 다음 명령으로 다시 연결합니다. 터미널의 `w`는 로그인 확인 대상이 아닙니다.
+개발 빌드가 이미 설치되어 있다면 선택한 프로필의 Metro를 다음 명령으로 다시 연결한 뒤, iPhone 카메라로 QR 코드를 읽거나 Rider Voice 개발 앱의 launcher에서 개발 서버를 선택합니다. 터미널의 `w`는 로그인 확인 대상이 아닙니다.
 
 ```bash
-pnpm ios:aws
-# 또는
-pnpm android:aws
+pnpm dev:aws
 ```
 
 실제 기기 로그인에서는 AWS 프로필과 같은 HTTPS 주소를 앱과 백엔드에 적용합니다.
