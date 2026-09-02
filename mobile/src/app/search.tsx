@@ -11,19 +11,21 @@ import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { RestaurantRow } from '@/shared/components/RestaurantRow';
 import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
-import { manualRegistrationDestination, reviewDestination } from '@/shared/navigation/reviewNavigation';
+import { manualRegistrationDestination } from '@/shared/navigation/reviewNavigation';
+import { reviewedRestaurantRoute, reviewTargetRoute } from '@/shared/navigation/reviewRoutes';
 import { routeSearchQuery } from '@/shared/navigation/searchQuery';
 import { colors, radius, spacing } from '@/shared/theme';
 import { canWriteReview } from '@/shared/auth/roles';
 
 export default function SearchScreen() {
-  const params = useLocalSearchParams<{ query?: string }>();
+  const params = useLocalSearchParams<{ query?: string; mode?: string }>();
   const routeQuery = routeSearchQuery(params.query);
+  const reviewMode = params.mode === 'review';
 
-  return <SearchResults initialQuery={routeQuery} key={routeQuery} />;
+  return <SearchResults initialQuery={routeQuery} key={`${routeQuery}:${reviewMode}`} reviewMode={reviewMode} />;
 }
 
-function SearchResults({ initialQuery }: { initialQuery: string }) {
+function SearchResults({ initialQuery, reviewMode }: { initialQuery: string; reviewMode: boolean }) {
   const auth = useAuth();
   const [draft, setDraft] = useState(initialQuery);
   const [submitted, setSubmitted] = useState(initialQuery);
@@ -35,8 +37,8 @@ function SearchResults({ initialQuery }: { initialQuery: string }) {
   const submit = () => { const normalized = draft.trim(); if (normalized.length >= 2) setSubmitted(normalized); };
 
   return (
-    <Screen footer={<BottomTabBar active="home" />}>
-      <ScreenHeader title="검색 결과" />
+    <Screen footer={<BottomTabBar active={reviewMode ? 'review' : 'home'} />}>
+      <ScreenHeader title={reviewMode ? '리뷰할 음식점 찾기' : '검색 결과'} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.searchRow}>
           <View style={styles.field}><MaterialCommunityIcons color={colors.muted} name="magnify" size={20} /><TextInput onChangeText={setDraft} onSubmitEditing={submit} returnKeyType="search" style={styles.input} value={draft} /></View>
@@ -53,13 +55,13 @@ function SearchResults({ initialQuery }: { initialQuery: string }) {
           <>
             {search.data?.externalSearchStatus === 'UNAVAILABLE' && <View style={styles.warning}><MaterialCommunityIcons color={colors.skyStrong} name="information-outline" size={20} /><AppText color={colors.skyStrong} variant="caption">카카오 장소 검색을 잠시 사용할 수 없어 등록된 음식점만 보여드려요.</AppText></View>}
             <ResultSection count={groups.reviewed.length} title="리뷰가 있는 음식점">
-              {groups.reviewed.map((candidate) => <RestaurantRow key={`${candidate.candidateType}-${candidate.restaurantId}`} candidate={candidate} onPress={() => router.push(`/restaurant/${candidate.restaurantId}`)} />)}
+              {groups.reviewed.map((candidate) => <RestaurantRow key={`${candidate.candidateType}-${candidate.restaurantId}`} candidate={candidate} onPress={!reviewMode || writer ? () => router.push(reviewedRestaurantRoute(reviewMode, writer, { restaurantId: candidate.restaurantId!, place: candidate.name })) : undefined} />)}
             </ResultSection>
             <ResultSection count={groups.registered.length} description="Rider Voice에 등록됐지만 아직 리뷰가 없어요." title="등록된 음식점">
-              {groups.registered.map((candidate) => <RestaurantRow key={`registered-${candidate.restaurantId}`} candidate={candidate} onPress={() => router.push(`/restaurant/${candidate.restaurantId}`)} writeEligible={writer} />)}
+              {groups.registered.map((candidate) => <RestaurantRow key={`registered-${candidate.restaurantId}`} candidate={candidate} onPress={!reviewMode ? () => router.push(`/restaurant/${candidate.restaurantId}`) : writer ? () => router.push(reviewTargetRoute(true, { type: 'EXISTING', restaurantId: candidate.restaurantId!, place: candidate.name })) : undefined} writeEligible={reviewMode && writer} />)}
             </ResultSection>
             <ResultSection count={groups.kakao.length} description="선택한 장소는 서버가 같은 검색으로 다시 확인해요." title="카카오에서 찾은 장소">
-              {groups.kakao.map((candidate) => <RestaurantRow key={`kakao-${candidate.kakaoPlaceId}`} candidate={candidate} onPress={writer ? () => router.push(reviewDestination(true, { targetType: 'KAKAO', query: submitted, kakaoPlaceId: candidate.kakaoPlaceId ?? '', place: candidate.name })) : undefined} writeEligible={writer} />)}
+              {groups.kakao.map((candidate) => <RestaurantRow key={`kakao-${candidate.kakaoPlaceId}`} candidate={candidate} onPress={writer ? () => router.push(reviewTargetRoute(true, { type: 'KAKAO', query: submitted, kakaoPlaceId: candidate.kakaoPlaceId!, place: candidate.name })) : undefined} writeEligible={writer} />)}
             </ResultSection>
             {groups.reviewed.length + groups.registered.length + groups.kakao.length === 0 && <View style={styles.state}><AppText variant="label">검색 결과가 없어요</AppText><AppText color={colors.muted}>음식점 이름이나 주소를 다시 확인해주세요.</AppText></View>}
             {writer && <Pressable onPress={() => router.push(manualRegistrationDestination(true, submitted) as Href)} style={({ pressed }) => [styles.manual, pressed && styles.pressed]}>

@@ -58,7 +58,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setUser(verified);
       return verified;
     },
-    logout: async () => { await logoutMobileSession(); setUser(null); },
+    logout: async () => {
+      try { await logoutMobileSession(); } finally { setUser(null); }
+    },
   }), [restoring, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

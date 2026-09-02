@@ -78,6 +78,8 @@ export async function logoutMobileSession() {
     if (refreshToken && apiBaseUrl) await fetch(`${apiBaseUrl}/api/v1/auth/mobile/logout`, {
       method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }),
     });
+  } catch {
+    // Local logout must complete even when the server cannot be reached.
   } finally {
     await clearLocalSession();
   }

@@ -96,11 +96,16 @@ describe('Kakao authentication browser flow', () => {
     let loginResult: LoginResult | undefined;
 
     await act(async () => {
-      loginResult = await result.current.login();
+      loginResult = await result.current.login({ kind: 'activity' });
     });
 
     expect(loginResult).toEqual({ status: 'cancelled' });
 
     expect(exchangeMobileCodeMock).not.toHaveBeenCalled();
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'rider-voice.pending-intent',
+      JSON.stringify({ kind: 'activity' }),
+    );
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('rider-voice.pending-intent');
   });
 });
