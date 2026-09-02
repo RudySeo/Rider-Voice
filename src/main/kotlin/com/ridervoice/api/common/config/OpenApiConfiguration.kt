@@ -19,8 +19,8 @@ class OpenApiConfiguration {
             Info()
                 .title("Rider Voice API")
                 .description(
-                    "카카오 로그인 사용자가 작성한 픽업 경험의 공개 리뷰와 리포트를 제공하는 Rider Voice 서버 API. " +
-                        "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.",
+                    "라이더 권한 사용자가 작성한 픽업 경험의 공개 리뷰와 리포트를 제공하는 Rider Voice 서버 API. " +
+                        "내부 작성 권한은 공개 신원이나 방문 사실을 보증하지 않습니다.",
                 )
                 .version("v1"),
         )
@@ -32,7 +32,7 @@ class OpenApiConfiguration {
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
                         .bearerFormat("opaque")
-                        .description("ROLE_USER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
+                        .description("ROLE_USER, ROLE_RIDER 또는 ROLE_ADMIN 권한 API에 사용하는 Rider Voice opaque access token"),
                 ),
         )
 

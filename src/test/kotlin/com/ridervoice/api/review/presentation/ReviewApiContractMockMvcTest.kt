@@ -454,9 +454,9 @@ class ReviewApiContractMockMvcTest {
 
     private fun authenticatedUser() = authentication(
         UsernamePasswordAuthenticationToken(
-            AuthenticatedUserPrincipal(TEST_USER_ID),
+            AuthenticatedUserPrincipal(TEST_USER_ID, AuthenticatedUserPrincipal.RIDER_AUTHORITY),
             null,
-            listOf(SimpleGrantedAuthority(AuthenticatedUserPrincipal.USER_AUTHORITY)),
+            listOf(SimpleGrantedAuthority(AuthenticatedUserPrincipal.RIDER_AUTHORITY)),
         ),
     )
 

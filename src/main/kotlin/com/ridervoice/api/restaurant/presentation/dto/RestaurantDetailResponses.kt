@@ -13,10 +13,6 @@ data class RestaurantDetailResponse(
     val pickupLocation: RestaurantPickupLocationResponse,
     val brandReport: RestaurantBrandReportResponse,
     val pickupLocationReport: RestaurantPickupLocationReportResponse,
-    @field:Schema(allowableValues = ["UNVERIFIED"])
-    val verificationStatus: String,
-    @field:Schema(example = "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.")
-    val verificationNotice: String,
 )
 
 data class RestaurantPickupLocationResponse(

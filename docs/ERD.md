@@ -8,6 +8,7 @@ ERD는 서비스가 저장하는 정보와 정보 사이의 관계를 그린 문
 사용자
 ├── 카카오 계정 연결 정보
 ├── 로그인 유지 정보
+├── 라이더 권한 인증 실패 상태
 └── 작성한 리뷰
       ├── 배달 브랜드
       │     ├── 실제 픽업 장소
@@ -18,6 +19,7 @@ ERD는 서비스가 저장하는 정보와 정보 사이의 관계를 그린 문
 └── 음식점 정보 신고
 
 관리자 처리
+├── 현재 라이더 권한 인증번호
 └── 누가 무엇을 변경했는지 남기는 감사 기록
 ```
 
@@ -29,6 +31,8 @@ ERD는 서비스가 저장하는 정보와 정보 사이의 관계를 그린 문
 | --- | --- |
 | 사용자·카카오 계정 | 같은 작성자를 구분하고 중복 작성 제한을 적용하기 위해서입니다. |
 | 로그인 세션 | refresh token을 회전하고 로그아웃된 세션을 다시 사용하지 못하게 하기 위해서입니다. |
+| 라이더 권한 인증번호 | 원문 대신 BCrypt hash를 저장하고 `USER`의 리뷰 작성 권한 승격에 사용하기 위해서입니다. |
+| 인증 실패 상태 | 계정별 실패 횟수와 잠금 만료 시각을 보존해 반복 대입을 제한하기 위해서입니다. |
 | 픽업 장소 | 실제로 음식을 가져가는 장소를 배달 브랜드와 분리하기 위해서입니다. |
 | 배달 브랜드 | 소비자가 배달 앱에서 보는 음식점 단위로 리뷰를 찾기 위해서입니다. |
 | 리뷰 | 6개 평가, 자유 의견, 방문 연월과 삭제·제외 이력을 보존하기 위해서입니다. |
@@ -50,9 +54,9 @@ ERD는 서비스가 저장하는 정보와 정보 사이의 관계를 그린 문
 
 ## 1. 기준
 
-Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 11개 도메인 테이블 구조와 주요 관계를 정리합니다. 운영 schema의 최초 기준은 Flyway `V1__create_initial_schema.sql`이며 모바일 로그인 grant는 `V2__create_mobile_login_grants.sql`에서 추가하고 이후 변경도 새 versioned migration으로 반영합니다.
+Rider Voice의 현재 JPA Entity와 MySQL 8.4.10 기준 13개 도메인 테이블 구조와 주요 관계를 정리합니다. 운영 schema의 최초 기준은 Flyway `V1__create_initial_schema.sql`이며 모바일 로그인 grant는 `V2__create_mobile_login_grants.sql`, 라이더 권한 인증은 `V3__add_rider_role_and_verification.sql`에서 추가하고 이후 변경도 새 versioned migration으로 반영합니다.
 
-Flyway가 생성하는 `flyway_schema_history`는 migration 적용 이력용 관리 테이블이므로 아래 11개 도메인 테이블 수와 관계도에는 포함하지 않습니다.
+Flyway가 생성하는 `flyway_schema_history`는 migration 적용 이력용 관리 테이블이므로 아래 13개 도메인 테이블 수와 관계도에는 포함하지 않습니다.
 
 모든 테이블은 `BaseEntity`에서 다음 공통 컬럼을 사용한다
 
@@ -94,6 +98,22 @@ erDiagram
         varchar code_hash UK
         datetime expires_at
         datetime consumed_at "nullable"
+    }
+
+    RIDER_INVITE_CODES {
+        bigint id PK
+        varchar code_hash
+        int current_slot UK "nullable"
+        bigint rotated_by_user_id FK
+        datetime revoked_at "nullable"
+    }
+
+    RIDER_VERIFICATION_ATTEMPTS {
+        bigint id PK
+        bigint user_id FK,UK
+        int failed_attempt_count
+        datetime window_started_at "nullable"
+        datetime locked_until "nullable"
     }
 
     PICKUP_LOCATIONS {
@@ -178,6 +198,8 @@ erDiagram
     USERS ||--o{ OAUTH_ACCOUNTS : connects
     USERS ||--o{ USER_SESSIONS : owns
     USERS ||--o{ MOBILE_LOGIN_GRANTS : exchanges
+    USERS ||--o{ RIDER_INVITE_CODES : rotates
+    USERS ||--o| RIDER_VERIFICATION_ATTEMPTS : has
  
 
     PICKUP_LOCATIONS ||--o{ RESTAURANTS : contains
@@ -206,6 +228,8 @@ erDiagram
 | 인증 | `oauth_accounts` | 외부 OAuth 계정 연결 | `(provider, provider_subject)`, `(user_id, provider)` |
 | 인증 | `user_sessions` | refresh token 만료·폐기·회전 | `(refresh_token_hash)` |
 | 인증 | `mobile_login_grants` | 2분 유효 모바일 OAuth 교환 코드 hash와 일회성 소비 상태 | `(code_hash)` |
+| 인증 | `rider_invite_codes` | 공유 인증번호 BCrypt hash와 교체 이력 | `(current_slot)` |
+| 인증 | `rider_verification_attempts` | 계정별 인증 실패 횟수와 잠금 만료 시각 | `(user_id)` |
 | 음식점 | `pickup_locations` | 실제 픽업 장소 | `(location_key)` |
 | 음식점 | `restaurants` | 소비자에게 보이는 배달 브랜드 | `(pickup_location_id, brand_name)`, `(kakao_place_id)` |
 | 음식점 | `restaurant_platforms` | 배달 플랫폼 메타데이터 | - |
@@ -221,4 +245,6 @@ erDiagram
 - 브랜드 집계는 작성자를 중복 제거한다. 픽업 장소 집계는 같은 작성자의 여러 브랜드 리뷰 중 생성 시각과 ID가 가장 최근인 리뷰 하나만 사용한다.
 - 삭제 또는 전체 제외된 리뷰 행은 이력과 90일·24시간 제한 계산을 위해 남지만 공개 검색과 집계에서는 제외한다.
 - 수동 등록은 기존 `pickup_locations`를 재사용하거나 새 행을 만든 뒤 `restaurants`를 연결한다. 음식점과 첫 리뷰는 같은 트랜잭션에서 저장하며 별도 임시 등록 테이블은 사용하지 않는다.
-- 이번 검색 배치 조회 변경은 테이블이나 제약을 추가하지 않으므로 Flyway migration이 필요하지 않다.
+- `rider_invite_codes.current_slot=1`인 행만 현재 인증번호이며 unique 제약으로 동시에 하나만 활성화한다. 교체 시 이전 행은 폐기 시각을 남긴다.
+- 인증번호는 6자리 숫자 원문이 아니라 BCrypt hash만 저장하며 성공 시 사용자를 `USER`에서 `RIDER`로 승격한다. 실패 5회부터 15분 동안 계정별 인증을 잠근다.
+- 라이더 권한 정책 전환 시 기존 리뷰 관련 감사 기록, 리뷰 신고와 리뷰는 한 번 비우되 사용자, 음식점과 음식점 정보 신고는 보존한다.

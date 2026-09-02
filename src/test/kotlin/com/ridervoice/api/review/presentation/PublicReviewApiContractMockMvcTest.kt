@@ -81,8 +81,8 @@ class PublicReviewApiContractMockMvcTest {
             jsonPath("$.items[0].authorActivity.authorId") { doesNotExist() }
             jsonPath("$.items[0].authorActivity.publicAuthorId") { doesNotExist() }
             jsonPath("$.items[0].authorActivity.nickname") { doesNotExist() }
-            jsonPath("$.items[0].verificationStatus") { value("UNVERIFIED") }
-            jsonPath("$.items[0].verificationNotice") { value(PublicReviewListService.VERIFICATION_NOTICE) }
+            jsonPath("$.items[0].verificationStatus") { doesNotExist() }
+            jsonPath("$.items[0].verificationNotice") { doesNotExist() }
             jsonPath("$.nextCursor") { value(null) }
         }
 
@@ -110,10 +110,8 @@ class PublicReviewApiContractMockMvcTest {
             jsonPath("$.paths['/api/v1/restaurants/{restaurantId}/reviews'].get.responses['200'].content['application/json'].schema['\$ref']") {
                 value("#/components/schemas/PublicReviewListResponse")
             }
-            jsonPath("$.components.schemas.PublicReviewListItemResponse.properties.verificationStatus.enum") {
-                value(containsInAnyOrder("UNVERIFIED"))
-            }
-            jsonPath("$.components.schemas.PublicReviewListItemResponse.properties.verificationNotice") { exists() }
+            jsonPath("$.components.schemas.PublicReviewListItemResponse.properties.verificationStatus") { doesNotExist() }
+            jsonPath("$.components.schemas.PublicReviewListItemResponse.properties.verificationNotice") { doesNotExist() }
             jsonPath("$.components.schemas.PublicReviewAuthorActivityResponse.properties") {
                 value(org.hamcrest.Matchers.aMapWithSize<String, Any>(2))
             }
@@ -140,7 +138,5 @@ class PublicReviewApiContractMockMvcTest {
         comment = "공개 의견",
         authorActivity = PublicReviewAuthorActivityResult(3, 8L),
         createdAt = Instant.parse("2026-07-25T03:00:00Z"),
-        verificationStatus = "UNVERIFIED",
-        verificationNotice = PublicReviewListService.VERIFICATION_NOTICE,
     )
 }

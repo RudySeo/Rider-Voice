@@ -1,5 +1,6 @@
 package com.ridervoice.api.review.application
 
+import com.ridervoice.api.auth.application.port.`in`.EnsureReviewWriterUseCase
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.common.error.ResourceNotFoundException
 import com.ridervoice.api.common.persistence.BaseEntity
@@ -84,7 +85,7 @@ class ReviewOwnerServiceTest {
     private fun fixture(active: Review?, listed: List<Review> = emptyList()): Fixture {
         val repository = FakeReviewRepository(active, listed)
         return Fixture(
-            ReviewOwnerService(repository, Clock.fixed(NOW, ZoneOffset.UTC)),
+            ReviewOwnerService(repository, EnsureReviewWriterUseCase { }, Clock.fixed(NOW, ZoneOffset.UTC)),
             repository,
         )
     }

@@ -97,13 +97,9 @@ data class PublicReviewListItemResult(
     val comment: String?,
     val authorActivity: PublicReviewAuthorActivityResult,
     val createdAt: Instant,
-    val verificationStatus: String,
-    val verificationNotice: String,
 ) {
     init {
         require(reviewId > 0) { "Review ID must be positive" }
-        require(verificationStatus == "UNVERIFIED") { "Public reviews must be unverified" }
-        require(verificationNotice.isNotBlank()) { "Verification notice must not be blank" }
     }
 }
 

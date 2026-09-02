@@ -28,6 +28,21 @@ enum class ApiErrorCode(
         "Access denied",
         "Access is denied.",
     ),
+    RIDER_VERIFICATION_FAILED(
+        HttpStatus.BAD_REQUEST,
+        "Rider verification failed",
+        "The rider verification code is invalid.",
+    ),
+    RIDER_VERIFICATION_RATE_LIMITED(
+        HttpStatus.TOO_MANY_REQUESTS,
+        "Rider verification rate limited",
+        "Rider verification is temporarily locked for this account.",
+    ),
+    RIDER_VERIFICATION_UNAVAILABLE(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "Rider verification unavailable",
+        "Rider verification is temporarily unavailable.",
+    ),
     RESOURCE_NOT_FOUND(
         HttpStatus.NOT_FOUND,
         "Resource not found",

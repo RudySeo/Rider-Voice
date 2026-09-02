@@ -22,4 +22,10 @@ class User : BaseEntity() {
     @field:Column(nullable = false, length = 32)
     final var status: UserStatus = UserStatus.ACTIVE
         private set
+
+    fun promoteToRider(): Boolean {
+        if (role != UserRole.USER) return false
+        role = UserRole.RIDER
+        return true
+    }
 }

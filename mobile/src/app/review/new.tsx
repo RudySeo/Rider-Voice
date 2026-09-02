@@ -18,6 +18,7 @@ import { createReview, getMyReview, updateReview } from '@/shared/api/reviews';
 import { reviewTargetFromRouteParams, type ReviewTargetRouteParams } from '@/shared/api/reviewTargets';
 import { useAuth } from '@/shared/auth/AuthProvider';
 import { queryClient } from '@/shared/queryClient';
+import { canWriteReview } from '@/shared/auth/roles';
 
 const questions = [
   { key: 'packagingStability', title: '포장 안정성은 어땠나요?', category: '배달 준비', icon: 'cube-outline' as const, color: colors.apricot },
@@ -54,6 +55,9 @@ export default function ReviewCreateScreen() {
   useEffect(() => {
     if (existing.data) reset({ ...existing.data.ratings, comment: existing.data.comment ?? '', visitMonth: existing.data.visitMonth });
   }, [existing.data, reset]);
+  useEffect(() => {
+    if (!auth.restoring && auth.user && !canWriteReview(auth.user)) router.replace('/activity');
+  }, [auth.restoring, auth.user]);
   const save = useMutation({ mutationFn: async (values: z.infer<typeof reviewSchema>) => {
     const target = reviewTargetFromRouteParams(params);
     if (!editing && !target) throw new Error('작성할 음식점을 다시 선택해주세요.');
@@ -83,6 +87,7 @@ export default function ReviewCreateScreen() {
   };
 
   if (!auth.user || usesMockApi) return <Screen><ScreenHeader title={editing ? '리뷰 수정' : '리뷰 작성'} /><View style={styles.locked}><AppText variant="label">{usesMockApi ? '공개 미리보기에서는 리뷰를 변경할 수 없어요.' : '리뷰를 작성하려면 로그인이 필요해요.'}</AppText><PrimaryButton label="로그인 화면으로" onPress={() => router.replace('/login?next=/review/new')} /></View></Screen>;
+  if (!canWriteReview(auth.user)) return <Screen><ScreenHeader title={editing ? '리뷰 수정' : '리뷰 작성'} /><View style={styles.locked}><AppText variant="label">리뷰 작성에는 라이더 권한이 필요해요.</AppText><PrimaryButton label="내 활동에서 인증하기" onPress={() => router.replace('/activity')} /></View></Screen>;
 
   return (
     <Screen>

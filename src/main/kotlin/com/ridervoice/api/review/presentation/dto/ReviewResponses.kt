@@ -63,10 +63,6 @@ data class PublicReviewListItemResponse(
     val comment: String?,
     val authorActivity: PublicReviewAuthorActivityResponse,
     val createdAt: Instant,
-    @field:Schema(allowableValues = ["UNVERIFIED"])
-    val verificationStatus: String,
-    @field:Schema(example = "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.")
-    val verificationNotice: String,
 )
 
 data class PublicReviewAuthorActivityResponse(

@@ -59,6 +59,12 @@
       "dir": "11-frontend-prototype",
       "status": "completed",
       "completed_at": "2026-07-29T01:30:33+0900"
+    },
+    {
+      "dir": "12-rider-role-review-access",
+      "status": "completed",
+      "summary": "공용 6자리 코드 기반 USER→RIDER 승격, 실패 잠금, RIDER/ADMIN 리뷰 쓰기 권한, 공개 미인증 계약 제거와 모바일 역할별 UI를 구현하고 전체 빌드·로컬 MySQL 통합·모바일 회귀를 통과했다. 전용 DB 환경값이 없어 migrationTest 실행만 생략했다.",
+      "completed_at": "2026-09-02T20:34:00+0900"
     }
   ]
 }

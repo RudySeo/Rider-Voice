@@ -177,12 +177,10 @@ Docker API의 8080 binding이 `127.0.0.1`인지 확인하고 외부에서 `http:
 Prometheus와 Grafana는 개발 PC에서 필요할 때만 실행한다. 로컬 Spring API를 `localhost:8080`에서 먼저 실행하고 저장소 루트에서 다음 명령을 사용한다.
 
 ```bash
-cp monitoring/.env.example monitoring/.env
-# monitoring/.env의 GRAFANA_ADMIN_PASSWORD를 로컬 전용 값으로 변경
-docker compose --env-file monitoring/.env -f monitoring/compose.yml up --detach
+docker compose -f monitoring/compose.yml up --detach
 ```
 
-Grafana는 `http://localhost:3000`, Prometheus는 `http://localhost:9090`에서 확인한다. 종료할 때는 `down`으로 local volume을 보존하고 데이터를 의도적으로 초기화할 때만 `down --volumes`를 사용한다. 운영 문제는 공개 health endpoint, application log와 SSM 진단으로 확인한다.
+Grafana는 `http://localhost:3000`에서 기본 계정 `admin` / `admin`으로, Prometheus는 `http://localhost:9090`에서 확인한다. Prometheus datasource는 자동으로 연결되고 dashboard는 Grafana 화면에서 직접 만든다. 종료할 때는 `down`으로 local volume을 보존하고 데이터를 의도적으로 초기화할 때만 `down --volumes`를 사용한다. 운영 문제는 공개 health endpoint, application log와 SSM 진단으로 확인한다.
 
 ## 8. GitHub OIDC deploy role
 

@@ -5,6 +5,7 @@ import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
 import com.ridervoice.api.auth.application.port.`in`.ExchangeMobileLoginUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
+import com.ridervoice.api.auth.application.port.`in`.VerifyRiderUseCase
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
 import com.ridervoice.api.auth.presentation.UserController
@@ -97,6 +98,9 @@ class FoundationVerificationTest {
     class TestApplication {
         @Bean
         fun getCurrentUser(): GetCurrentUserUseCase = mock(GetCurrentUserUseCase::class.java)
+
+        @Bean
+        fun verifyRider(): VerifyRiderUseCase = mock(VerifyRiderUseCase::class.java)
 
         @Bean
         fun exchangeMobileLogin(): ExchangeMobileLoginUseCase = mock(ExchangeMobileLoginUseCase::class.java)

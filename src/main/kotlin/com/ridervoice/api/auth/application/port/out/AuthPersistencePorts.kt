@@ -5,6 +5,8 @@ import com.ridervoice.api.auth.domain.MobileLoginGrant
 import com.ridervoice.api.auth.domain.OAuthProvider
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.auth.domain.UserSession
+import com.ridervoice.api.auth.domain.RiderInviteCode
+import com.ridervoice.api.auth.domain.RiderVerificationAttempt
 
 interface UserStore {
     fun findUser(userId: Long): User?
@@ -25,4 +27,19 @@ interface UserSessionStore {
 interface MobileLoginGrantStore {
     fun findGrantForUpdate(codeHash: String): MobileLoginGrant?
     fun saveGrant(grant: MobileLoginGrant): MobileLoginGrant
+}
+
+interface RiderInviteCodeStore {
+    fun findCurrentForUpdate(): RiderInviteCode?
+    fun saveCode(code: RiderInviteCode): RiderInviteCode
+}
+
+interface RiderVerificationAttemptStore {
+    fun findByUserIdForUpdate(userId: Long): RiderVerificationAttempt?
+    fun saveAttempt(attempt: RiderVerificationAttempt): RiderVerificationAttempt
+}
+
+interface RiderCodeHasher {
+    fun hash(rawCode: String): String
+    fun matches(rawCode: String, encodedCode: String): Boolean
 }

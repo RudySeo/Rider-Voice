@@ -34,7 +34,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
 
         assertThat(entityManagerFactory.isOpen).isTrue()
         assertThat(tables).containsAll(DOMAIN_TABLES + "flyway_schema_history")
-        assertThat(successfulMigrationVersions()).containsExactly("1", "2")
+        assertThat(successfulMigrationVersions()).containsExactly("1", "2", "3")
     }
 
     @Test
@@ -42,7 +42,7 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
         val result = flyway.migrate()
 
         assertThat(result.migrationsExecuted).isZero()
-        assertThat(successfulMigrationVersions()).containsExactly("1", "2")
+        assertThat(successfulMigrationVersions()).containsExactly("1", "2", "3")
     }
 
     @Test
@@ -80,6 +80,8 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
             "uk_review_reports_reporter_review",
             "uk_restaurant_info_reports_reporter_restaurant",
             "uk_mobile_login_grants_code_hash",
+            "uk_rider_invite_codes_current_slot",
+            "uk_rider_verification_attempts_user",
         )
     }
 
@@ -106,6 +108,8 @@ class FlywayMigrationIntegrationTest @Autowired constructor(
             "restaurant_info_reports",
             "moderation_audits",
             "mobile_login_grants",
+            "rider_invite_codes",
+            "rider_verification_attempts",
         )
     }
 }

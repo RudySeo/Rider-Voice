@@ -1,6 +1,6 @@
 import { requestJson, usesMockApi } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated';
-import type { MyReview, MyReviewListResponse, RatingValue } from '@/shared/api/types';
+import type { DeleteReviewResponse, MyReview, MyReviewListResponse, RatingValue } from '@/shared/api/types';
 
 export type CreateReviewBody = components['schemas']['CreateReviewRequest'];
 export type UpdateReviewBody = components['schemas']['UpdateReviewRequest'];
@@ -11,7 +11,7 @@ export function updateReview(reviewId: number, body: UpdateReviewBody): Promise<
   requireRealApi();
   return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
-export function deleteReview(reviewId: number): Promise<void> { requireRealApi(); return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'DELETE' }); }
+export function deleteReview(reviewId: number): Promise<DeleteReviewResponse> { requireRealApi(); return requestJson(`/api/v1/reviews/${reviewId}`, { method: 'DELETE' }); }
 export function getMyReview(reviewId: number): Promise<MyReview> { requireRealApi(); return requestJson(`/api/v1/reviews/${reviewId}`); }
 export function getMyReviews(cursor?: string): Promise<MyReviewListResponse> {
   requireRealApi();

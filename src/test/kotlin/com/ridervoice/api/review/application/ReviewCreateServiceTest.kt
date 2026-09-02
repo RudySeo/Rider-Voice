@@ -1,5 +1,6 @@
 package com.ridervoice.api.review.application
 
+import com.ridervoice.api.auth.application.port.`in`.EnsureReviewWriterUseCase
 import com.ridervoice.api.common.error.StateConflictException
 import com.ridervoice.api.restaurant.application.port.`in`.ExistingRestaurantTargetCommand
 import com.ridervoice.api.restaurant.application.port.`in`.ResolveValidatedRestaurantTargetUseCase
@@ -40,7 +41,7 @@ class ReviewCreateServiceTest {
 
         val result = fixture.service.create(command("  즉시 공개할 의견  "))
 
-        assertThat(fixture.events).startsWith("validate", "transaction.begin", "resolve", "review.save")
+        assertThat(fixture.events).startsWith("authorize", "validate", "transaction.begin", "resolve", "review.save")
         assertThat(result.comment).isEqualTo("즉시 공개할 의견")
         assertThat(result.commentModerationStatus).isEqualTo(ReviewCommentStatus.PUBLISHED)
         assertThat(fixture.transactions.commits).isEqualTo(1)
@@ -113,6 +114,7 @@ class ReviewCreateServiceTest {
                 events += "resolve"
                 ResolvedRestaurantTargetResult(RESTAURANT_ID)
             },
+            ensureReviewWriter = EnsureReviewWriterUseCase { events += "authorize" },
             reviews = reviews,
             transactionManager = transactions,
             clock = Clock.fixed(now, ZoneOffset.UTC),

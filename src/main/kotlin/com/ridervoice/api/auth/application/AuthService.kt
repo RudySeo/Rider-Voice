@@ -137,6 +137,10 @@ class AuthService(
 
     private fun authenticatedPrincipal(user: User): AuthenticatedUserPrincipal = when (user.role) {
         UserRole.USER -> AuthenticatedUserPrincipal(user.id)
+        UserRole.RIDER -> AuthenticatedUserPrincipal(
+            user.id,
+            AuthenticatedUserPrincipal.RIDER_AUTHORITY,
+        )
         UserRole.ADMIN -> AuthenticatedUserPrincipal(
             user.id,
             AuthenticatedUserPrincipal.ADMIN_AUTHORITY,

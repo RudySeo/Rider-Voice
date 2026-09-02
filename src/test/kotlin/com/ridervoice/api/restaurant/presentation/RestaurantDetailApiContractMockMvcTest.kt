@@ -86,8 +86,8 @@ class RestaurantDetailApiContractMockMvcTest {
             jsonPath("$.pickupLocationReport.metrics.pickupSpaceCleanliness.distribution.VERY_GOOD") {
                 value(50.0)
             }
-            jsonPath("$.verificationStatus") { value("UNVERIFIED") }
-            jsonPath("$.verificationNotice") { value(PublicRestaurantDetailService.VERIFICATION_NOTICE) }
+            jsonPath("$.verificationStatus") { doesNotExist() }
+            jsonPath("$.verificationNotice") { doesNotExist() }
             jsonPath("$.pickupLocation.restaurants") { doesNotExist() }
             jsonPath("$.pickupLocation.brands") { doesNotExist() }
             jsonPath("$.siblingBrands") { doesNotExist() }
@@ -106,7 +106,7 @@ class RestaurantDetailApiContractMockMvcTest {
     }
 
     @Test
-    fun `OpenAPI exposes public detail reports and verification contract`() {
+    fun `OpenAPI exposes public detail reports without verification fields`() {
         mockMvc.get("/v3/api-docs").andExpect {
             status { isOk() }
             jsonPath("$.paths['/api/v1/restaurants/{restaurantId}'].get.security") { doesNotExist() }
@@ -119,10 +119,8 @@ class RestaurantDetailApiContractMockMvcTest {
             jsonPath("$.paths['/api/v1/restaurants/{restaurantId}'].get.responses['404'].content['application/problem+json']") {
                 exists()
             }
-            jsonPath("$.components.schemas.RestaurantDetailResponse.properties.verificationStatus.enum") {
-                value(containsInAnyOrder("UNVERIFIED"))
-            }
-            jsonPath("$.components.schemas.RestaurantDetailResponse.properties.verificationNotice") { exists() }
+            jsonPath("$.components.schemas.RestaurantDetailResponse.properties.verificationStatus") { doesNotExist() }
+            jsonPath("$.components.schemas.RestaurantDetailResponse.properties.verificationNotice") { doesNotExist() }
             jsonPath("$.components.schemas.RestaurantDetailResponse.properties.pickupLocation") { exists() }
             jsonPath("$.components.schemas.RestaurantDetailResponse.properties.brandReport") { exists() }
             jsonPath("$.components.schemas.RestaurantDetailResponse.properties.pickupLocationReport") { exists() }
@@ -161,8 +159,6 @@ class RestaurantDetailApiContractMockMvcTest {
                 5,
                 RestaurantPickupLocationReportMetrics(metric, metric, metric),
             ),
-            verificationStatus = "UNVERIFIED",
-            verificationNotice = PublicRestaurantDetailService.VERIFICATION_NOTICE,
         )
     }
 }

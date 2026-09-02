@@ -1,5 +1,6 @@
 package com.ridervoice.api.review.application
 
+import com.ridervoice.api.auth.application.port.`in`.EnsureReviewWriterUseCase
 import com.ridervoice.api.common.error.ResourceNotFoundException
 import com.ridervoice.api.review.application.model.MyReviewListResult
 import com.ridervoice.api.review.application.model.ReviewCursor
@@ -23,6 +24,7 @@ import java.time.Clock
 @Service
 internal class ReviewOwnerService(
     private val reviews: ReviewRepository,
+    private val ensureReviewWriter: EnsureReviewWriterUseCase,
     private val clock: Clock,
 ) : UpdateReviewUseCase, DeleteReviewUseCase, ListMyReviewsUseCase, GetOwnedReviewUseCase {
 
@@ -32,6 +34,7 @@ internal class ReviewOwnerService(
 
     @Transactional
     override fun update(command: UpdateReviewCommand): ReviewResult {
+        ensureReviewWriter.ensureEligible(command.authorUserId)
         val review = reviews.findOwnedActiveForUpdate(command.authorUserId, command.reviewId)
             ?: throw reviewNotFound()
 

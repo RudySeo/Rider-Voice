@@ -25,7 +25,7 @@ class RestaurantDetailController(
 ) {
     @Operation(
         summary = "음식점 상세 조회",
-        description = "배달 브랜드, 픽업 장소, 브랜드·장소 리포트와 미인증 안내를 반환합니다.",
+        description = "배달 브랜드, 픽업 장소와 브랜드·장소 리포트를 반환합니다.",
     )
     @ApiResponses(
         ApiResponse(responseCode = "200", description = "음식점 상세 조회 성공"),
