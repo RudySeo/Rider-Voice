@@ -59,13 +59,11 @@ export const mockRestaurantDetail: RestaurantDetail = {
       riderRespect: { observedCount: 6, notObservedCount: 2, distribution: { VERY_GOOD: 50, GOOD: 33.3, NEEDS_IMPROVEMENT: 16.7 }, score: 4.1 },
     },
   },
-  verificationStatus: 'UNVERIFIED',
-  verificationNotice: '카카오 로그인 사용자가 작성한 경험이며 라이더 신분과 실제 방문 여부는 인증되지 않았습니다.',
 };
 
 export const mockPublicReviews: PublicReview[] = [
-  { reviewId: 1, visitMonth: '2026-08', comment: '포장은 안정적이었고 주문 확인이 빨랐어요.', createdAt: '2026-08-22T08:00:00Z', ratings: { pickupSpaceCleanliness: 'GOOD', packagingStability: 'VERY_GOOD', orderReadiness: 'GOOD', handoffAccuracy: 'VERY_GOOD', staffInteraction: 'GOOD', riderRespect: 'GOOD' }, authorActivity: { activityMonths: 3, publicReviewCount: 4 }, verificationStatus: 'UNVERIFIED', verificationNotice: '라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.' },
-  { reviewId: 2, visitMonth: '2026-08', comment: '주문은 준비되어 있었지만 픽업 공간이 조금 복잡했어요.', createdAt: '2026-08-19T10:00:00Z', ratings: { pickupSpaceCleanliness: 'NEEDS_IMPROVEMENT', packagingStability: 'GOOD', orderReadiness: 'GOOD', handoffAccuracy: 'GOOD', staffInteraction: 'GOOD', riderRespect: 'NOT_OBSERVED' }, authorActivity: { activityMonths: 2, publicReviewCount: 2 }, verificationStatus: 'UNVERIFIED', verificationNotice: '라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다.' },
+  { reviewId: 1, visitMonth: '2026-08', comment: '포장은 안정적이었고 주문 확인이 빨랐어요.', createdAt: '2026-08-22T08:00:00Z', ratings: { pickupSpaceCleanliness: 'GOOD', packagingStability: 'VERY_GOOD', orderReadiness: 'GOOD', handoffAccuracy: 'VERY_GOOD', staffInteraction: 'GOOD', riderRespect: 'GOOD' }, authorActivity: { activityMonths: 3, publicReviewCount: 4 } },
+  { reviewId: 2, visitMonth: '2026-08', comment: '주문은 준비되어 있었지만 픽업 공간이 조금 복잡했어요.', createdAt: '2026-08-19T10:00:00Z', ratings: { pickupSpaceCleanliness: 'NEEDS_IMPROVEMENT', packagingStability: 'GOOD', orderReadiness: 'GOOD', handoffAccuracy: 'GOOD', staffInteraction: 'GOOD', riderRespect: 'NOT_OBSERVED' }, authorActivity: { activityMonths: 2, publicReviewCount: 2 } },
 ];
 
 export const mockMyReviews: MyReview[] = [

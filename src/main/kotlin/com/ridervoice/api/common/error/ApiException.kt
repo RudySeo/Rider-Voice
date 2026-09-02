@@ -12,6 +12,19 @@ class BadRequestException(message: String? = null, cause: Throwable? = null) :
 class AuthenticationRequiredException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.AUTHENTICATION_REQUIRED, message, cause)
 
+class AccessDeniedException(message: String? = null, cause: Throwable? = null) :
+    ApiException(ApiErrorCode.ACCESS_DENIED, message, cause)
+
+class RiderVerificationFailedException(message: String? = null) :
+    ApiException(ApiErrorCode.RIDER_VERIFICATION_FAILED, message)
+
+class RiderVerificationRateLimitException(
+    val retryAfterSeconds: Long,
+) : ApiException(ApiErrorCode.RIDER_VERIFICATION_RATE_LIMITED)
+
+class RiderVerificationUnavailableException :
+    ApiException(ApiErrorCode.RIDER_VERIFICATION_UNAVAILABLE)
+
 class ResourceNotFoundException(message: String? = null, cause: Throwable? = null) :
     ApiException(ApiErrorCode.RESOURCE_NOT_FOUND, message, cause)
 

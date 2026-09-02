@@ -26,7 +26,7 @@ class CiChangeDetectionTest(unittest.TestCase):
             "build.gradle.kts",
             "Dockerfile",
             "deploy/github/send-ssm-deploy.sh",
-            "monitoring/prometheus.yml",
+            "monitoring/prometheus/prometheus-local.yml",
         ):
             with self.subTest(path=path):
                 self.assertEqual(

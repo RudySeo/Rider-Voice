@@ -33,10 +33,8 @@ class PublicRestaurantDetailServiceTest {
         assertThat(result.pickupLocation.pickupLocationId).isEqualTo(30L)
         assertThat(result.brandReport.status).isEqualTo(AggregationStatus.COLLECTING)
         assertThat(result.pickupLocationReport.status).isEqualTo(AggregationStatus.PUBLISHED)
-        assertThat(result.verificationStatus).isEqualTo("UNVERIFIED")
-        assertThat(result.verificationNotice).isEqualTo(PublicRestaurantDetailService.VERIFICATION_NOTICE)
         assertThat(result::class.java.declaredFields.map { it.name })
-            .doesNotContain("restaurants", "brands", "siblingBrands")
+            .doesNotContain("restaurants", "brands", "siblingBrands", "verificationStatus", "verificationNotice")
     }
 
     @Test

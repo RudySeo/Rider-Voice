@@ -32,16 +32,10 @@ class PublicRestaurantDetailService(
             ),
             brandReport = reports.getBrandReport(detail.restaurantId),
             pickupLocationReport = reports.getPickupLocationReport(detail.pickupLocationId),
-            verificationStatus = VERIFICATION_STATUS,
-            verificationNotice = VERIFICATION_NOTICE,
         )
     }
 
     override fun resolve(restaurantId: Long): Long = restaurantDetails.findDetail(restaurantId)?.restaurantId
         ?: throw ResourceNotFoundException("Restaurant not found")
 
-    companion object {
-        const val VERIFICATION_STATUS = "UNVERIFIED"
-        const val VERIFICATION_NOTICE = "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다."
-    }
 }

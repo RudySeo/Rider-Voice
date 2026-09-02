@@ -128,7 +128,7 @@ class MasterCiCdWorkflowTest(unittest.TestCase):
         self.assertNotIn("--name rider-voice-prometheus-smoke", self.pr_content)
         self.assertNotIn("--name rider-voice-grafana-smoke", self.pr_content)
         self.assertIn("up{job=", self.pr_content)
-        self.assertIn("GRAFANA_ADMIN_PASSWORD: ci-grafana-password", self.pr_content)
+        self.assertNotIn("GRAFANA_ADMIN_PASSWORD", self.pr_content)
         self.assertNotIn("GRAFANA_ROOT_URL", self.pr_content)
         self.assertIn("http://127.0.0.1:3000/api/health", self.pr_content)
 

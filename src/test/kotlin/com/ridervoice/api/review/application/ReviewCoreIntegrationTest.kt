@@ -1,5 +1,6 @@
 package com.ridervoice.api.review.application
 
+import com.ridervoice.api.auth.application.port.`in`.EnsureReviewWriterUseCase
 import com.ridervoice.api.auth.application.port.out.UserStore
 import com.ridervoice.api.auth.domain.User
 import com.ridervoice.api.common.error.ResourceNotFoundException
@@ -253,7 +254,14 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
             },
             targetWriter = targetWriter,
         )
-        return ReviewCreateService(validator, targetResolver, reviews, transactionManager, CLOCK)
+        return ReviewCreateService(
+            validator,
+            targetResolver,
+            EnsureReviewWriterUseCase { },
+            reviews,
+            transactionManager,
+            CLOCK,
+        )
     }
 
     private fun createCommand(authorId: Long, target: RestaurantTargetCommand) = CreateReviewCommand(
@@ -264,7 +272,7 @@ class ReviewCoreIntegrationTest : MySqlIntegrationTest() {
         comment = null,
     )
 
-    private fun userFixture(): User = users.saveUser(User()).also { authorIds += it.id }
+    private fun userFixture(): User = users.saveUser(User().also { it.promoteToRider() }).also { authorIds += it.id }
 
     private fun restaurantFixture(label: String): RestaurantFixture {
         val location = pickupLocations.save(

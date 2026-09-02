@@ -8,23 +8,27 @@ import { colors, radius, spacing } from '@/shared/theme';
 
 type RestaurantRowProps = {
   candidate: RestaurantSearchCandidate;
-  onPress: () => void;
+  onPress?: () => void;
+  writeEligible?: boolean;
 };
 
-export function RestaurantRow({ candidate, onPress }: RestaurantRowProps) {
+export const candidateStatusLabel = (candidate: RestaurantSearchCandidate, writeEligible: boolean) =>
+  candidate.aggregationStatus === 'NO_REVIEWS' && !writeEligible ? '아직 등록된 경험이 없어요' : experienceLabel(candidate);
+
+export function RestaurantRow({ candidate, onPress, writeEligible = false }: RestaurantRowProps) {
   const reviewed = candidate.aggregationStatus !== 'NO_REVIEWS';
   const accent = reviewed ? colors.resultDeep : colors.jade;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View style={[styles.icon, { backgroundColor: reviewed ? colors.resultSoft : '#F2F4F5' }]}>
         <MaterialCommunityIcons color={reviewed ? colors.resultAccent : colors.muted} name={reviewed ? 'store-outline' : 'map-marker-outline'} size={21} />
       </View>
       <View style={styles.copy}>
         <AppText variant="label">{candidate.name}</AppText>
         <AppText color={colors.muted} numberOfLines={1} variant="caption">{candidate.address}</AppText>
-        <AppText color={accent} style={styles.status} variant="caption" weight="700">{experienceLabel(candidate)}</AppText>
+        <AppText color={accent} style={styles.status} variant="caption" weight="700">{candidateStatusLabel(candidate, writeEligible)}</AppText>
       </View>
-      <MaterialCommunityIcons color={colors.muted} name="chevron-right" size={21} />
+      {onPress && <MaterialCommunityIcons color={colors.muted} name="chevron-right" size={21} />}
     </Pressable>
   );
 }

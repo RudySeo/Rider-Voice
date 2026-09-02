@@ -15,10 +15,10 @@ The source captures are 865 × 791 px and include the prototype canvas, iPhone b
 
 ## Full-view comparison
 
-- Home: hierarchy, search control, trust disclosure, three information rows, and persistent navigation match the selected composition.
+- Home: hierarchy, search control, three information rows, and persistent navigation match the selected composition. The former public verification banner has been removed by the current role policy.
 - Search: the reviewed/Kakao grouping, counts, row density, purple reviewed-place accent, and first-review action remain clear without distance metadata.
-- Detail: trust disclosure, helmet score treatment, information density, dividers, and fixed bottom navigation match the selected direction.
-- Login: centered brand block, two reassurance rows, Kakao CTA, secondary action, and trust note match.
+- Detail: helmet score treatment, information density, dividers, and fixed bottom navigation match the selected direction; review-writing actions are role-gated.
+- Login: centered brand block, two reassurance rows, Kakao CTA, secondary action, and account-identification note match.
 - Review: question header, progress, first-review note, five radio choices, privacy note, and fixed CTA match. The optional comment is intentionally deferred to the sixth step rather than repeated on every metric step.
 - Activity: profile header, two summary cards, recent-review rows, outline CTA, and navigation match.
 
@@ -35,9 +35,9 @@ These focused regions were readable at 1:1 density; no additional enlargement wa
 
 - Fonts and typography: official LINE Seed KR Regular/Bold files are bundled and the browser reports `LINESeedKR-Bold` for display text. Sizes, line heights, hierarchy, wrapping, and 1.5× font scaling policy are consistent with the design system.
 - Spacing and layout rhythm: 22 px screen gutters, 4 px-based spacing tokens, section gaps, radii, separators, and fixed navigation/CTA areas are consistent across screens. No persistent controls are clipped.
-- Colors and visual tokens: jade primary, pale mint surfaces, sky trust banner, periwinkle reviewed-place accent, apricot/lavender/mint category tiles, and amber helmet score are consistently applied with sufficient foreground contrast.
+- Colors and visual tokens: jade primary, pale mint surfaces, periwinkle reviewed-place accent, apricot/lavender/mint category tiles, and amber helmet score are consistently applied with sufficient foreground contrast.
 - Image quality and asset fidelity: all interface symbols use `@expo/vector-icons`; the helmet uses the library `racing-helmet` glyph rather than a text symbol or custom drawing. There are no blurred, stretched, placeholder, or approximate raster assets in the evaluated screens.
-- Copy and content: the unverified-status disclosure, five-author publication rule, review labels, Kakao place state, login explanation, and privacy copy match the approved product trust boundary. Distance and nearest-ordering copy are absent.
+- Copy and content: the five-author publication rule, role-gated review labels, Kakao place state, login explanation, and privacy copy match the approved product boundary. Public verification status copy, distance, and nearest-ordering copy are absent.
 
 ## Findings
 

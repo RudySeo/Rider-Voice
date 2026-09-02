@@ -19,7 +19,7 @@ export default function LoginScreen() {
   const params = useLocalSearchParams<LoginParams>();
   const auth = useAuth();
   const [loading, setLoading] = useState(false);
-  const purpose = params.place ? `${params.place}의 경험을 작성하려면` : '리뷰 작성과 내 활동을 이용하려면';
+  const purpose = '내 활동을 이용하려면';
 
   const startLogin = async () => {
     if (auth.availability !== 'READY') {
@@ -52,7 +52,7 @@ export default function LoginScreen() {
           <Benefit title="작성자 이름과 프로필은 공개되지 않아요" description="내 활동에서 작성한 경험만 관리할 수 있어요." />
         </View>
         <View style={styles.actions}><PrimaryButton label="카카오로 계속하기" loading={loading} onPress={startLogin} tone="kakao" /><Pressable onPress={() => router.back()} style={styles.later}><AppText color={colors.muted} variant="caption">나중에 하기</AppText></Pressable></View>
-        <View style={styles.notice}><MaterialCommunityIcons color={colors.skyStrong} name="information-outline" size={20} /><AppText color={colors.muted} style={styles.noticeCopy} variant="caption">카카오 로그인은 계정 식별에만 사용해요. 라이더 신분이나 음식점 방문 사실을 인증하지 않습니다.</AppText></View>
+        <View style={styles.notice}><MaterialCommunityIcons color={colors.skyStrong} name="information-outline" size={20} /><AppText color={colors.muted} style={styles.noticeCopy} variant="caption">카카오 로그인은 계정 식별에 사용해요. 리뷰 작성에는 로그인 후 별도 라이더 권한이 필요합니다.</AppText></View>
       </ScrollView>
     </Screen>
   );

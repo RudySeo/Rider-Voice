@@ -13,6 +13,7 @@ import { PrimaryButton } from '@/shared/components/PrimaryButton';
 import { Screen } from '@/shared/components/Screen';
 import { ScreenHeader } from '@/shared/components/ScreenHeader';
 import { colors, radius, spacing } from '@/shared/theme';
+import { canWriteReview } from '@/shared/auth/roles';
 
 const platformChoices: { value: DeliveryPlatform; label: string }[] = [
   { value: 'BAEMIN', label: '배달의민족' },
@@ -40,6 +41,9 @@ export default function ManualReviewTargetScreen() {
       router.replace({ pathname: '/login', params: { next: '/review/manual-target', manualQuery: query } });
     }
   }, [auth.restoring, auth.user, query]);
+  useEffect(() => {
+    if (!auth.restoring && auth.user && !canWriteReview(auth.user)) router.replace('/activity');
+  }, [auth.restoring, auth.user]);
 
   const runSearch = () => {
     const normalized = query.trim();
@@ -84,6 +88,9 @@ export default function ManualReviewTargetScreen() {
   }
   if (!auth.user || usesMockApi) {
     return <Screen><ScreenHeader title="직접 등록" /><View style={styles.state}><AppText variant="label">{usesMockApi ? '공개 미리보기에서는 음식점을 등록할 수 없어요.' : '로그인 화면으로 이동하고 있어요.'}</AppText></View></Screen>;
+  }
+  if (!canWriteReview(auth.user)) {
+    return <Screen><ScreenHeader title="직접 등록" /><View style={styles.state}><AppText variant="label">리뷰 작성에는 라이더 권한이 필요해요.</AppText><PrimaryButton label="내 활동에서 인증하기" onPress={() => router.replace('/activity')} /></View></Screen>;
   }
 
   const candidates = addressSearch.data?.candidates ?? [];

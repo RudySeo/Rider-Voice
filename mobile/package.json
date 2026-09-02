@@ -63,7 +63,7 @@
     "api:generate": "node scripts/generate-api-types.mjs"
   },
   "jest": {
-    "preset": "jest-expo",
+    "preset": "./jest.preset.js",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
     }

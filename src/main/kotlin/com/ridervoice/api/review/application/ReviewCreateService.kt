@@ -1,6 +1,7 @@
 package com.ridervoice.api.review.application
 
 import com.ridervoice.api.common.error.StateConflictException
+import com.ridervoice.api.auth.application.port.`in`.EnsureReviewWriterUseCase
 import com.ridervoice.api.restaurant.application.port.`in`.ResolveValidatedRestaurantTargetUseCase
 import com.ridervoice.api.restaurant.application.port.`in`.ValidateRestaurantTargetUseCase
 import com.ridervoice.api.restaurant.application.port.`in`.ValidatedRestaurantTarget
@@ -25,6 +26,7 @@ import java.time.Duration
 internal class ReviewCreateService(
     private val targetValidator: ValidateRestaurantTargetUseCase,
     private val targetResolver: ResolveValidatedRestaurantTargetUseCase,
+    private val ensureReviewWriter: EnsureReviewWriterUseCase,
     private val reviews: ReviewRepository,
     transactionManager: PlatformTransactionManager,
     private val clock: Clock,
@@ -33,6 +35,7 @@ internal class ReviewCreateService(
     private val transaction = TransactionTemplate(transactionManager)
 
     override fun create(command: CreateReviewCommand): ReviewResult {
+        ensureReviewWriter.ensureEligible(command.authorUserId)
         val validatedTarget = targetValidator.validate(command.restaurantTarget)
         var lastConcurrentFailure: DataAccessException? = null
 

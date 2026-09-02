@@ -168,7 +168,9 @@ class ModerationApiContractMockMvcTest {
     }
 
     @Test
-    fun `ADMIN can list and decide report queues but cannot submit USER reports`() {
+    fun `ADMIN can list and decide report queues and submit reports`() {
+        val adminReportCommand = CreateReviewReportCommand(ADMIN_ID, 40L, ReviewReportReason.SPAM, null)
+        `when`(createReviewReport.createReviewReport(adminReportCommand)).thenReturn(reviewReport())
         `when`(listReviewReports.list(ListPendingReviewReportsQuery(ADMIN_ID, null, 20))).thenReturn(
             PendingReviewReportPageResult(
                 listOf(PendingReviewReportResult(101L, USER_ID, 40L, ReviewReportReason.SPAM, "반복 게시", NOW)),
@@ -246,7 +248,8 @@ class ModerationApiContractMockMvcTest {
             with(adminAuthentication())
             contentType = MediaType.APPLICATION_JSON
             content = """{"reason":"SPAM"}"""
-        }.andExpect { status { isForbidden() } }
+        }.andExpect { status { isCreated() } }
+        verify(createReviewReport).createReviewReport(adminReportCommand)
     }
 
     @Test

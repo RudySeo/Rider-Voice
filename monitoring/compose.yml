@@ -2,9 +2,7 @@ name: rider-voice-monitoring
 
 services:
   prometheus:
-    image: prom/prometheus:v3.14.0@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
-    container_name: rider-voice-prometheus-local
-    restart: unless-stopped
+    image: prom/prometheus:v3.14.0
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -17,33 +15,16 @@ services:
     volumes:
       - ./prometheus/prometheus-local.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
-    security_opt:
-      - no-new-privileges:true
 
   grafana:
-    image: grafana/grafana:13.2.0@sha256:3fd54ae1214669f8355f065ec9f6445d5279a3d77095ab048ca045685272429b
-    container_name: rider-voice-grafana-local
-    restart: unless-stopped
+    image: grafana/grafana:13.2.0
     depends_on:
       - prometheus
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in monitoring/.env}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
-      - GF_PLUGINS_PREINSTALL_DISABLED=true
-      - GF_PLUGINS_PLUGIN_ADMIN_ENABLED=false
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
-    security_opt:
-      - no-new-privileges:true
 
 volumes:
   prometheus-data:

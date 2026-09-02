@@ -5,8 +5,11 @@ import com.ridervoice.api.auth.application.port.`in`.ExchangeMobileLoginUseCase
 import com.ridervoice.api.auth.application.port.`in`.LogoutUseCase
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionCommand
 import com.ridervoice.api.auth.application.port.`in`.RefreshSessionUseCase
+import com.ridervoice.api.auth.application.port.`in`.RotateRiderInviteCodeUseCase
+import com.ridervoice.api.auth.application.port.`in`.VerifyRiderUseCase
 import com.ridervoice.api.auth.presentation.AuthOpenApiConfiguration
 import com.ridervoice.api.auth.presentation.AuthResponseMapper
+import com.ridervoice.api.auth.presentation.AdminRiderAccessController
 import com.ridervoice.api.auth.presentation.UserController
 import com.ridervoice.api.auth.presentation.MobileAuthController
 import com.ridervoice.api.common.config.OpenApiConfiguration
@@ -93,6 +96,7 @@ import java.time.Instant
 @WebMvcTest(
     controllers = [
         UserController::class,
+        AdminRiderAccessController::class,
         MobileAuthController::class,
         RestaurantSearchController::class,
         AddressSearchController::class,
@@ -142,6 +146,8 @@ class ApiContractRegressionMockMvcTest {
     @MockitoBean private lateinit var refreshSession: RefreshSessionUseCase
     @MockitoBean private lateinit var logout: LogoutUseCase
     @MockitoBean private lateinit var getCurrentUser: GetCurrentUserUseCase
+    @MockitoBean private lateinit var verifyRider: VerifyRiderUseCase
+    @MockitoBean private lateinit var rotateRiderInviteCode: RotateRiderInviteCodeUseCase
     @MockitoBean private lateinit var exchangeMobileLogin: ExchangeMobileLoginUseCase
     @MockitoBean private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
     @MockitoBean private lateinit var searchRestaurants: SearchRestaurantsUseCase
@@ -299,7 +305,7 @@ class ApiContractRegressionMockMvcTest {
     }
 
     @Test
-    fun `public review and aggregate report responses always include UNVERIFIED notice`() {
+    fun `public review and aggregate report responses omit internal verification state`() {
         `when`(getRestaurantDetail.get(10L)).thenReturn(detailResult())
         `when`(listPublicReviews.list(ListPublicRestaurantReviewsCommand(10L, null, 20)))
             .thenReturn(publicReviewResult())
@@ -308,13 +314,13 @@ class ApiContractRegressionMockMvcTest {
             status { isOk() }
             jsonPath("$.brandReport") { exists() }
             jsonPath("$.pickupLocationReport") { exists() }
-            jsonPath("$.verificationStatus") { value("UNVERIFIED") }
-            jsonPath("$.verificationNotice") { value(PublicRestaurantDetailService.VERIFICATION_NOTICE) }
+            jsonPath("$.verificationStatus") { doesNotExist() }
+            jsonPath("$.verificationNotice") { doesNotExist() }
         }
         mockMvc.get("/api/v1/restaurants/10/reviews").andExpect {
             status { isOk() }
-            jsonPath("$.items[0].verificationStatus") { value("UNVERIFIED") }
-            jsonPath("$.items[0].verificationNotice") { value(PublicReviewListService.VERIFICATION_NOTICE) }
+            jsonPath("$.items[0].verificationStatus") { doesNotExist() }
+            jsonPath("$.items[0].verificationNotice") { doesNotExist() }
         }
     }
 
@@ -356,8 +362,6 @@ class ApiContractRegressionMockMvcTest {
         ),
         brandReport = RestaurantBrandReportResult(AggregationStatus.COLLECTING, 1, null),
         pickupLocationReport = RestaurantPickupLocationReportResult(AggregationStatus.COLLECTING, 1, null),
-        verificationStatus = "UNVERIFIED",
-        verificationNotice = PublicRestaurantDetailService.VERIFICATION_NOTICE,
     )
 
     private fun publicReviewResult() = PublicReviewListResult(
@@ -376,8 +380,6 @@ class ApiContractRegressionMockMvcTest {
                 comment = null,
                 authorActivity = PublicReviewAuthorActivityResult(1, 1L),
                 createdAt = Instant.parse("2026-07-25T03:00:00Z"),
-                verificationStatus = "UNVERIFIED",
-                verificationNotice = PublicReviewListService.VERIFICATION_NOTICE,
             ),
         ),
         nextCursor = null,
@@ -461,6 +463,8 @@ class ApiContractRegressionMockMvcTest {
             "/api/v1/auth/mobile/refresh",
             "/api/v1/auth/mobile/logout",
             "/api/v1/users/me",
+            "/api/v1/users/me/rider-verification",
+            "/api/v1/admin/rider-invite-code",
             "/api/v1/restaurants/search",
             "/api/v1/restaurants/{restaurantId}",
             "/api/v1/restaurants/{restaurantId}/reviews",
@@ -497,6 +501,8 @@ class ApiContractRegressionMockMvcTest {
 
         val BEARER_OPERATIONS = setOf(
             "/api/v1/users/me" to "get",
+            "/api/v1/users/me/rider-verification" to "post",
+            "/api/v1/admin/rider-invite-code" to "put",
             "/api/v1/addresses/search" to "get",
             "/api/v1/reviews" to "post",
             "/api/v1/users/me/reviews" to "get",
@@ -523,6 +529,8 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/auth/mobile/exchange" to "post") to "MobileExchangeRequest",
             ("/api/v1/auth/mobile/refresh" to "post") to "MobileRefreshRequest",
             ("/api/v1/auth/mobile/logout" to "post") to "MobileLogoutRequest",
+            ("/api/v1/users/me/rider-verification" to "post") to "RiderVerificationRequest",
+            ("/api/v1/admin/rider-invite-code" to "put") to "RiderInviteCodeRotationRequest",
             ("/api/v1/reviews" to "post") to "CreateReviewRequest",
             ("/api/v1/reviews/{reviewId}" to "patch") to "UpdateReviewRequest",
             ("/api/v1/reviews/{reviewId}/reports" to "post") to "CreateReviewReportRequest",
@@ -541,6 +549,7 @@ class ApiContractRegressionMockMvcTest {
             ("/api/v1/auth/mobile/exchange" to "post") to ("200" to "MobileSessionResponse"),
             ("/api/v1/auth/mobile/refresh" to "post") to ("200" to "MobileSessionResponse"),
             ("/api/v1/users/me" to "get") to ("200" to "UserResponse"),
+            ("/api/v1/users/me/rider-verification" to "post") to ("200" to "UserResponse"),
             ("/api/v1/restaurants/search" to "get") to ("200" to "RestaurantSearchResponse"),
             ("/api/v1/restaurants/{restaurantId}" to "get") to ("200" to "RestaurantDetailResponse"),
             ("/api/v1/restaurants/{restaurantId}/reviews" to "get") to ("200" to "PublicReviewListResponse"),
@@ -602,7 +611,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val ENUM_PROPERTIES = mapOf(
-            ("UserResponse" to "role") to setOf("USER", "ADMIN"),
+            ("UserResponse" to "role") to setOf("USER", "RIDER", "ADMIN"),
             ("RestaurantSearchResponse" to "externalSearchStatus") to setOf("AVAILABLE", "UNAVAILABLE"),
             ("RestaurantSearchCandidateResponse" to "candidateType") to setOf("INTERNAL", "KAKAO"),
             ("RestaurantSearchCandidateResponse" to "aggregationStatus") to
@@ -682,9 +691,7 @@ class ApiContractRegressionMockMvcTest {
         )
 
         val NON_NULL_PROPERTIES = setOf(
-            "RestaurantDetailResponse" to "verificationStatus", "RestaurantDetailResponse" to "verificationNotice",
-            "PublicReviewListItemResponse" to "verificationStatus",
-            "PublicReviewListItemResponse" to "verificationNotice", "ReviewResponse" to "reviewId",
+            "ReviewResponse" to "reviewId",
             "ReviewRatingsResponse" to "packagingStability",
             "CreateReviewRequest" to "restaurantTarget", "CreateReviewRequest" to "visitMonth",
             "CreateReviewRequest" to "pickupSpaceCleanliness", "CreateReviewRequest" to "packagingStability",

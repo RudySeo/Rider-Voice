@@ -3,6 +3,7 @@ package com.ridervoice.api.common.error
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import org.springframework.http.MediaType
+import org.springframework.http.HttpHeaders
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -21,6 +22,16 @@ import java.util.NoSuchElementException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
+
+    @ExceptionHandler(RiderVerificationRateLimitException::class)
+    fun handleRiderVerificationRateLimit(
+        exception: RiderVerificationRateLimitException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> = response(
+        exception.errorCode,
+        request,
+        HttpHeaders().also { it.set(HttpHeaders.RETRY_AFTER, exception.retryAfterSeconds.coerceAtLeast(1).toString()) },
+    )
 
     @ExceptionHandler(ApiException::class)
     fun handleApiException(exception: ApiException, request: HttpServletRequest): ResponseEntity<ProblemDetail> =
@@ -61,7 +72,11 @@ class GlobalExceptionHandler {
     fun handleUnexpected(exception: Exception, request: HttpServletRequest): ResponseEntity<ProblemDetail> =
         response(ApiErrorCode.INTERNAL_ERROR, request)
 
-    private fun response(error: ApiErrorCode, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+    private fun response(
+        error: ApiErrorCode,
+        request: HttpServletRequest,
+        headers: HttpHeaders = HttpHeaders(),
+    ): ResponseEntity<ProblemDetail> {
         val problem = ProblemDetail.forStatusAndDetail(error.status, error.detail).apply {
             type = error.type
             title = error.title
@@ -71,6 +86,7 @@ class GlobalExceptionHandler {
 
         return ResponseEntity
             .status(error.status)
+            .headers(headers)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(problem)
     }

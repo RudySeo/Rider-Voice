@@ -1,0 +1,16 @@
+{
+  "project": "Rider Voice",
+  "phase": "12-rider-role-review-access",
+  "steps": [
+    { "step": 0, "name": "docs-contract", "status": "completed" },
+    { "step": 1, "name": "rider-access-domain", "status": "completed" },
+    { "step": 2, "name": "rider-access-persistence", "status": "completed" },
+    { "step": 3, "name": "rider-access-application", "status": "completed" },
+    { "step": 4, "name": "rider-access-api", "status": "completed" },
+    { "step": 5, "name": "review-write-authorization", "status": "completed" },
+    { "step": 6, "name": "public-contract-cleanup", "status": "completed" },
+    { "step": 7, "name": "mobile-role-gating", "status": "completed" },
+    { "step": 8, "name": "full-regression", "status": "completed" }
+  ],
+  "summary": "서버 build와 로컬 MySQL integrationTest, 모바일 Jest 32 suites/61 tests, TypeScript와 ESLint를 통과했다. migrationTest는 DB_URL·DB_USERNAME·DB_PASSWORD·DB_MIGRATION_USERNAME·DB_MIGRATION_PASSWORD가 없어 실행하지 않았다."
+}

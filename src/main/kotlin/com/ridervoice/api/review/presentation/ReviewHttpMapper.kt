@@ -105,8 +105,6 @@ class ReviewHttpMapper {
                     publicReviewCount = item.authorActivity.publicReviewCount,
                 ),
                 createdAt = item.createdAt,
-                verificationStatus = item.verificationStatus,
-                verificationNotice = item.verificationNotice,
             )
         },
         nextCursor = result.nextCursor?.let(::encodeCursor),

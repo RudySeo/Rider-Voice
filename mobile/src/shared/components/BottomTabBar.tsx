@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/shared/components/AppText';
 import { colors, spacing } from '@/shared/theme';
+import { useAuth } from '@/shared/auth/AuthProvider';
+import { canWriteReview } from '@/shared/auth/roles';
 
 type TabKey = 'home' | 'review' | 'activity';
 
@@ -13,14 +15,16 @@ type BottomTabBarProps = {
 
 const tabs = [
   { key: 'home' as const, label: '홈', icon: 'home-outline' as const, href: '/' as const },
-  { key: 'review' as const, label: '리뷰 작성', icon: 'square-edit-outline' as const, href: '/login?next=/review/new' as const },
+  { key: 'review' as const, label: '리뷰 작성', icon: 'square-edit-outline' as const, href: '/review/new' as const },
   { key: 'activity' as const, label: '내 활동', icon: 'account-outline' as const, href: '/activity' as const },
 ];
 
 export function BottomTabBar({ active }: BottomTabBarProps) {
+  const auth = useAuth();
+  const visibleTabs = canWriteReview(auth.user) ? tabs : tabs.filter((tab) => tab.key !== 'review');
   return (
     <View style={styles.bar}>
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const selected = active === tab.key;
         return (
           <Pressable

@@ -51,7 +51,7 @@ API 서버
 
 이 문서는 Rider Voice MVP가 어떤 구조로 동작하고 각 영역이 어떤 책임을 가지는지 설명한다. 제품 목표는 `PRD.md`, 선택한 이유는 `ADR.md`, API 형식은 실행 중인 OpenAPI, 테이블과 관계는 `ERD.md`에서 관리한다.
 
-현재 Spring Boot API 서버와 Expo 기반 React Native 모바일 앱이 구현되어 있다. Rider Voice는 카카오 로그인 사용자의 리뷰를 공개하지만 실제 라이더 신분이나 방문 여부는 인증하지 않는다.
+현재 Spring Boot API 서버와 Expo 기반 React Native 모바일 앱이 구현되어 있다. 카카오 로그인 사용자는 `USER`로 시작하고 공용 6자리 인증번호를 통과하면 리뷰 작성용 `RIDER` 역할을 얻는다. `RIDER`와 `ADMIN`만 리뷰를 생성·수정할 수 있다.
 
 서버가 맡는 주요 역할은 다음과 같다.
 
@@ -143,7 +143,7 @@ mobile
 
 카카오에 없는 브랜드의 첫 리뷰는 로그인 뒤 전용 수동 등록 화면에서 준비한다. 앱은 주소 검색 결과의 `existingPickupLocationId` 유무에 따라 기존 픽업 장소에 브랜드를 추가할지 새 픽업 장소를 만들지 결정한다. 브랜드명, 선택적인 상세 위치와 플랫폼은 아직 저장하지 않고 리뷰 생성 요청의 restaurant target으로 전달한다. 서버가 주소를 다시 검증한 뒤 음식점과 첫 리뷰를 같은 트랜잭션에서 저장한다.
 
-로그인 전 작성 의도는 정해진 종류만 SecureStore에 임시 저장한다. 앱은 저장값을 런타임에서 allow-list로 확인하고 로그인 성공, 실패 또는 취소 뒤 항상 제거한다. 이미 로그인한 사용자는 로그인 화면을 다시 거치지 않고 리뷰 작성 또는 수동 등록 화면으로 이동한다.
+로그인 전 작성 의도는 정해진 종류만 SecureStore에 임시 저장한다. 앱은 저장값을 런타임에서 allow-list로 확인하고 로그인 성공, 실패 또는 취소 뒤 항상 제거한다. 로그인 후에도 `RIDER` 또는 `ADMIN`인 사용자만 리뷰 작성 또는 수동 등록 화면으로 이동하며 `USER`에게는 작성 진입점을 표시하지 않는다.
 
 네이티브 앱은 OAuth handshake를 개발 빌드의 시스템 브라우저에서 시작하고 성공하면 2분 유효·일회용 무작위 교환 코드만 `ridervoice://auth/callback`에 전달한다. backend에는 코드 원문 대신 SHA-256 hash를 저장하며 사용·만료 코드는 같은 인증 실패로 처리한다. 앱은 코드를 Rider Voice access/refresh token과 교환하고, access token은 메모리, refresh token은 SecureStore에 보관한다. Expo Go는 API가 설정된 공개 조회와 UI 확인만 지원하며 인증 성공을 흉내 내지 않는다.
 
@@ -169,8 +169,8 @@ mobile
 - OAuth session은 REST API 로그인 상태로 사용할 수 없다.
 - 카카오 access token은 사용자 정보를 확인한 뒤 저장하지 않는다.
 - 카카오 client secret이 없으면 `none`, 있으면 `client_secret_post` 방식으로 카카오에 인증한다.
-- 로그인 화면은 카카오 로그인이 계정 식별 수단이며 라이더 신분이나 실제 방문을 인증하지 않는다는 점을 알린다.
-- 신규 사용자는 OAuth callback을 정상 완료할 때 처음부터 `ACTIVE`로 생성한다.
+- 로그인 화면은 카카오 로그인이 계정 식별 수단이고 리뷰 작성에는 별도 `RIDER` 또는 `ADMIN` 역할이 필요하다는 점을 알린다.
+- 신규 사용자는 OAuth callback을 정상 완료할 때 `ACTIVE`, `USER`로 생성한다.
 - 잘못되거나 만료되거나 다시 사용한 refresh token은 같은 인증 실패로 처리한다.
 - access token과 refresh token은 URL에 넣지 않는다.
 - 외부 provider 오류, token, secret과 내부 예외는 사용자에게 노출하지 않는다.
@@ -179,7 +179,9 @@ mobile
 
 모바일은 `/api/v1/auth/mobile/oauth2/authorization/kakao`에서 같은 Spring Security OAuth2 Client 흐름을 시작한다. callback 성공 handler는 로그인 시도 매체를 임시 session에서 확인하고 모바일이면 refresh session 대신 일회용 grant를 생성한다. `/api/v1/auth/mobile/exchange`가 grant를 원자적으로 소비하면서 token pair를 발급하며, `/mobile/refresh`는 refresh token을 회전하고 `/mobile/logout`은 해당 session을 폐기한다. provider 오류·token·내부 예외는 딥링크에 싣지 않고 고정된 `error=oauth_failed`만 전달한다.
 
-사용자 권한은 `USER`와 `ADMIN`이다. 애플리케이션에서 생성하는 사용자는 항상 `USER`이며, `ADMIN`은 운영자가 DB에서 직접 부여한다. access token을 확인할 때 DB의 현재 권한도 함께 읽어 관리자 권한 변경이 기존 토큰에도 반영되게 한다.
+사용자 권한은 `USER`, `RIDER`, `ADMIN`이다. 애플리케이션에서 생성하는 사용자는 항상 `USER`이고, 공용 6자리 인증번호를 통과하면 `RIDER`가 되며, `ADMIN`은 운영자가 DB에서 직접 부여한다. access token을 확인할 때 DB의 현재 권한도 함께 읽어 역할 변경이 기존 토큰에도 즉시 반영되게 한다.
+
+현재 인증번호는 auth 영역의 `rider_invite_codes`에 BCrypt hash로만 저장한다. `ADMIN` 번호 교체는 기존 활성 행을 폐기하고 새 활성 행을 만드는 하나의 트랜잭션이며 nullable `current_slot=1` unique 제약으로 활성 번호를 하나만 허용한다. 사용자별 실패 횟수와 잠금 만료는 `rider_verification_attempts`에 저장하고 연속 5회 실패하면 15분 동안 인증을 막는다. 번호 교체는 이미 부여한 `RIDER` 역할을 회수하지 않는다.
 
 ## 5. 음식점 구조와 등록
 
@@ -222,6 +224,8 @@ PickupLocation 1
 
 작성과 변경은 다음 규칙을 따른다.
 
+- 생성·수정 application service는 auth input port로 현재 DB 역할을 확인하고 `RIDER`와 `ADMIN`만 허용한다.
+- 본인 리뷰 조회·삭제는 모든 활성 로그인 역할에 허용한다.
 - 방문 연월은 한국 시간 기준 이번 달 또는 지난달만 선택한다.
 - 활성 리뷰가 있으면 시간이 지나도 새 리뷰를 작성할 수 없고 기존 리뷰만 수정한다.
 - 활성 리뷰가 없을 때는 마지막 제출의 최초 작성 시각에서 90일이 지나야 다시 작성할 수 있다.
@@ -231,7 +235,7 @@ PickupLocation 1
 
 ## 7. 공개 결과와 신고 처리
 
-유효한 개별 리뷰의 6개 평가와 자유 의견은 작성·수정 직후 공개한다. 모든 공개 리뷰와 평가 결과에는 `verificationStatus=UNVERIFIED`와 미인증 안내를 포함한다. 공개 작성자 정보는 활동 기간과 공개 리뷰 수만 제공하며 고정 공개 ID나 닉네임은 사용하지 않는다.
+유효한 개별 리뷰의 6개 평가와 자유 의견은 작성·수정 직후 공개한다. 공개 응답에는 방문 인증 상태, `verificationStatus`, `verificationNotice` 또는 인증 배지를 포함하지 않는다. 공개 작성자 정보는 활동 기간과 공개 리뷰 수만 제공하며 고정 공개 ID나 닉네임은 사용하지 않는다.
 
 평가 결과 상태는 다음과 같다.
 
@@ -276,7 +280,7 @@ PickupLocation 1
 - 활성 리뷰 중복, 삭제·전체 제외 후 90일 제한
 - 브랜드·장소 작성자 4명과 5명 경계 및 `NOT_OBSERVED`
 - 의견 즉시 공개, 신고, 리뷰 제외와 음식점 정정의 함께 성공·실패 여부
-- 공개·사용자·관리자 권한과 OpenAPI 응답 형식
+- 공개·USER·RIDER·ADMIN 권한과 OpenAPI 응답 형식
 
 JPA schema, FK, index와 unique 제약은 실행 중인 로컬 MySQL로 확인한다. 카카오 API는 실제 호출 대신 stub server로 성공, timeout, 호출 제한과 잘못된 응답을 검증한다.
 
@@ -319,7 +323,7 @@ master push
 - 운영 EC2에는 Prometheus와 Grafana를 실행하지 않고 `/grafana`와 `/grafana/` 요청을 `404`로 처리한다. 운영 metric 이력과 dashboard가 필요해지면 용량과 관측 위치를 새 ADR로 결정한다.
 - GitHub는 release script를 EC2의 transient systemd service로 시작한 뒤 짧은 SSM 명령으로 상태 파일과 종료 코드를 polling한다. SSM에 직접 전달하는 조회 명령은 Ubuntu의 `/bin/sh`에서 동작하는 POSIX 문법을 사용한다. 상태 조회는 결과 파일을 확인한 뒤 systemd unit 상태를 읽고, unit이 막 종료된 경계에서는 결과 파일을 다시 확인하며 일시적인 `MISSING` 상태를 제한된 횟수만큼 재시도한다. release script는 전달받은 40자리 master commit SHA를 검증하고 해당 commit의 backend 배포 script와 Nginx 설정만 사용한다. 첫 전환 release는 기존 monitoring container, named volume과 설치 파일을 제거한 뒤 미사용 image를 정리한다.
 - Nginx는 외부 `/actuator/prometheus` 요청을 `404`로 차단한다. metric에는 사용자 ID, 음식점 ID, 검색어, token과 예외 메시지를 label로 사용하지 않는다.
-- 로컬 Prometheus는 개발 PC의 API `/actuator/prometheus`를 15초마다 수집하고 로컬 Grafana는 저장소의 datasource와 dashboard provisioning을 사용한다. 로컬 데이터는 7일과 2GB 중 먼저 도달하는 한도로 Docker volume에 저장한다.
+- 로컬 Prometheus는 개발 PC의 API `/actuator/prometheus`를 15초마다 수집하고 로컬 Grafana는 저장소에서 provisioning한 Prometheus datasource를 사용한다. dashboard는 Grafana 화면에서 직접 만들고 `grafana-data` volume에 저장한다. Prometheus 데이터는 7일과 2GB 중 먼저 도달하는 한도로 Docker volume에 저장한다.
 - Nginx가 외부에서 들어온 `X-Forwarded-For`를 폐기하고 직접 연결한 client의 `$remote_addr`로 덮어쓴다. API는 localhost Nginx만 접근할 수 있고 운영 profile만 forwarded header를 신뢰하므로 검색 호출 제한에 검증된 client IP가 사용된다.
 - Nginx는 `Host`, `X-Forwarded-Proto`와 `X-Forwarded-For`를 API에 전달한다. ALB나 CloudFront가 앞에 추가되면 trusted proxy 정책을 새로 결정한다.
 - 운영 API secret은 SSM Parameter Store의 `/rider-voice/prod/` 아래에서 관리한다. EC2 instance role만 해당 경로를 복호화하고 root 전용 임시 env 파일로 만들어 API container에 전달하며 GitHub와 Docker image는 값을 읽지 않는다.

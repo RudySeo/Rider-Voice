@@ -6,7 +6,6 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { AppText } from '@/shared/components/AppText';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { Screen } from '@/shared/components/Screen';
-import { TrustBanner } from '@/shared/components/TrustBanner';
 import { colors, radius, spacing } from '@/shared/theme';
 
 const discoveryItems = [
@@ -46,7 +45,6 @@ export default function HomeScreen() {
             <AppText color={colors.surface} weight="700">확인하기</AppText>
           </Pressable>
         </View>
-        <View style={styles.fullBleedBanner}><TrustBanner compact /></View>
         <View style={styles.infoSection}>
           <AppText variant="section">검색하면 이런 정보를 볼 수 있어요</AppText>
           <View style={styles.list}>
@@ -75,7 +73,6 @@ const styles = StyleSheet.create({
   searchButton: { minWidth: 82, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.jade, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
   searchDisabled: { opacity: 0.55 },
   pressed: { opacity: 0.72 },
-  fullBleedBanner: { marginTop: spacing.md },
   infoSection: { paddingHorizontal: 22, paddingTop: spacing.lg },
   list: { marginTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   infoRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },

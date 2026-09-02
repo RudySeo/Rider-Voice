@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext
 import org.springframework.web.servlet.config.annotation.EnableWebMvc
@@ -127,6 +128,10 @@ class SecurityPolicyMockMvcTest {
         fun accessTokenAuthenticator(): AccessTokenAuthenticator = AccessTokenAuthenticator { accessToken ->
             when (accessToken) {
                 "valid-access-token" -> AuthenticatedUserPrincipal(TEST_USER_ID)
+                "valid-rider-token" -> AuthenticatedUserPrincipal(
+                    TEST_RIDER_ID,
+                    AuthenticatedUserPrincipal.RIDER_AUTHORITY,
+                )
                 "valid-admin-token" -> AuthenticatedUserPrincipal(
                     TEST_ADMIN_ID,
                     AuthenticatedUserPrincipal.ADMIN_AUTHORITY,
@@ -149,13 +154,18 @@ class SecurityPolicyMockMvcTest {
 
     private enum class Scope {
         PUBLIC,
+        AUTHENTICATED,
+        WRITER,
         USER,
+        RIDER,
         ADMIN,
         ;
 
         fun expectedStatus(actual: Scope?): Int = when {
             this == PUBLIC -> 200
             actual == null -> 401
+            this == AUTHENTICATED -> 200
+            this == WRITER && (actual == RIDER || actual == ADMIN) -> 200
             this == actual -> 200
             else -> 403
         }
@@ -165,6 +175,7 @@ class SecurityPolicyMockMvcTest {
         val CREDENTIALS = listOf(
             Credential(null, null),
             Credential("valid-access-token", Scope.USER),
+            Credential("valid-rider-token", Scope.RIDER),
             Credential("valid-admin-token", Scope.ADMIN),
         )
 
@@ -175,14 +186,16 @@ class SecurityPolicyMockMvcTest {
             Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/exchange", Scope.PUBLIC),
             Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/refresh", Scope.PUBLIC),
             Endpoint(HttpMethod.POST, "/api/v1/auth/mobile/logout", Scope.PUBLIC),
-            Endpoint(HttpMethod.GET, "/api/v1/users/me", Scope.USER),
-            Endpoint(HttpMethod.GET, "/api/v1/addresses/search", Scope.USER),
-            Endpoint(HttpMethod.POST, "/api/v1/reviews", Scope.USER),
-            Endpoint(HttpMethod.GET, "/api/v1/users/me/reviews", Scope.USER),
-            Endpoint(HttpMethod.PATCH, "/api/v1/reviews/10", Scope.USER),
-            Endpoint(HttpMethod.DELETE, "/api/v1/reviews/10", Scope.USER),
-            Endpoint(HttpMethod.POST, "/api/v1/reviews/10/reports", Scope.USER),
-            Endpoint(HttpMethod.POST, "/api/v1/restaurants/10/reports", Scope.USER),
+            Endpoint(HttpMethod.GET, "/api/v1/users/me", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.POST, "/api/v1/users/me/rider-verification", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.GET, "/api/v1/addresses/search", Scope.WRITER),
+            Endpoint(HttpMethod.POST, "/api/v1/reviews", Scope.WRITER),
+            Endpoint(HttpMethod.GET, "/api/v1/users/me/reviews", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.PATCH, "/api/v1/reviews/10", Scope.WRITER),
+            Endpoint(HttpMethod.DELETE, "/api/v1/reviews/10", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.POST, "/api/v1/reviews/10/reports", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.POST, "/api/v1/restaurants/10/reports", Scope.AUTHENTICATED),
+            Endpoint(HttpMethod.PUT, "/api/v1/admin/rider-invite-code", Scope.ADMIN),
             Endpoint(HttpMethod.GET, "/api/v1/admin/review-reports", Scope.ADMIN),
             Endpoint(HttpMethod.PATCH, "/api/v1/admin/review-reports/10", Scope.ADMIN),
             Endpoint(HttpMethod.GET, "/api/v1/admin/restaurant-reports", Scope.ADMIN),
@@ -193,6 +206,7 @@ class SecurityPolicyMockMvcTest {
 }
 
 private const val TEST_USER_ID = 42L
+private const val TEST_RIDER_ID = 44L
 private const val TEST_ADMIN_ID = 43L
 
 @RestController
@@ -218,6 +232,9 @@ private class SecurityPolicyFixtureController {
         @AuthenticationPrincipal principal: AuthenticatedUserPrincipal,
         authentication: Authentication,
     ) = "${principal::class.simpleName}:${principal.userId}:${authentication.authorities.single().authority}"
+
+    @PostMapping("/api/v1/users/me/rider-verification")
+    fun verifyRider() = "ok"
 
     @GetMapping("/api/v1/restaurants/search")
     fun searchRestaurants() = "ok"
@@ -261,6 +278,9 @@ private class SecurityPolicyFixtureController {
         "/api/v1/admin/restaurants/{restaurantId}/pickup-location",
     )
     fun adminPatches() = "ok"
+
+    @PutMapping("/api/v1/admin/rider-invite-code")
+    fun rotateRiderCode() = "ok"
 
     @GetMapping("/api/v1/denied")
     fun denied() = "denied"

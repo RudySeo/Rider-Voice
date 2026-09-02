@@ -74,7 +74,6 @@ jobs:
       DB_MIGRATION_PASSWORD: ci-migration-password
       KAKAO_CLIENT_ID: ci-test-client
       KAKAO_LOCAL_REST_API_KEY: ci-test-key
-      GRAFANA_ADMIN_PASSWORD: ci-grafana-password
     services:
       mysql:
         image: mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6

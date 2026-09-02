@@ -1,6 +1,46 @@
 // @ts-nocheck -- generated discriminator cycles are validated by backend OpenAPI tests
 // Generated from Rider Voice OpenAPI. Do not edit.
 export type paths = {
+    "/api/v1/admin/rider-invite-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 라이더 권한 인증번호 교체
+         * @description 현재 공유 인증번호를 폐기하고 새 번호의 BCrypt hash만 저장합니다.
+         */
+        put: operations["rotate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/rider-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 라이더 권한 인증
+         * @description 6자리 공유 인증번호를 확인해 USER를 RIDER로 승격합니다.
+         */
+        post: operations["verifyRider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reviews": {
         parameters: {
             query?: never;
@@ -267,7 +307,7 @@ export type paths = {
         };
         /**
          * 음식점 상세 조회
-         * @description 배달 브랜드, 픽업 장소, 브랜드·장소 리포트와 미인증 안내를 반환합니다.
+         * @description 배달 브랜드, 픽업 장소와 브랜드·장소 리포트를 반환합니다.
          */
         get: operations["get_1"];
         put?: never;
@@ -521,6 +561,19 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        RiderInviteCodeRotationRequest: {
+            code?: string;
+        };
+        RiderVerificationRequest: {
+            code?: string;
+        };
+        UserResponse: {
+            /** Format: int64 */
+            id?: number;
+            status?: string;
+            /** @enum {string} */
+            role?: "USER" | "RIDER" | "ADMIN";
+        };
         CreateReviewRequest: {
             restaurantTarget: components["schemas"]["RestaurantTargetRequest"];
             /** @example 2026-07 */
@@ -714,13 +767,6 @@ export type components = {
             refreshToken?: string;
             user?: components["schemas"]["UserResponse"];
         };
-        UserResponse: {
-            /** Format: int64 */
-            id?: number;
-            status?: string;
-            /** @enum {string} */
-            role?: "USER" | "ADMIN";
-        };
         MobileLogoutRequest: {
             refreshToken: string;
         };
@@ -862,7 +908,7 @@ export type components = {
             decision: "DISMISS" | "RESOLVE";
             /** @description 관리자 결정 사유 */
             reason?: string | null;
-            correction?: components["schemas"]["RestaurantInfoCorrectionRequest"] | null;
+            correction?: components["schemas"]["RestaurantInfoCorrectionRequest"];
         };
         MyReviewListResponse: {
             items?: components["schemas"]["ReviewResponse"][];
@@ -911,10 +957,6 @@ export type components = {
             pickupLocation?: components["schemas"]["RestaurantPickupLocationResponse"];
             brandReport?: components["schemas"]["RestaurantBrandReportResponse"];
             pickupLocationReport?: components["schemas"]["RestaurantPickupLocationReportResponse"];
-            /** @enum {string} */
-            verificationStatus?: "UNVERIFIED";
-            /** @example 라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다. */
-            verificationNotice?: string;
         };
         RestaurantPickupLocationReportMetricsResponse: {
             pickupSpaceCleanliness?: components["schemas"]["RestaurantAggregateMetricResponse"];
@@ -953,10 +995,6 @@ export type components = {
             authorActivity?: components["schemas"]["PublicReviewAuthorActivityResponse"];
             /** Format: date-time */
             createdAt?: string;
-            /** @enum {string} */
-            verificationStatus?: "UNVERIFIED";
-            /** @example 라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다. */
-            verificationNotice?: string;
         };
         PublicReviewListResponse: {
             items?: components["schemas"]["PublicReviewListItemResponse"][];
@@ -1160,6 +1198,52 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiderInviteCodeRotationRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    verifyRider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiderVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
     create: {
         parameters: {
             query?: never;

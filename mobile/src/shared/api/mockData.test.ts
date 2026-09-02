@@ -1,7 +1,8 @@
 import { mockRestaurantDetail } from '@/shared/api/mockData';
 
 describe('public mock preview', () => {
-  it('includes unverified trust metadata', () => {
-    expect(mockRestaurantDetail.verificationStatus).toBe('UNVERIFIED');
+  it('does not expose internal rider verification metadata', () => {
+    expect(mockRestaurantDetail).not.toHaveProperty('verificationStatus');
+    expect(mockRestaurantDetail).not.toHaveProperty('verificationNotice');
   });
 });

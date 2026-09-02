@@ -140,11 +140,11 @@ class AuthServiceTest {
         val original = activeUser(UserRole.USER)
         `when`(users.findUser(original.id)).thenReturn(original)
         val accessToken = issueTokens(auth, original).accessToken
-        val promoted = activeUser(UserRole.ADMIN)
+        val promoted = activeUser(UserRole.RIDER)
         `when`(users.findUser(original.id)).thenReturn(promoted)
 
         assertThat(auth.authenticate(accessToken))
-            .isEqualTo(AuthenticatedUserPrincipal(original.id, "ROLE_ADMIN"))
+            .isEqualTo(AuthenticatedUserPrincipal(original.id, "ROLE_RIDER"))
     }
 
     @Test

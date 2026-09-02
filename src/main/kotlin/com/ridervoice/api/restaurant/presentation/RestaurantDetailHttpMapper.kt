@@ -46,8 +46,6 @@ class RestaurantDetailHttpMapper {
                 )
             },
         ),
-        verificationStatus = result.verificationStatus,
-        verificationNotice = result.verificationNotice,
     )
 
     private fun RestaurantAggregateMetricResult.toResponse() = RestaurantAggregateMetricResponse(

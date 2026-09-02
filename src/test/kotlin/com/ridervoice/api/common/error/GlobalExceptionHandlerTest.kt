@@ -91,6 +91,16 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    fun `rider verification lock returns a retry after header without sensitive detail`() {
+        mockMvc.get("/test/errors/rider-rate-limit").andExpect {
+            status { isTooManyRequests() }
+            header { string("Retry-After", "900") }
+            jsonPath("$.code") { value("RIDER_VERIFICATION_RATE_LIMITED") }
+            content { string(not(containsString("123456"))) }
+        }
+    }
+
+    @Test
     fun `unexpected failure does not expose provider message secret or stack trace`() {
         mockMvc.get("/test/errors/unexpected").andExpect {
             status { isInternalServerError() }
@@ -123,6 +133,9 @@ class ErrorFixtureController {
 
     @GetMapping("/conflict")
     fun conflict(): Nothing = throw StateConflictException()
+
+    @GetMapping("/rider-rate-limit")
+    fun riderRateLimit(): Nothing = throw RiderVerificationRateLimitException(900)
 
     @GetMapping("/unexpected")
     fun unexpected(): Nothing = throw RuntimeException("provider-message client-secret")

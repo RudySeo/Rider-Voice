@@ -1,6 +1,7 @@
 package com.ridervoice.api.auth.presentation
 
 import com.ridervoice.api.auth.application.port.`in`.GetCurrentUserUseCase
+import com.ridervoice.api.auth.application.port.`in`.VerifyRiderUseCase
 import com.ridervoice.api.common.config.OpenApiConfiguration
 import com.ridervoice.api.common.error.GlobalExceptionHandler
 import com.ridervoice.api.common.security.AccessTokenAuthenticator
@@ -40,6 +41,9 @@ class AuthApiContractMockMvcTest {
     private lateinit var getCurrentUser: GetCurrentUserUseCase
 
     @MockitoBean
+    private lateinit var verifyRider: VerifyRiderUseCase
+
+    @MockitoBean
     private lateinit var accessTokenAuthenticator: AccessTokenAuthenticator
 
     @Test
@@ -77,6 +81,7 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.securitySchemes.bearerAuth.type") { value("http") }
                 jsonPath("$.components.securitySchemes.bearerAuth.scheme") { value("bearer") }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_USER")) }
+                jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_RIDER")) }
                 jsonPath("$.components.securitySchemes.bearerAuth.description") { value(containsString("ROLE_ADMIN")) }
                 jsonPath("$.components.securitySchemes.refreshCookie") { doesNotExist() }
                 jsonPath("$.components.securitySchemes.onboardingBearerAuth") { doesNotExist() }
@@ -101,7 +106,9 @@ class AuthApiContractMockMvcTest {
                 jsonPath("$.components.schemas.UserResponse.properties.id.type") { value("integer") }
                 jsonPath("$.components.schemas.UserResponse.properties.id.format") { value("int64") }
                 jsonPath("$.components.schemas.UserResponse.properties.role.enum[0]") { value("USER") }
-                jsonPath("$.components.schemas.UserResponse.properties.role.enum[1]") { value("ADMIN") }
+                jsonPath("$.components.schemas.UserResponse.properties.role.enum[1]") { value("RIDER") }
+                jsonPath("$.components.schemas.UserResponse.properties.role.enum[2]") { value("ADMIN") }
+                jsonPath("$.paths['/api/v1/users/me/rider-verification'].post.security[0].bearerAuth") { isArray() }
                 jsonPath("$.components.schemas.UserResponse.properties.termsVersion") { doesNotExist() }
             }
     }

@@ -144,8 +144,6 @@ data class PublicRestaurantDetailResult(
     val pickupLocation: PublicRestaurantPickupLocationResult,
     val brandReport: RestaurantBrandReportResult,
     val pickupLocationReport: RestaurantPickupLocationReportResult,
-    val verificationStatus: String,
-    val verificationNotice: String,
 )
 
 data class ExternalRestaurantCandidate(

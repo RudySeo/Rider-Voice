@@ -60,8 +60,6 @@ internal class PublicReviewListService(
             publicReviewCount = activity.publicReviewCount,
         ),
         createdAt = createdAt,
-        verificationStatus = VERIFICATION_STATUS,
-        verificationNotice = VERIFICATION_NOTICE,
     )
 
     private fun activityMonths(activity: PublicAuthorActivityInput): Int {
@@ -70,8 +68,4 @@ internal class PublicReviewListService(
         return (ChronoUnit.MONTHS.between(firstMonth, currentMonth) + 1).coerceAtLeast(1).toInt()
     }
 
-    companion object {
-        const val VERIFICATION_STATUS = "UNVERIFIED"
-        const val VERIFICATION_NOTICE = "라이더 신분과 실제 방문 여부가 인증되지 않은 정보입니다."
-    }
 }

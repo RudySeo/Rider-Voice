@@ -9,6 +9,7 @@ import { authAvailabilityMessage, type AuthAvailability } from '@/shared/auth/au
 import type { LoginResult } from '@/shared/auth/loginContinuation';
 import { parsePendingIntent, type PendingIntent } from '@/shared/auth/pendingIntent';
 import { exchangeMobileCode, getCurrentUser, logoutMobileSession, nativeAuthAvailability, refreshMobileSession } from '@/shared/auth/session';
+import { verifyRiderCode } from '@/shared/api/users';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -18,7 +19,7 @@ const CALLBACK = makeRedirectUri({
   native: 'ridervoice://auth/callback',
 });
 const INTENT_KEY = 'rider-voice.pending-intent';
-type AuthContextValue = { user: User | null; restoring: boolean; availability: AuthAvailability; login: (intent?: PendingIntent) => Promise<LoginResult>; logout: () => Promise<void> };
+type AuthContextValue = { user: User | null; restoring: boolean; availability: AuthAvailability; login: (intent?: PendingIntent) => Promise<LoginResult>; logout: () => Promise<void>; verifyRider: (code: string) => Promise<User> };
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -51,6 +52,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } finally {
         await SecureStore.deleteItemAsync(INTENT_KEY);
       }
+    },
+    verifyRider: async (code) => {
+      const verified = await verifyRiderCode(code);
+      setUser(verified);
+      return verified;
     },
     logout: async () => { await logoutMobileSession(); setUser(null); },
   }), [restoring, user]);

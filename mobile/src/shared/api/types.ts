@@ -51,8 +51,6 @@ export type RestaurantDetail = {
       riderRespect: AggregateMetric;
     } | null;
   };
-  verificationStatus: 'UNVERIFIED';
-  verificationNotice: string;
 };
 
 export type PublicReview = {
@@ -62,8 +60,6 @@ export type PublicReview = {
   createdAt: string;
   ratings: ReviewRatings;
   authorActivity: { activityMonths: number; publicReviewCount: number };
-  verificationStatus: 'UNVERIFIED';
-  verificationNotice: string;
 };
 
 export type ReviewRatings = {
@@ -88,5 +84,5 @@ export type MyReview = {
 };
 
 export type MyReviewListResponse = { items: MyReview[]; nextCursor: string | null; authoredCount: number; publiclyVisibleCount: number };
-export type User = { id: number; status: string; role: 'USER' | 'ADMIN' };
+export type User = { id: number; status: string; role: 'USER' | 'RIDER' | 'ADMIN' };
 export type MobileSession = { accessToken: string; refreshToken: string; user: User };

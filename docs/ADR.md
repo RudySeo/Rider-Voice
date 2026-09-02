@@ -101,6 +101,8 @@ access token은 15분 동안 유효하고 앱 메모리에만 둔다. refresh to
 
 ## ADR-008: 미인증 리뷰도 첫 작성부터 공개한다
 
+> **상태: 폐기됨.** ADR-033에 따라 모든 로그인 사용자의 작성과 공개 `UNVERIFIED` 계약을 제거하고 `RIDER`·`ADMIN` 작성 권한을 적용한다. 아래 내용은 당시 선택의 기록이다.
+
 **선택**: 카카오 로그인 사용자는 별도의 라이더·방문 인증 없이 리뷰를 작성한다. 조건에 맞는 개별 평가는 첫 리뷰부터 공개하며 모든 공개 정보에 `verificationStatus=UNVERIFIED`와 미인증 안내를 넣는다.
 
 **선택한 이유**: 초기 사용자의 작성 부담을 낮추고 실제 정보 공유 수요부터 확인하기 위해서다.
@@ -155,11 +157,13 @@ access token은 15분 동안 유효하고 앱 메모리에만 둔다. refresh to
 
 ## ADR-014: 이미지와 OCR로 방문을 인증하지 않는다
 
+> **상태: 일부 대체됨.** 이미지·OCR 금지는 유지하고, 방문 인증 상태와 공개 안내 계약은 ADR-033에 따라 제품과 API에서 제거한다.
+
 **선택**: 배달 내역 캡처, 이미지 업로드, OCR와 배달 앱 화면 분석을 만들지 않는다. 현재 MVP에는 라이더 또는 방문 인증 자체를 포함하지 않는다.
 
 **선택한 이유**: 개인정보 노출 위험, 화면 변경 의존성, 저장 비용과 작성 부담이 크기 때문이다.
 
-**감수할 점**: 리뷰는 미인증 정보로 유지된다. 실제 사용 데이터에서 필요성과 가능한 방식이 확인된 뒤에만 새 결정을 추가한다.
+**감수할 점**: 내부 라이더 권한만으로 리뷰 내용이나 개별 방문 사실을 보증하지 않는다. 실제 사용 데이터에서 별도 검증 필요성과 가능한 방식이 확인된 뒤에만 새 결정을 추가한다.
 
 ## ADR-015: 음식점 정정과 신고 처리를 함께 완료한다
 
@@ -293,7 +297,7 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 
 **선택**: ADR-021, ADR-022와 ADR-027의 운영 monitoring 결정을 대체한다. 현재 단일 EC2에는 API container만 배포하고 Prometheus와 Grafana는 개발자가 필요할 때 로컬 Docker Compose로만 실행한다. `/actuator/prometheus`는 로컬 수집과 CI 검증을 위해 유지하지만 운영 Nginx는 외부 접근을 계속 `404`로 차단한다. 운영 `/grafana/` 경로, container, image, named volume, 설치 파일과 SSM Grafana 비밀번호는 제거한다. backend release는 정확한 master commit의 배포 script와 Nginx 설정만 적용하고 API health check와 이전 image rollback을 유지한다.
 
-**선택한 이유**: 6.7GB인 현재 EC2 root filesystem은 API와 운영 monitoring image를 함께 보관하기에 부족하고 Grafana layer 추출이 backend 배포까지 실패시켰다. 초기 사이드 프로젝트에서는 지속적인 운영 dashboard보다 안정적인 API 배포와 낮은 고정 비용이 우선이며, 같은 metric과 dashboard를 로컬·CI에서 검증할 수 있다.
+**선택한 이유**: 6.7GB인 현재 EC2 root filesystem은 API와 운영 monitoring image를 함께 보관하기에 부족하고 Grafana layer 추출이 backend 배포까지 실패시켰다. 초기 사이드 프로젝트에서는 지속적인 운영 dashboard보다 안정적인 API 배포와 낮은 고정 비용이 우선이며, metric 수집 경로와 Prometheus·Grafana 기동은 로컬·CI에서 검증할 수 있다. Grafana에는 Prometheus datasource만 자동으로 연결하고 dashboard는 개발자가 로컬 화면에서 필요할 때 직접 만든다.
 
 **감수할 점**: 운영 metric 이력, dashboard와 외부 장애 감지는 제공하지 않는다. 운영 문제는 API health, application log와 SSM 진단으로 확인한다. 실제 사용자 규모나 운영 필요성이 생기면 EBS 용량, 별도 host 또는 관리형 관측 서비스와 알림 정책을 새 ADR로 결정한 뒤 운영 monitoring을 다시 도입한다.
 
@@ -330,3 +334,17 @@ Docker Hub PAT는 GitHub Environment secret으로 관리한다. 자동 생성된
 **선택한 이유**: 로컬 개발과 배포 API 선택을 단일 URL 파일의 수동 교체나 Expo가 별도로 사용하는 `NODE_ENV`에 의존하지 않고 실행 명령에서 명확하게 드러내며, 검색과 OAuth가 항상 같은 server origin을 사용하게 하기 위해서다.
 
 **감수할 점**: 프로필을 바꿀 때 실행 중인 Metro를 종료하고 해당 프로필 명령으로 다시 시작해야 한다. Expo tunnel처럼 private LAN host를 얻을 수 없는 실제 기기 local 실행은 명시적인 local override가 필요하다.
+
+## ADR-033: 공용 인증번호로 RIDER 작성 권한을 부여한다
+
+**선택**: 카카오 로그인 신규 사용자는 `ACTIVE`, `USER`로 생성한다. `USER`가 현재 공용 6자리 인증번호를 입력하면 `RIDER`로 승격하며 `RIDER`와 `ADMIN`만 리뷰를 생성·수정할 수 있다. 본인 리뷰 조회·삭제와 신고는 모든 활성 로그인 역할에 허용한다. 모바일은 `USER`에게 리뷰 작성 진입점을 숨기고 내 활동 화면에서만 인증번호 입력을 제공한다.
+
+`ADMIN`은 전용 API로 인증번호를 즉시 교체한다. 서버는 번호 원문을 저장하거나 반환하지 않고 BCrypt hash만 보관하며, nullable current slot unique 제약으로 현재 번호를 하나만 유지한다. 번호 교체는 이미 부여한 `RIDER` 역할을 회수하지 않는다. 사용자별 인증 실패는 DB에 저장하고 연속 5회 실패하면 15분 동안 잠근다. 역할 변경은 현재 DB role을 확인하는 기존 access token 인증에 즉시 반영한다.
+
+공개 음식점 상세와 리뷰 응답에서 `verificationStatus`, `verificationNotice`와 방문 인증 안내를 제거한다. 공용 번호는 서비스 내부 작성 권한일 뿐 리뷰 내용의 사실성이나 조작 방지를 보장하는 공개 인증 배지로 사용하지 않는다. 이미지 업로드, OCR와 배달 앱 화면 파싱은 계속 구현하지 않는다.
+
+초기 정책 전환 시 리뷰 대상 감사 기록, 리뷰 신고와 리뷰 데이터를 FK 순서대로 한 번 삭제한다. 사용자, 픽업 장소, 음식점, 플랫폼과 음식점 정보 신고는 보존한다. 이후 리뷰 생명주기, 신고와 작성자 5명 집계 규칙은 그대로 적용한다.
+
+**선택한 이유**: 모든 카카오 로그인 계정에 즉시 작성 권한을 주지 않으면서 운영자가 하나의 번호를 교체해 초기 작성자 집단을 관리하고, 현재 단일 API와 모바일 구조 안에서 별도 발급 시스템 없이 권한을 적용하기 위해서다.
+
+**감수할 점**: 공용 번호는 공유될 수 있고 개별 신원 확인 수단이 아니다. 6자리 공간은 작으므로 로그인 계정별 실패 잠금과 BCrypt 저장이 필요하며, 번호가 유출되면 관리자가 즉시 교체해야 한다. 번호 교체만으로 기존 RIDER를 회수할 수 없고 현재 범위에는 개별 회수 API가 없다.

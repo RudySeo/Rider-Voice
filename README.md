@@ -1,13 +1,14 @@
 # Rider Voice
 
-Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 카카오 로그인 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 서비스입니다. Spring Boot API와 Expo 기반 iOS·Android 모바일 앱으로 구성됩니다.
+Rider Voice는 픽업 과정에서 관찰한 음식점 운영 환경을 라이더 권한 사용자가 구조화된 리뷰로 공유하고, 소비자 누구나 확인할 수 있게 하는 서비스입니다. Spring Boot API와 Expo 기반 iOS·Android 모바일 앱으로 구성됩니다.
 
-초기 리뷰는 라이더 신분과 실제 방문이 인증된 정보가 아닙니다. 카카오 로그인은 서비스 계정 식별 수단이며 모든 공개 리뷰와 리포트는 `UNVERIFIED` 상태와 미인증 안내를 제공합니다.
+카카오 로그인 신규 사용자는 `USER`로 생성되고, 운영자가 관리하는 6자리 공유 인증번호를 입력하면 `RIDER`로 승격됩니다. 인증번호는 내부 리뷰 작성 권한을 부여할 뿐 공개 리뷰의 작성자 신원이나 개별 방문 사실을 보증하지 않으며, 공개 API와 UI에는 인증 상태나 인증 배지를 노출하지 않습니다.
 
 ## 목표 MVP
 
 ```text
 Spring Security OAuth2 Client 기반 카카오 로그인
+  → USER의 라이더 권한 인증
   → 내부·카카오 음식점 공개 검색
   → 픽업 장소 또는 배달 브랜드 선택·등록
   → 6개 구조화 평가와 선택 의견 작성
@@ -51,7 +52,8 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 
 서버 API MVP와 Expo 기반 모바일 앱이 구현되어 있습니다.
 
-- Spring Security OAuth2 Client 기반 카카오 로그인과 미인증 안내
+- Spring Security OAuth2 Client 기반 카카오 로그인과 USER·RIDER·ADMIN 권한
+- BCrypt hash로 저장하는 공유 라이더 인증번호, 관리자 교체와 계정별 실패 잠금
 - opaque access token, rotating refresh token과 logout
 - 픽업 장소·배달 브랜드·외부 참조를 분리한 음식점 모델
 - 카카오 장소·주소 검색, 후보 통합, 서버 재검증과 중복 방지 등록
@@ -60,25 +62,25 @@ Spring Security OAuth2 Client 기반 카카오 로그인
 - 로그인 없이 사용할 수 있는 음식점 검색·상세·리뷰 조회
 - 서로 다른 작성자 5명 기준 브랜드·픽업 장소 집계와 `NOT_OBSERVED` 처리
 - 의견 공개, 리뷰·음식점 신고, 관리자 처리와 음식점 이름·장소·상태 정정
-- OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·ADMIN 권한 계약 테스트
+- OpenAPI, RFC 7807 `ProblemDetail`, 공개·USER·RIDER·ADMIN 권한 계약 테스트
 - 로컬 MySQL schema·unique·동시성 회귀와 전체 test·integrationTest·build 검증
 - 일회용 OAuth 교환 코드, 앱 메모리 access token과 SecureStore refresh token 회전
-- 모바일 공개 검색·상세·리뷰, 로그인 고지, 네 가지 음식점 target 리뷰 작성과 내 리뷰 관리 화면
+- 모바일 공개 검색·상세·리뷰, 내 활동의 라이더 권한 인증, 권한별 리뷰 작성과 내 리뷰 관리 화면
 - 실행 중인 OpenAPI 기반 TypeScript 타입과 typed fetch client
 - JDK 25 백엔드 Docker 이미지와 master 대상 PR 검증 성공 후 Docker Hub 게시 자동화
 - 기존 EC2 백엔드 자동 배포와 로컬 Prometheus·Grafana 대시보드
 
-라이더 신분과 실제 방문 여부는 인증하지 않으며, 모든 공개 정보는 `UNVERIFIED`로 안내합니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
+공유 인증번호는 내부 작성 권한에만 사용하며 공개 신원·방문 인증으로 표시하지 않습니다. 배달내역 캡처, 이미지 업로드, OCR, 종합 별점, 순위와 인증 배지는 구현하지 않습니다.
 
 관리자·신고 화면, 실제 카카오 계정을 사용하는 자동 E2E와 모바일 앱 스토어 배포는 구현 범위에 포함하지 않습니다.
 
 ## 모바일 앱
 
-루트 Spring Boot 프로젝트는 그대로 유지하고 `/mobile`에 Expo 기반 React Native 앱을 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인과 미인증 안내, 네 가지 음식점 target 리뷰 작성과 내 리뷰 수정·삭제를 iOS·Android 개발 빌드에서 검증합니다.
+루트 Spring Boot 프로젝트는 그대로 유지하고 `/mobile`에 Expo 기반 React Native 앱을 둡니다. 공개 음식점 검색·상세·리뷰 조회, 카카오 로그인, 내 활동의 라이더 권한 인증, 권한별 리뷰 작성과 내 리뷰 수정·삭제를 iOS·Android 개발 빌드에서 검증합니다.
 
 OAuth 성공 시 backend callback은 신규 사용자를 `ACTIVE` 상태로 생성하고 2분 유효 일회용 코드만 `ridervoice://auth/callback`으로 전달합니다. 앱은 코드를 access/refresh token으로 한 번 교환하고 access token은 메모리, refresh token은 SecureStore에 보관합니다.
 
-모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 UI에는 API의 `verificationStatus=UNVERIFIED`와 미인증 안내를 항상 표시합니다.
+모든 endpoint와 DTO는 실행 중인 OpenAPI `/v3/api-docs`에서 TypeScript 타입을 생성해 사용합니다. 공개 리뷰와 리포트 API에는 라이더 권한 또는 인증 상태를 노출하지 않습니다.
 
 목표 기획과 기술 결정은 [PRD](docs/PRD.md), [아키텍처](docs/ARCHITECTURE.md), [ADR](docs/ADR.md), [ERD](docs/ERD.md)를 참고하세요. 자세한 API 계약은 실행 중인 OpenAPI에서 확인합니다.
 
@@ -92,6 +94,7 @@ POST   /api/v1/auth/mobile/exchange
 POST   /api/v1/auth/mobile/refresh
 POST   /api/v1/auth/mobile/logout
 GET    /api/v1/users/me
+POST   /api/v1/users/me/rider-verification
 
 # 공개 조회
 GET    /api/v1/restaurants/search
@@ -113,6 +116,7 @@ PATCH  /api/v1/admin/review-reports/{reportId}
 GET    /api/v1/admin/restaurant-reports
 PATCH  /api/v1/admin/restaurant-reports/{reportId}
 PATCH  /api/v1/admin/restaurants/{restaurantId}/pickup-location
+PUT    /api/v1/admin/rider-invite-code
 ```
 
 ## Swagger / OpenAPI
@@ -195,22 +199,28 @@ pnpm start
 
 ## 로컬 모니터링
 
-Spring Boot API를 `localhost:8080`에서 먼저 실행한 뒤 Prometheus와 Grafana만 Compose로 시작합니다. 실제 비밀번호 파일은 Git에서 제외됩니다.
+Spring Boot API를 `localhost:8080`에서 먼저 실행한 뒤 Prometheus와 Grafana만 Compose로 시작합니다. 별도 환경 파일은 필요하지 않습니다.
 
 ```bash
-cp monitoring/.env.example monitoring/.env
-# monitoring/.env의 GRAFANA_ADMIN_PASSWORD를 변경
-docker compose --env-file monitoring/.env -f monitoring/compose.yml up -d
+docker compose -f monitoring/compose.yml up -d
 ```
 
-- Grafana: `http://localhost:3000`
+- Grafana: `http://localhost:3000` (`admin` / `admin`)
 - Prometheus: `http://localhost:9090`
 - Spring metric: `http://localhost:8080/actuator/prometheus`
+
+Prometheus 데이터 소스는 자동으로 연결됩니다. 대시보드는 Grafana 화면에서 직접 만들며 `grafana-data` volume에 저장됩니다. 대시보드를 별도로 백업하려면 Grafana 화면에서 JSON으로 내보냅니다.
+
+Grafana는 관리자 계정을 처음 만들 때만 기본 비밀번호를 적용합니다. 기존 `grafana-data` volume에 다른 비밀번호가 저장되어 있어 로그인이 되지 않으면 데이터를 삭제하지 않고 비밀번호만 초기화합니다.
+
+```bash
+docker compose -f monitoring/compose.yml exec grafana grafana cli admin reset-admin-password admin
+```
 
 종료할 때는 영속 volume을 보존하기 위해 `down`만 사용합니다. 데이터를 의도적으로 초기화할 때만 `down --volumes`를 사용합니다.
 
 ```bash
-docker compose --env-file monitoring/.env -f monitoring/compose.yml down
+docker compose -f monitoring/compose.yml down
 ```
 
 Prometheus와 Grafana는 로컬 개발과 CI에서만 사용합니다. 운영 EC2에는 배포하지 않으며 외부 `/actuator/prometheus`, `/grafana`와 `/grafana/` 요청은 `404`로 차단합니다. 운영 확인은 API health, application log와 SSM 진단을 사용하며 자세한 절차는 [AWS 배포 가이드](deploy/aws/README.md)를 따릅니다.

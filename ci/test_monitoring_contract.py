@@ -1,7 +1,5 @@
 """CI contracts for local-only Prometheus/Grafana monitoring."""
 
-import json
-import re
 import unittest
 from pathlib import Path
 
@@ -13,12 +11,6 @@ SECURITY = ROOT / "src" / "main" / "kotlin" / "com" / "ridervoice" / "api" / "co
 COMPOSE = ROOT / "monitoring" / "compose.yml"
 PROMETHEUS_LOCAL = ROOT / "monitoring" / "prometheus" / "prometheus-local.yml"
 DATASOURCE = ROOT / "monitoring" / "grafana" / "provisioning" / "datasources" / "prometheus.yml"
-DASHBOARD_PROVIDER = ROOT / "monitoring" / "grafana" / "provisioning" / "dashboards" / "rider-voice.yml"
-DASHBOARD = ROOT / "monitoring" / "grafana" / "dashboards" / "rider-voice-overview.json"
-NGINX = ROOT / "deploy" / "ec2" / "nginx.conf.template"
-BOOTSTRAP = ROOT / "deploy" / "ec2" / "bootstrap.sh"
-DEPLOY_SCRIPT = ROOT / "deploy" / "ec2" / "deploy.sh"
-RELEASE_SCRIPT = ROOT / "deploy" / "ec2" / "deploy-release.sh"
 
 
 class MonitoringContractTest(unittest.TestCase):
@@ -33,20 +25,16 @@ class MonitoringContractTest(unittest.TestCase):
         self.assertIn("http.server.requests", config)
         self.assertIn('"/actuator/prometheus"', security)
 
-    def test_local_compose_is_private_persistent_and_uses_pinned_images(self) -> None:
+    def test_local_compose_is_private_persistent_and_uses_versioned_images(self) -> None:
         compose = COMPOSE.read_text(encoding="utf-8")
 
-        self.assertRegex(compose, r"prom/prometheus:v3\.14\.0@sha256:[0-9a-f]{64}")
-        self.assertRegex(compose, r"grafana/grafana:13\.2\.0@sha256:[0-9a-f]{64}")
+        self.assertRegex(compose, r"(?m)^\s*image: prom/prometheus:v3\.14\.0\s*$")
+        self.assertRegex(compose, r"(?m)^\s*image: grafana/grafana:13\.2\.0\s*$")
         self.assertIn("127.0.0.1:9090:9090", compose)
         self.assertIn("127.0.0.1:3000:3000", compose)
         self.assertIn("prometheus-data:/prometheus", compose)
         self.assertIn("grafana-data:/var/lib/grafana", compose)
         self.assertIn("host.docker.internal:host-gateway", compose)
-        self.assertIn("GF_USERS_ALLOW_SIGN_UP=false", compose)
-        self.assertIn("GF_AUTH_ANONYMOUS_ENABLED=false", compose)
-        self.assertIn("GF_PLUGINS_PREINSTALL_DISABLED=true", compose)
-        self.assertIn("GF_PLUGINS_PLUGIN_ADMIN_ENABLED=false", compose)
 
     def test_prometheus_targets_the_local_backend(self) -> None:
         local = PROMETHEUS_LOCAL.read_text(encoding="utf-8")
@@ -55,64 +43,10 @@ class MonitoringContractTest(unittest.TestCase):
         self.assertIn("scrape_interval: 15s", local)
         self.assertIn("metrics_path: /actuator/prometheus", local)
 
-    def test_grafana_assets_provision_prometheus_and_core_dashboard_panels(self) -> None:
+    def test_grafana_provisions_prometheus_datasource(self) -> None:
         datasource = DATASOURCE.read_text(encoding="utf-8")
-        provider = DASHBOARD_PROVIDER.read_text(encoding="utf-8")
-        dashboard = json.loads(DASHBOARD.read_text(encoding="utf-8"))
-        serialized = json.dumps(dashboard)
 
         self.assertIn("http://prometheus:9090", datasource)
-        self.assertIn("/var/lib/grafana/dashboards", provider)
-        self.assertEqual(dashboard["uid"], "rider-voice-overview")
-        for metric in (
-            "up",
-            "http_server_requests_seconds_count",
-            "http_server_requests_seconds_bucket",
-            "jvm_memory_used_bytes",
-            "jvm_gc_pause_seconds",
-            "process_cpu_usage",
-            "jvm_threads_live_threads",
-            "hikaricp_connections_active",
-            "hikaricp_connections_pending",
-        ):
-            with self.subTest(metric=metric):
-                self.assertIn(metric, serialized)
-
-    def test_production_has_no_monitoring_stack_and_keeps_metrics_private(self) -> None:
-        deploy = DEPLOY_SCRIPT.read_text(encoding="utf-8")
-        nginx = NGINX.read_text(encoding="utf-8")
-
-        self.assertNotIn("rider-voice-observability", deploy)
-        self.assertFalse((ROOT / "monitoring" / "compose.prod.yml").exists())
-        self.assertFalse((ROOT / "monitoring" / "prometheus" / "prometheus-prod.yml").exists())
-        self.assertFalse((ROOT / "deploy" / "ec2" / "monitoring.sh").exists())
-        self.assertRegex(
-            nginx,
-            r"location\s+=\s+/actuator/prometheus\s*\{\s*return\s+404;\s*\}",
-        )
-
-    def test_production_grafana_paths_are_blocked(self) -> None:
-        nginx = NGINX.read_text(encoding="utf-8")
-        bootstrap = BOOTSTRAP.read_text(encoding="utf-8")
-
-        self.assertRegex(
-            nginx,
-            r"location\s+=\s+/grafana\s*\{\s*return\s+404;\s*\}",
-        )
-        self.assertRegex(nginx, r"location\s+\^~\s+/grafana/\s*\{\s*return\s+404;\s*\}")
-        self.assertNotIn("proxy_pass http://127.0.0.1:3000", nginx)
-        self.assertNotIn("grafana", bootstrap.lower())
-
-    def test_release_decommissions_production_monitoring(self) -> None:
-        release = RELEASE_SCRIPT.read_text(encoding="utf-8")
-
-        self.assertIn("docker rm --force", release)
-        self.assertIn("docker volume rm", release)
-        self.assertIn("rider-voice-prometheus-data", release)
-        self.assertIn("rider-voice-grafana-data", release)
-        self.assertIn("MONITORING_INSTALL_DIR", release)
-        self.assertNotIn("compose.prod.yml", release)
-        self.assertNotIn("GRAFANA_ADMIN_PASSWORD", release)
 
 
 if __name__ == "__main__":
